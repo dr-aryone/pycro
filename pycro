@@ -1,0 +1,382 @@
+#!/usr/bin/python3
+
+import re
+import collections
+import sys
+import io
+import marshal
+
+_MACRO_PATTERN = r'\s*{prefix}(?P<macro>{macros})\s(?P<args>.*){suffix}\s*'
+
+_STATEMENT_PATTERN = r'\s*{prefix}(?P<stat>.*){suffix}\s*'
+
+_EVALUATION_PATTERN = r'{prefix}(?P<eval>.*){suffix}'
+
+
+_DEFAULT_OUTFILE_VARIABLE_NAME = '__outfile__'
+
+_SPACE_CHARS = ' \t\n'
+
+
+_CACHE_FILE_MAGIC_NUMBER = b'.pycroche'
+
+_COMPILE_FLAGS = 0
+
+_MARSHAL_VERSION = 4
+
+
+# --- utilities ---
+class dotdict(dict):
+    __setattr__ = dict.get
+    __getattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
+
+# --- binary file operations ---
+
+def __write_code_object(outfile, code_object):
+    marshal.dump(outfile, code_object, _MARSHAL_VERSION)
+
+def __read_code_object(infile):
+    return marshal.load(infile)
+
+def __write_string(outfile, string):
+    _buffer = string.encode('utf-8')
+
+    while len(_buffer) >= 0xFFFF:
+
+        outfile.write(b'\xFF\xFF')
+        outfile.write(_buffer[:0xFFFF])
+        _buffer = _buffer[0xFFFF:]
+
+    outfile.write(len(_buffer).to_bytes(2, 'big', signed=False))
+    outfile.write(_buffer)
+
+def __read_string(infile):
+    _buffer_size = int.from_bytes(infile.read(2), 'big', signed=False)
+    _buffer = bytearray(infile.read(_buffer_size))
+
+    while _buffer_size == 0xFFFF:
+        _buffer_size = int.from_bytes(infile.read(2), 'big', signed=False)
+        _buffer += infile.read(_buffer_size)
+
+    return _buffer.decode('utf-8')
+
+# --- errors ---
+_MACRO_REQUIRES = 1
+_WITHOUT_PRECEDING = 2
+_DOES_NOT_MATCH = 3
+_UNTERMINATED_BLOCK = 4
+
+class GeneratorError(Exception):
+    pass
+
+# --- if macro ---
+
+def _generate_if(args, outfile, env):
+    args = args.strip(_SPACE_CHARS)
+    if not args:
+        raise GeneratorError(_MACRO_REQUIRES, 'if', 'a condition')
+
+    outfile.write('{}{} {}:\n'.format(env.tabs(), 'if', args))
+    env.indent += 1
+
+    env.macro_stack.append('if')
+
+# --- elif macro ---
+
+def _generate_elif(args, outfile, env):
+    args = args.strip(_SPACE_CHARS)
+    if not args:
+        raise GeneratorError(_MACRO_REQUIRES, 'elif', 'a condition')
+
+    if env.macro_stack and env.macro_stack[-1] in ('if', 'elif'):
+
+        env.indent -= 1
+        outfile.write('{}{} {}:\n'.format(env.tabs(), 'elif', args))
+        env.indent += 1
+
+        env.macro_stack[-1] = 'elif'
+
+    else:
+        raise GeneratorError(_WITHOUT_PRECEDING, 'elif', 'if/elif')
+
+# --- for macro ---
+
+def _generate_for(args, outfile, env):
+    args = args.strip(_SPACE_CHARS)
+    if not args:
+        raise GeneratorError(_MACRO_REQUIRES, 'for', 'an iterable statement')
+
+    outfile.write('{}{} {}:\n'.format(env.tabs(), 'for', args))
+    env.indent += 1
+
+    env.macro_stack.append('for')
+
+# --- while macro ---
+
+def _generate_while(args, outfile, env):
+    args = args.strip(_SPACE_CHARS)
+    if not args:
+        raise GeneratorError(_MACRO_REQUIRES, 'while', 'a condition')
+
+    outfile.write('{}{} {}:\n'.format(env.tabs(), 'while', args))
+    env.indent += 1
+
+    env.macro_stack.append('while')
+
+# --- else macro ---
+
+def _generate_else(args, outfile, env):
+    if env.macro_stack and env.macro_stack[-1] in ('if', 'elif', 'for',
+            'while', 'except'):
+
+        env.indent -= 1
+        outfile.write('{}{}:\n'.format(env.tabs(), 'else'))
+        env.indent += 1
+
+        env.macro_stack[-1] = 'else'
+
+    else:
+        raise GeneratorError(_WITHOUT_PRECEDING,
+                'else', 'if/elif/for/while/except')
+
+# --- with macro ---
+
+def _generate_with(args, outfile, env):
+    args = args.strip(_SPACE_CHARS)
+    if not args:
+        raise GeneratorError(_MACRO_REQUIRES, 'with', 'an expression')
+
+    outfile.write('{}{} {}:\n'.format(env.tabs(), 'with', args))
+    env.indent += 1
+
+    env.macro_stack.append('with')
+
+# --- try macro ---
+
+def _generator_try(args, outfile, env):
+    outfile.write('{}{}:\n'.format(env.tabs, 'try'))
+    env.indent += 1
+
+    env.macro_stack.append('try')
+
+# -- except macro ---
+
+def _generator_except(args, outfile, env):
+    args = args.strip(_SPACE_CHARS)
+    if not args:
+        raise GeneratorError(_MACRO_REQUIRES, 'except', 'an expression')
+
+    if env.macro_stack and env.macro_stack[-1] in ('try', 'except'):
+
+        env.indent -= 1
+        outfile.write('{}{} {}:\n'.format(env.tabs(), 'except', args))
+        env.indent += 1
+
+        env.macro_stack[-1] = 'except'
+
+    else:
+        raise GeneratorError(_WITHOUT_PRECEDING, 'except', 'try/except')
+
+# --- finally macro ---
+
+def _generate_finally(args, outfile, env):
+    if env.macro_stack and env.macro_stack[-1] in ('try', 'except', 'else'):
+
+        env.indent -= 1
+        outfile.write('{}{}:\n'.format(env.tabs(), 'finally'))
+        env.indent += 1
+
+        env.macro_stack[-1] = 'finally'
+
+    else:
+        raise GeneratorError(_WITHOUT_PRECEDING, 'finally', 'try/except/else')
+
+
+# --- end macro ---
+
+def _generate_include(args, outfile, env):
+    args = args.strip(_SPACE_CHARS)
+    if not args:
+        raise GeneratorError(_MACRO_REQUIRES, 'for', 'a filename')
+
+    # TODO: implement include
+    outfile.write('{}{} {}\n'.format())
+
+def _generate_place(args, outfile, env):
+    args = args.strip(_SPACE_CHARS)
+    if not args:
+        raise GeneratorError(_MACRO_REQUIRES, 'for', 'a filename')
+
+    # TODO: implement place
+
+
+def _generate_end(args, outfile, env):
+    if not env.macro_stack:
+        raise GeneratorError(_WITHOUT_PRECEDING, 'end', 'if/for/while/...')
+
+    last_macro = env.macro_stack.pop()
+
+    args = args.strip(_SPACE_CHARS)
+    if args:
+        if args != last_macro:
+            raise GeneratorError(_DOES_NOT_MATCH, 'end', last_macro, args)
+
+    env.indent -= 1
+
+
+_default_code_generators = {
+        'if': _generate_if,
+        'elif': _generate_elif,
+        'else': _generate_else,
+        'for': _generate_for,
+        'while': _generate_while,
+        'with': _generate_with,
+        'end': _generate_end,
+}
+
+class CompilerEnvironment:
+    def __init__(
+            self,
+
+            code_generators = None,
+
+            macro_prefix = '%',
+            macro_suffix = '',
+
+            statement_prefix = '#',
+            statement_suffix = '',
+
+            evaluation_prefix = '${',
+            evaluation_suffix = '}',
+
+            comment_prefix = '#',
+            comment_suffix = '',
+
+            tab = '\t',
+            indent = 0,
+
+            outfile_variable_name = _DEFAULT_OUTFILE_VARIABLE_NAME,
+            ):
+        """intialize code generator environment"""
+
+        self.code_generators = \
+            code_generators or _default_code_generators.copy()
+
+        self.macro_stack = collections.deque()
+
+        self.macro_re = re.compile(
+            _MACRO_PATTERN.format(
+                prefix = re.escape(macro_prefix),
+                macros = '|'.join(macro for macro in self.code_generators),
+                suffix = re.escape(macro_suffix),
+            )
+        )
+
+        self.statement_re = re.compile(
+            _STATEMENT_PATTERN.format(
+                prefix = re.escape(statement_prefix),
+                suffix = re.escape(statement_suffix),
+            )
+        )
+
+        self.evaluation_re = re.compile(
+            _EVALUATION_PATTERN.format(
+                prefix = re.escape(evaluation_prefix),
+                suffix = re.escape(evaluation_suffix),
+            )
+        )
+
+        self.indent = indent
+        self.tab = tab
+
+        self.outfile_variable_name = outfile_variable_name
+
+    def tabs(self):
+        return self.tab * self.indent
+
+def generate_code(infile, outfile, env):
+    line = infile.readline()
+    while line:
+        m = env.macro_re.fullmatch(line)
+        if m:
+            code_generator = env.code_generators[m.group('macro')]
+
+            code_generator(m.group('args'), outfile, env)
+
+        else:
+            m = env.statement_re.fullmatch(line)
+            if m:
+                outfile.write(
+                    '{}{};\n'.format(
+                        env.tabs(),
+                        m.group('stat').strip(_SPACE_CHARS),
+                        )
+                    )
+
+            else:
+                outfile.write(env.tabs())
+
+                m = env.evaluation_re.search(line)
+                while m:
+
+                    if m.start() != 0:
+                        outfile.write(
+                            '{}.write({});'.format(
+                                env.outfile_variable_name,
+                                repr(line[:m.start()]),
+                            )
+                        )
+
+                    outfile.write(
+                         '{}.write(str({}));'.format(
+                             env.outfile_variable_name,
+                             m.group('eval'),
+                         )
+                    )
+
+                    if m.end() == len(line):
+                        outfile.write('\n')
+                        break
+
+                    line = line[m.end():]
+                    m = env.evaluation_re.search(line)
+
+                else:
+                    outfile.write(
+                        '{}.write({});\n'.format(
+                            env.outfile_variable_name,
+                            repr(line),
+                        )
+                    )
+
+        line = infile.readline()
+
+    if env.macro_stack:
+        raise GenerateError(_UNTERMINATED_BLOCK, env.macro_stack[-1])
+
+def compile_code(infile, outfile, env,
+        compile_flags = _COMPILE_FLAGS, optimize = -1):
+    string_buffer = io.StringIO()
+    with string_buffer:
+        generate_code(infile, string_buffer, env)
+
+    code_object = compile(string_buffer.getvalue(), infile.name, 'exec',
+            flags, True, optimize)
+
+    outfile.write(_CACHE_FILE_MAGIC_NUMBER)
+    __write_code_object(outfile, code_object)
+
+def execute_code(infile, outfile, variables, env):
+    if infile.read(len(_CACHE_FILE_MAGIC_NUMBER)) != _CACHE_FILE_MAGIC_NUMBER:
+        raise ValueError('file magic number mismatch!')
+
+    code_object = __read_code_object(infile)
+
+    exec(code_object, variables)
+
+def main(argv):
+    pass
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv))
