@@ -30,6 +30,8 @@ _EVALUATION_PATTERN = r'{prefix}(?P<eval>.*){suffix}'
 
 _COMMENT_PATTERN = r'\s*{prefix}.*{suffix}\s*'
 
+_NEXT_LINE_RE = r'\s*{prefix}'
+
 
 _DEFAULT_OUTFILE_VARIABLE_NAME = '__outfile__'
 
@@ -480,8 +482,8 @@ class CompilerEnvironment:
             comment_prefix = '#',
             comment_suffix = '',
 
-            line_continuation = '//',
-
+            line_continuation = '//\n',
+            next_line_prefix = '//',
 
             tab = '\t',
             indent = 0,
@@ -524,6 +526,13 @@ class CompilerEnvironment:
             )
         )
 
+        self.line_continuation = line_continuation
+        self.next_line_re = re.compile(
+            _NEXT_LINE_RE.format(
+                prefix = re.escape(next_line_prefix),
+            )
+        )
+
         self.indent = indent
         self.tab = tab
 
@@ -533,22 +542,32 @@ class CompilerEnvironment:
         return self.tab * self.indent
 
 def generate_code(infile, outfile, env):
-    line_continuation = env.line_continuation
+    """read from infile and generats python code to outfile"""
 
     macro_re = env.macro_re
     statement_re = env.statement_re
     comment_re = env.comment_re
 
-    lnum = 0
-    for line in infile:
-        lnum += 1
-        additive_lnum = 0
+    line_continuation = env.line_continuation
+    next_line_re = env.next_line_re
 
+    for line in infile:
 
         if line_continuation:
-            if line.endswith(line_continuation):
+            while line.endswith(line_continuation):
                 line = line[:-len(line_continuation)]
-            # TODO: complete here
+
+                next_line = infile.readline()
+                if not next_line:
+                    break
+
+                outfile.write('\n')
+
+                m = next_line_re.match(next_line)
+                if m:
+                    next_line = next_line[m.end():]
+
+                line += next_line
 
         m = macro_re.fullmatch(line)
         if m:
@@ -568,8 +587,12 @@ def generate_code(infile, outfile, env):
 
             continue
 
-        if not comment_re.fullmatch(line):
-            _generate_line(line, outfile, env)
+        if comment_re.fullmatch(line):
+            outfile.write('\n')
+
+            continue
+
+        _generate_line(line, outfile, env)
 
     if env.macro_stack:
         raise GenerateError(_UNTERMINATED_BLOCK, env.macro_stack[-1])
@@ -579,6 +602,8 @@ def compile_code(infile, outfile, env,
     string_buffer = io.StringIO()
     with string_buffer:
         generate_code(infile, string_buffer, env)
+
+    # TODO: it must write prefixes & suffixes
 
     code_object = compile(string_buffer.getvalue(), infile.name, 'exec',
             flags, True, optimize)
@@ -618,4 +643,20 @@ def main(argv):
         pass
 
 if __name__ == '__main__':
-    sys.exit(main(sys.argv))
+    if __debug__:
+        string_buffer = io.StringIO()
+        env = CompilerEnvironment(
+            macro_prefix = '//#',
+            statement_prefix = '//@',
+        )
+        with open('temp.c') as infile:
+            generate_code(infile, string_buffer, env)
+
+        print(string_buffer.getvalue())
+        print('-' * 80)
+
+        exec(string_buffer.getvalue(),
+                {'__outfile__': sys.stdout})
+
+    else:
+        sys.exit(main(sys.argv))
