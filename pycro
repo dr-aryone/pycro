@@ -1,9 +1,10 @@
 #!/usr/bin/python3
 
+import sys
+import os
+import io
 import re
 import collections
-import sys
-import io
 import marshal
 
 
