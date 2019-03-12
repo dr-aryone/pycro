@@ -384,15 +384,14 @@ def _generate_include(args, outfile, env):
     if not args:
         raise GeneratorError(_MACRO_REQUIRES, 'for', 'a filename')
 
-    # TODO: implement include
-    outfile.write('{}{} {}\n'.format())
+    # TODO: implement _generator_include
 
 def _generate_place(args, outfile, env):
     args = args.strip(_SPACE_CHARS)
     if not args:
         raise GeneratorError(_MACRO_REQUIRES, 'for', 'a filename')
 
-    # TODO: implement place
+    # TODO: complete _generator_place()
 
 
 def _generate_end(args, outfile, env):
