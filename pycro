@@ -251,7 +251,7 @@ _WITHOUT_PRECEDING = 2
 _DOES_NOT_MATCH = 3
 _UNTERMINATED_BLOCK = 4
 
-class GeneratorError(Exception):
+class CompilerError(Exception):
     pass
 
 # --- if macro ---
@@ -259,7 +259,7 @@ class GeneratorError(Exception):
 def _generate_if(args, outfile, env):
     args = args.strip(_SPACE_CHARS)
     if not args:
-        raise GeneratorError(_MACRO_REQUIRES, 'if', 'a condition')
+        raise CompilerError(_MACRO_REQUIRES, 'if', 'a condition')
 
     outfile.write('{}{} {}:\n'.format(env.tabs(), 'if', args))
     env.indent += 1
@@ -271,7 +271,7 @@ def _generate_if(args, outfile, env):
 def _generate_elif(args, outfile, env):
     args = args.strip(_SPACE_CHARS)
     if not args:
-        raise GeneratorError(_MACRO_REQUIRES, 'elif', 'a condition')
+        raise CompilerError(_MACRO_REQUIRES, 'elif', 'a condition')
 
     if env.macro_stack and env.macro_stack[-1] in ('if', 'elif'):
 
@@ -282,14 +282,14 @@ def _generate_elif(args, outfile, env):
         env.macro_stack[-1] = 'elif'
 
     else:
-        raise GeneratorError(_WITHOUT_PRECEDING, 'elif', 'if/elif')
+        raise CompilerError(_WITHOUT_PRECEDING, 'elif', 'if/elif')
 
 # --- for macro ---
 
 def _generate_for(args, outfile, env):
     args = args.strip(_SPACE_CHARS)
     if not args:
-        raise GeneratorError(_MACRO_REQUIRES, 'for', 'an iterable statement')
+        raise CompilerError(_MACRO_REQUIRES, 'for', 'an iterable statement')
 
     outfile.write('{}{} {}:\n'.format(env.tabs(), 'for', args))
     env.indent += 1
@@ -301,7 +301,7 @@ def _generate_for(args, outfile, env):
 def _generate_while(args, outfile, env):
     args = args.strip(_SPACE_CHARS)
     if not args:
-        raise GeneratorError(_MACRO_REQUIRES, 'while', 'a condition')
+        raise CompilerError(_MACRO_REQUIRES, 'while', 'a condition')
 
     outfile.write('{}{} {}:\n'.format(env.tabs(), 'while', args))
     env.indent += 1
@@ -321,7 +321,7 @@ def _generate_else(args, outfile, env):
         env.macro_stack[-1] = 'else'
 
     else:
-        raise GeneratorError(_WITHOUT_PRECEDING,
+        raise CompilerError(_WITHOUT_PRECEDING,
                 'else', 'if/elif/for/while/except')
 
 # --- with macro ---
@@ -329,7 +329,7 @@ def _generate_else(args, outfile, env):
 def _generate_with(args, outfile, env):
     args = args.strip(_SPACE_CHARS)
     if not args:
-        raise GeneratorError(_MACRO_REQUIRES, 'with', 'an expression')
+        raise CompilerError(_MACRO_REQUIRES, 'with', 'an expression')
 
     outfile.write('{}{} {}:\n'.format(env.tabs(), 'with', args))
     env.indent += 1
@@ -349,7 +349,7 @@ def _generator_try(args, outfile, env):
 def _generator_except(args, outfile, env):
     args = args.strip(_SPACE_CHARS)
     if not args:
-        raise GeneratorError(_MACRO_REQUIRES, 'except', 'an expression')
+        raise CompilerError(_MACRO_REQUIRES, 'except', 'an expression')
 
     if env.macro_stack and env.macro_stack[-1] in ('try', 'except'):
 
@@ -360,7 +360,7 @@ def _generator_except(args, outfile, env):
         env.macro_stack[-1] = 'except'
 
     else:
-        raise GeneratorError(_WITHOUT_PRECEDING, 'except', 'try/except')
+        raise CompilerError(_WITHOUT_PRECEDING, 'except', 'try/except')
 
 # --- finally macro ---
 
@@ -374,7 +374,7 @@ def _generate_finally(args, outfile, env):
         env.macro_stack[-1] = 'finally'
 
     else:
-        raise GeneratorError(_WITHOUT_PRECEDING, 'finally', 'try/except/else')
+        raise CompilerError(_WITHOUT_PRECEDING, 'finally', 'try/except/else')
 
 
 # --- end macro ---
@@ -382,28 +382,28 @@ def _generate_finally(args, outfile, env):
 def _generate_include(args, outfile, env):
     args = args.strip(_SPACE_CHARS)
     if not args:
-        raise GeneratorError(_MACRO_REQUIRES, 'for', 'a filename')
+        raise CompilerError(_MACRO_REQUIRES, 'for', 'a filename')
 
     # TODO: implement _generator_include
 
 def _generate_place(args, outfile, env):
     args = args.strip(_SPACE_CHARS)
     if not args:
-        raise GeneratorError(_MACRO_REQUIRES, 'for', 'a filename')
+        raise CompilerError(_MACRO_REQUIRES, 'for', 'a filename')
 
     # TODO: complete _generator_place()
 
 
 def _generate_end(args, outfile, env):
     if not env.macro_stack:
-        raise GeneratorError(_WITHOUT_PRECEDING, 'end', 'if/for/while/...')
+        raise CompilerError(_WITHOUT_PRECEDING, 'end', 'if/for/while/...')
 
     last_macro = env.macro_stack.pop()
 
     args = args.strip(_SPACE_CHARS)
     if args:
         if args != last_macro:
-            raise GeneratorError(_DOES_NOT_MATCH, 'end', last_macro, args)
+            raise CompilerError(_DOES_NOT_MATCH, 'end', last_macro, args)
 
     env.indent -= 1
 
@@ -576,6 +576,7 @@ def main(argv):
         return options
 
     for file_name in result.inputs:
+        pass
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))
