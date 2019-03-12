@@ -66,8 +66,8 @@ __TRY = "try '{} --help' for more information."
 # --- utilities ---
 
 class dotdict(dict):
-    __setattr__ = dict.get
-    __getattr__ = dict.__setitem__
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
 
 # --- argument parser ---
@@ -588,7 +588,7 @@ def main(argv):
     if isinstance(options, int):
         return options
 
-    for file_name in result.inputs:
+    for file_name in options.inputs:
         pass
 
 if __name__ == '__main__':
