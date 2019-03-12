@@ -28,6 +28,8 @@ _STATEMENT_PATTERN = r'\s*{prefix}(?P<stat>.*){suffix}\s*'
 
 _EVALUATION_PATTERN = r'{prefix}(?P<eval>.*){suffix}'
 
+_COMMENT_PATTERN = r'\s*{prefix}.*{suffix}\s*'
+
 
 _DEFAULT_OUTFILE_VARIABLE_NAME = '__outfile__'
 
@@ -478,6 +480,9 @@ class CompilerEnvironment:
             comment_prefix = '#',
             comment_suffix = '',
 
+            line_continuation = '//',
+
+
             tab = '\t',
             indent = 0,
 
@@ -512,6 +517,13 @@ class CompilerEnvironment:
             )
         )
 
+        self.comment_re = re.compile(
+            _COMMENT_PATTERN.format(
+                prefix = re.escape(comment_prefix),
+                suffix = re.escape(comment_suffix),
+            )
+        )
+
         self.indent = indent
         self.tab = tab
 
@@ -521,29 +533,43 @@ class CompilerEnvironment:
         return self.tab * self.indent
 
 def generate_code(infile, outfile, env):
-    line = infile.readline()
-    while line:
-        m = env.macro_re.fullmatch(line)
+    line_continuation = env.line_continuation
+
+    macro_re = env.macro_re
+    statement_re = env.statement_re
+    comment_re = env.comment_re
+
+    lnum = 0
+    for line in infile:
+        lnum += 1
+        additive_lnum = 0
+
+
+        if line_continuation:
+            if line.endswith(line_continuation):
+                line = line[:-len(line_continuation)]
+            # TODO: complete here
+
+        m = macro_re.fullmatch(line)
         if m:
             code_generator = env.code_generators[m.group('macro')]
-
             code_generator(m.group('args'), outfile, env)
 
-        else:
-            m = env.statement_re.fullmatch(line)
-            if m:
-                outfile.write(
-                    '{}{}\n'.format(
-                        env.tabs(),
-                        m.group('stat').strip(_SPACE_CHARS),
-                        )
+            continue
+
+        m = statement_re.fullmatch(line)
+        if m:
+            outfile.write(
+                '{}{}\n'.format(
+                    env.tabs(),
+                    m.group('stat').strip(_SPACE_CHARS),
                     )
+                )
 
-            else:
-                _generate_line(line, outfile, env)
+            continue
 
-        # --- read next line ---
-        line = infile.readline()
+        if not comment_re.fullmatch(line):
+            _generate_line(line, outfile, env)
 
     if env.macro_stack:
         raise GenerateError(_UNTERMINATED_BLOCK, env.macro_stack[-1])
