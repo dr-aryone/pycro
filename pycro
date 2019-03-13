@@ -126,7 +126,7 @@ if sys.version_info >= (3, 4):
 
 else:
     def __fullmatch(pattern, string):
-        m = pattern.match(string):
+        m = pattern.match(string)
         if m and m.end() == len(string):
             return m
 
