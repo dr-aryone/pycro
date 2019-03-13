@@ -22,6 +22,22 @@ else:
                 sys.platform))
 
 
+# NOTE: '(?=(...))\1' works like atomic groups in other languages,
+#       e.g: in perl: '(?>...)'.
+
+# TODO: using re for matching for macros, statement, ... is slow, may be we
+#       can do something like this:
+#
+#   line = line.strip(_SPACE_CHARS)
+#   if line.startswith(prefix) and line.endswith(suffix):
+#       ...
+#
+# WARNING: if we use the above mechanism, evey line that startswith(prefix) and
+#          endswith(suffix) will treated as macros, statement, ...
+#
+# TODO: test speed of both ways.
+
+
 _MACRO_PATTERN = r'\s*{prefix}(?P<macro>{macros})\s(?P<args>.*){suffix}\s*'
 
 _STATEMENT_PATTERN = r'\s*{prefix}(?P<stat>.*){suffix}\s*'
@@ -44,6 +60,34 @@ _COMPILE_FLAGS = 0
 
 _MARSHAL_VERSION = 4
 
+__LanguageSpecification = collections.namedtuple('__LanguageSpecification',
+    [
+        'macro_prefix',
+        'macro_suffix',
+
+        'statement_prefix',
+        'statement_suffix',
+
+        'evaluation_prefix',
+        'evaluation_suffix',
+
+        'comment_prefix',
+        'comment_suffix',
+
+    ]
+)
+
+_default_language_specifications = {
+    'c': __LanguageSpecification(
+            '//#', '',
+
+            '//-', '',
+
+            '/*[', ']*/',
+
+            '//#', '',
+    )
+}
 
 __USAGE = "usage: {} [OPTION]... [[--] FILE | -]..."
 __HELP = """\
@@ -476,6 +520,8 @@ class CompilerEnvironment:
             statement_prefix = '#',
             statement_suffix = '',
 
+            # TODO: may be we must add a variable subsitution mechanism.
+
             evaluation_prefix = '${',
             evaluation_suffix = '}',
 
@@ -499,7 +545,8 @@ class CompilerEnvironment:
 
         self.macro_re = re.compile(
             _MACRO_PATTERN.format(
-                prefix = re.escape(macro_prefix),
+                prefix = \
+                    (re.escape(macro_prefix) + '\s*') if macro_prefix else '',
                 macros = '|'.join(macro for macro in self.code_generators),
                 suffix = re.escape(macro_suffix),
             )
@@ -603,13 +650,20 @@ def compile_code(infile, outfile, env,
     with string_buffer:
         generate_code(infile, string_buffer, env)
 
-    # TODO: it must write prefixes & suffixes
-
     code_object = compile(string_buffer.getvalue(), infile.name, 'exec',
             flags, True, optimize)
 
+    # --- magic number ---
     outfile.write(_CACHE_FILE_MAGIC_NUMBER)
+
+    # TODO: it must write prefixes & suffixes
+
+    outfile.write()
+
     __write_code_object(outfile, code_object)
+
+def _compile_if_needed():
+    pass
 
 def execute_code(infile, outfile, variables, env):
     if infile.read(len(_CACHE_FILE_MAGIC_NUMBER)) != _CACHE_FILE_MAGIC_NUMBER:
