@@ -796,14 +796,11 @@ if __name__ == '__main__':
             macro_prefix = '//#',
             statement_prefix = '//@',
         )
-        with open('temp.c') as infile:
+        with open('temp.txt') as infile:
             generate_code(infile, string_buffer, env)
 
         print(string_buffer.getvalue())
         print('-' * 80)
-
-        exec(string_buffer.getvalue(),
-                {'__outfile__': sys.stdout})
 
     else:
         sys.exit(main(sys.argv))
