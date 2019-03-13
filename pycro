@@ -675,7 +675,8 @@ def generate_code(infile, outfile, env):
 
         # now we can check two variables
 
-        # check macro
+
+        # --- check macro ---
         if striped_line.startswith(macro_prefix) and \
                 striped_line.endswith(macro_suffix):
 
@@ -689,7 +690,7 @@ def generate_code(infile, outfile, env):
 
                 continue
 
-        # check statement
+        # --- check statement ---
         if striped_line.startswith(statement_prefix) and \
                 striped_line.endswith(statement_suffix):
             outfile.write(
@@ -701,15 +702,53 @@ def generate_code(infile, outfile, env):
 
             continue
 
-        # check comment
+        # --- check comment ---
         if striped_line.startswith(comment_prefix) and \
                 striped_line.endswith(comment_suffix):
             outfile.write('\n')
 
             continue
 
-        # just write line
-        _generate_line(line, outfile, env)
+        # --- check for evaluations ---
+        outfile.write(env.tabs())
+
+        m = env.evaluation_re.search(line)
+        while m:
+
+            # --- write primitive remains ---
+            if m.start() != 0:
+                outfile.write(
+                    '{}.write({});'.format(
+                        env.outfile_variable_name,
+                        repr(line[:m.start()]),
+                    )
+                )
+
+            # --- write evaluation ---
+            outfile.write(
+                 '{}.write(str({}));'.format(
+                     env.outfile_variable_name,
+                     m.group('eval'),
+                 )
+            )
+
+            # --- check remaining line ---
+            if m.end() == len(line):
+                outfile.write('\n')
+                break
+
+            line = line[m.end():]
+            m = env.evaluation_re.search(line)
+
+        else:
+
+            # --- writing text ---
+            outfile.write(
+                '{}.write({});\n'.format(
+                    env.outfile_variable_name,
+                    repr(line),
+                )
+            )
 
     if env.macro_stack:
         raise GenerateError(_UNTERMINATED_BLOCK, env.macro_stack[-1])
