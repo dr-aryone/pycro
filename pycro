@@ -38,13 +38,16 @@ else:
 # TODO: test speed of both ways.
 
 
-_MACRO_PATTERN = r'\s*{prefix}(?P<macro>{macros})\s(?P<args>.*){suffix}\s*'
+_MACRO_PATTERN = r'\s*(?P<macro>{macros})\s(?P<args>.*)'
 
-_STATEMENT_PATTERN = r'\s*{prefix}(?P<stat>.*){suffix}\s*'
+# we comment statement pattern because
+# _STATEMENT_PATTERN = r'(?P<stat>.*)'
 
 _EVALUATION_PATTERN = r'{prefix}(?P<eval>.*){suffix}'
 
-_COMMENT_PATTERN = r'\s*{prefix}.*{suffix}\s*'
+_VARIABLE_NAME_PATTERN = r'[a-zA-Z_][a-zA-Z_0-9]*'
+
+_VARIABLE_PATTERN = r'{prefix}(?P<var>{pattern}){suffix}'
 
 _NEXT_LINE_RE = r'\s*{prefix}'
 
@@ -521,9 +524,11 @@ class CompilerEnvironment:
             statement_suffix = '',
 
             # TODO: may be we must add a variable subsitution mechanism.
+            variable_subs_prefix = '${',
+            variable_subs_suffix = '}',
 
-            evaluation_prefix = '${',
-            evaluation_suffix = '}',
+            evaluation_subs_prefix = '${',
+            evaluation_subs_suffix = '}',
 
             comment_prefix = '#',
             comment_suffix = '',
@@ -543,21 +548,21 @@ class CompilerEnvironment:
 
         self.macro_stack = collections.deque()
 
+        self.macro_prefix = macro_prefix
+        self.macro_suffix = macro_suffix
+
         self.macro_re = re.compile(
             _MACRO_PATTERN.format(
-                prefix = \
-                    (re.escape(macro_prefix) + '\s*') if macro_prefix else '',
                 macros = '|'.join(macro for macro in self.code_generators),
-                suffix = re.escape(macro_suffix),
             )
         )
 
-        self.statement_re = re.compile(
-            _STATEMENT_PATTERN.format(
-                prefix = re.escape(statement_prefix),
-                suffix = re.escape(statement_suffix),
-            )
-        )
+        self.statement_prefix = statement_prefix
+        self.statement_suffix = statement_suffix
+
+        self.comment_prefix = comment_prefix
+        self.comment_suffix = comment_suffix
+
 
         self.evaluation_re = re.compile(
             _EVALUATION_PATTERN.format(
@@ -566,19 +571,18 @@ class CompilerEnvironment:
             )
         )
 
-        self.comment_re = re.compile(
-            _COMMENT_PATTERN.format(
-                prefix = re.escape(comment_prefix),
-                suffix = re.escape(comment_suffix),
+        self.variables_re = re.compile(
+            _VARIABLE_PATTERN.format(
+                prefix = re.escape(variable_subs_prefix),
+                pattern = _VARIABLE_PATTERN,
+                suffix = re.escape(variable_subs_suffix),
             )
         )
 
+
         self.line_continuation = line_continuation
-        self.next_line_re = re.compile(
-            _NEXT_LINE_RE.format(
-                prefix = re.escape(next_line_prefix),
-            )
-        )
+        self.next_line_prefix = next_line_prefix
+
 
         self.indent = indent
         self.tab = tab
@@ -591,18 +595,30 @@ class CompilerEnvironment:
 def generate_code(infile, outfile, env):
     """read from infile and generats python code to outfile"""
 
+    macro_prefix = env.macro_prefix
+    macro_suffix = env.macro_suffix
+
     macro_re = env.macro_re
+
+    statement_prefix = env.statement_prefix
+    statement_suffix = env.statement_suffix
+
+    comment_prefix = env.comment_prefix
+    comment_suffix = env.comment_suffix
+
     statement_re = env.statement_re
     comment_re = env.comment_re
 
     line_continuation = env.line_continuation
-    next_line_re = env.next_line_re
+    next_line_prefix = env.next_line_prefix
 
     for line in infile:
 
         if line_continuation:
-            while line.endswith(line_continuation):
-                line = line[:-len(line_continuation)]
+            r_striped_line = line.rstrip(_SPACE_CHARS)
+
+            while r_striped_line.endswith(line_continuation):
+                r_striped_line = r_striped_line[:-len(line_continuation)]
 
                 next_line = infile.readline()
                 if not next_line:
@@ -610,11 +626,23 @@ def generate_code(infile, outfile, env):
 
                 outfile.write('\n')
 
-                m = next_line_re.match(next_line)
-                if m:
-                    next_line = next_line[m.end():]
+                l_striped_next_line = next_line.lstrip(_SPACE_CHARS)
 
-                line += next_line
+                if l_striped_next_line.startswith(next_line_prefix):
+                    line = \
+                        r_striped_line \
+                        + \
+                        l_striped_next_line[len(next_line_prefix):]
+
+                else:
+                    line = r_striped_line + next_line
+
+                r_striped_line = line.rstrip(_SPACE_CHARS)
+
+            striped_line = r_striped_line.lstrip(_SPACE_CHARS)
+
+        else:
+            striped_line = line.strip(_SPACE_CHARS)
 
         m = macro_re.fullmatch(line)
         if m:
