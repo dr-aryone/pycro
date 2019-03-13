@@ -532,10 +532,6 @@ class CompilerEnvironment:
             statement_prefix = '#',
             statement_suffix = '',
 
-            # TODO: may be we must add a variable subsitution mechanism.
-            variable_subs_prefix = '${',
-            variable_subs_suffix = '}',
-
             evaluation_subs_prefix = '${',
             evaluation_subs_suffix = '}',
 
@@ -584,15 +580,6 @@ class CompilerEnvironment:
             )
         )
 
-        # --- variables ---
-        self.variables_re = re.compile(
-            _VARIABLE_PATTERN.format(
-                prefix = re.escape(variable_subs_prefix),
-                pattern = _VARIABLE_PATTERN,
-                suffix = re.escape(variable_subs_suffix),
-            )
-        )
-
         # --- line continuation & next line ---
         self.line_continuation = line_continuation
         self.next_line_prefix = next_line_prefix
@@ -626,9 +613,6 @@ def generate_code(infile, outfile, env):
 
     # --- evaluation ---
     evaluation_re = env.evaluation_re
-
-    # --- variables ---
-    variables_re = env.variables_re
 
     # --- line continuation & next line ---
     line_continuation = env.line_continuation
