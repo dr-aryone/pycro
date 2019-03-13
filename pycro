@@ -557,6 +557,8 @@ class CompilerEnvironment:
 
         self.macro_stack = collections.deque()
 
+
+        # --- macro ---
         self.macro_prefix = macro_prefix
         self.macro_suffix = macro_suffix
 
@@ -566,13 +568,15 @@ class CompilerEnvironment:
             )
         )
 
+        # --- statement ---
         self.statement_prefix = statement_prefix
         self.statement_suffix = statement_suffix
 
+        # --- comment ---
         self.comment_prefix = comment_prefix
         self.comment_suffix = comment_suffix
 
-
+        # --- evaluation ---
         self.evaluation_re = re.compile(
             _EVALUATION_PATTERN.format(
                 prefix = re.escape(evaluation_prefix),
@@ -580,6 +584,7 @@ class CompilerEnvironment:
             )
         )
 
+        # --- variables ---
         self.variables_re = re.compile(
             _VARIABLE_PATTERN.format(
                 prefix = re.escape(variable_subs_prefix),
@@ -588,15 +593,16 @@ class CompilerEnvironment:
             )
         )
 
-
+        # --- line continuation & next line ---
         self.line_continuation = line_continuation
         self.next_line_prefix = next_line_prefix
+
+        # --- outfile variable name ---
+        self.outfile_variable_name = outfile_variable_name
 
 
         self.indent = indent
         self.tab = tab
-
-        self.outfile_variable_name = outfile_variable_name
 
     def tabs(self):
         return self.tab * self.indent
@@ -604,24 +610,32 @@ class CompilerEnvironment:
 def generate_code(infile, outfile, env):
     """read from infile and generats python code to outfile"""
 
-    # --- macro variables ---
+    # --- macro ---
     macro_prefix = env.macro_prefix
     macro_suffix = env.macro_suffix
 
     macro_re = env.macro_re
 
-    # --- statement variables ---
+    # --- statement ---
     statement_prefix = env.statement_prefix
     statement_suffix = env.statement_suffix
 
+    # --- comment ---
     comment_prefix = env.comment_prefix
     comment_suffix = env.comment_suffix
 
-    statement_re = env.statement_re
-    comment_re = env.comment_re
+    # --- evaluation ---
+    evaluation_re = env.evaluation_re
 
+    # --- variables ---
+    variables_re = env.variables_re
+
+    # --- line continuation & next line ---
     line_continuation = env.line_continuation
     next_line_prefix = env.next_line_prefix
+
+    # --- outfile variable name ---
+    outfile_variable_name = env.outfile_variable_name
 
     for line in infile:
 
