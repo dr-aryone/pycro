@@ -121,6 +121,15 @@ class dotdict(dict):
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
 
+if sys.version_info >= (3, 4):
+    __fullmatch = re._pattern_type.fullmatch
+
+else:
+    def __fullmatch(pattern, string):
+        m = pattern.match(string):
+        if m and m.end() == len(string):
+            return m
+
 # --- argument parser ---
 
 def __print_help():
@@ -595,11 +604,13 @@ class CompilerEnvironment:
 def generate_code(infile, outfile, env):
     """read from infile and generats python code to outfile"""
 
+    # --- macro variables ---
     macro_prefix = env.macro_prefix
     macro_suffix = env.macro_suffix
 
     macro_re = env.macro_re
 
+    # --- statement variables ---
     statement_prefix = env.statement_prefix
     statement_suffix = env.statement_suffix
 
@@ -614,7 +625,11 @@ def generate_code(infile, outfile, env):
 
     for line in infile:
 
+        # append next line while line.endswith(line_continuation)
         if line_continuation:
+
+            # NOTE: it's so clear what the fuck i'm doing here.
+
             r_striped_line = line.rstrip(_SPACE_CHARS)
 
             while r_striped_line.endswith(line_continuation):
@@ -644,29 +659,42 @@ def generate_code(infile, outfile, env):
         else:
             striped_line = line.strip(_SPACE_CHARS)
 
-        m = macro_re.fullmatch(line)
-        if m:
-            code_generator = env.code_generators[m.group('macro')]
-            code_generator(m.group('args'), outfile, env)
+        # now we can check two variables
 
-            continue
+        # check macro
+        if striped_line.startswith(macro_prefix) and \
+                striped_line.endswith(macro_suffix):
 
-        m = statement_re.fullmatch(line)
-        if m:
+            macro_striped_line = \
+                striped_line[len(macro_prefix):-len(macro_suffix)]
+
+            m = __fullmatch(macro_re, macro_striped_line)
+            if m:
+                code_generator = code_generators[m.group('macro')]
+                code_generator(m.group('args'), outfile, env)
+
+                continue
+
+        # check statement
+        if striped_line.startswith(statement_prefix) and \
+                striped_line.endswith(statement_suffix):
             outfile.write(
                 '{}{}\n'.format(
                     env.tabs(),
-                    m.group('stat').strip(_SPACE_CHARS),
+                    striped_line[len(statement_prefix):-len(statement_suffix)],
                     )
                 )
 
             continue
 
-        if comment_re.fullmatch(line):
+        # check comment
+        if striped_line.startswith(comment_prefix) and \
+                striped_line.endswith(comment_suffix):
             outfile.write('\n')
 
             continue
 
+        # just write line
         _generate_line(line, outfile, env)
 
     if env.macro_stack:
