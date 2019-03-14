@@ -811,11 +811,8 @@ def main(argv):
 if __name__ == '__main__':
     if __debug__:
         string_buffer = io.StringIO()
-        env = CompilerEnvironment(
-            macro_prefix = '//#',
-            statement_prefix = '//@',
-        )
-        with open('temp.txt') as infile:
+        env = CompilerEnvironment(*_default_language_specifications['c'])
+        with open('temp.c') as infile:
             generate_code(infile, string_buffer, env)
 
         print(string_buffer.getvalue())
