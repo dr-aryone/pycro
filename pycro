@@ -79,24 +79,29 @@ __LanguageSpecification = collections.namedtuple('__LanguageSpecification',
         'statement_prefix',
         'statement_suffix',
 
+        'comment_prefix',
+        'comment_suffix',
+
         'evaluation_prefix',
         'evaluation_suffix',
 
-        'comment_prefix',
-        'comment_suffix',
+        'line_continuation',
+        'next_line_prefix',
 
     ]
 )
 
 _default_language_specifications = {
     'c': __LanguageSpecification(
-            '//#', '',
+            '//%', '',
 
-            '//-', '',
+            '//@', '',
 
-            '/*[', ']*/',
+            '${', '}',
 
-            '//#', '',
+            '//', '//>',
+
+            '//-', '//>',
     )
 }
 
@@ -537,17 +542,17 @@ class CompilerEnvironment:
             macro_prefix = '%',
             macro_suffix = '',
 
-            statement_prefix = '#',
+            statement_prefix = '@',
             statement_suffix = '',
-
-            evaluation_subs_prefix = '${',
-            evaluation_subs_suffix = '}',
 
             comment_prefix = '#',
             comment_suffix = '',
 
-            line_continuation = '//\n',
-            next_line_prefix = '//',
+            evaluation_prefix = '${',
+            evaluation_suffix = '}',
+
+            line_continuation = '/-',
+            next_line_prefix = '/>',
 
             tab = '\t',
             indent = 0,
@@ -604,6 +609,8 @@ class CompilerEnvironment:
 
 def generate_code(infile, outfile, env):
     """read from infile and generats python code to outfile"""
+
+    code_generators = env.code_generators
 
     # --- macro ---
     macro_prefix = env.macro_prefix
@@ -743,7 +750,7 @@ def generate_code(infile, outfile, env):
             )
 
     if env.macro_stack:
-        raise GenerateError(_UNTERMINATED_BLOCK, env.macro_stack[-1])
+        raise CompilerError(_UNTERMINATED_BLOCK, env.macro_stack[-1])
 
 def compile_code(infile, outfile, env,
         compile_flags = _COMPILE_FLAGS, optimize = -1):
