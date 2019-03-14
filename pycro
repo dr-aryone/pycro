@@ -46,12 +46,12 @@ else:
 # TODO: test speed of both ways.
 
 
-_MACRO_PATTERN = r'\s*(?P<macro>{macros})\s?(?P<args>.*)'
+_MACRO_PATTERN = r'\s*(?P<macro>{macros})\s*(?P<args>.*?)\s*'
 
 # we comment statement pattern because
 # _STATEMENT_PATTERN = r'(?P<stat>.*)'
 
-_EVALUATION_PATTERN = r'{prefix}(?P<eval>.*?){suffix}'
+_EVALUATION_PATTERN = r'{prefix}\s*(?P<eval>.*?)\s*{suffix}'
 
 
 _DEFAULT_OUTFILE_VARIABLE_NAME = '__outfile__'
@@ -280,6 +280,7 @@ def __read_string(infile):
     return _buffer.decode('utf-8')
 
 # --- errors ---
+
 _MACRO_REQUIRES = 1
 _WITHOUT_PRECEDING = 2
 _END_DOES_NOT_MATCH = 3
@@ -288,10 +289,11 @@ _UNTERMINATED_BLOCK = 4
 class CompilerError(Exception):
     pass
 
+# **** macros ****
+
 # --- if macro ---
 
 def _generate_if(args, outfile, env):
-    args = args.strip(_SPACE_CHARS)
     if not args:
         raise CompilerError(_MACRO_REQUIRES, 'if', 'a condition')
 
@@ -303,7 +305,6 @@ def _generate_if(args, outfile, env):
 # --- elif macro ---
 
 def _generate_elif(args, outfile, env):
-    args = args.strip(_SPACE_CHARS)
     if not args:
         raise CompilerError(_MACRO_REQUIRES, 'elif', 'a condition')
 
@@ -321,7 +322,6 @@ def _generate_elif(args, outfile, env):
 # --- for macro ---
 
 def _generate_for(args, outfile, env):
-    args = args.strip(_SPACE_CHARS)
     if not args:
         raise CompilerError(_MACRO_REQUIRES, 'for', 'an iterable statement')
 
@@ -333,7 +333,6 @@ def _generate_for(args, outfile, env):
 # --- while macro ---
 
 def _generate_while(args, outfile, env):
-    args = args.strip(_SPACE_CHARS)
     if not args:
         raise CompilerError(_MACRO_REQUIRES, 'while', 'a condition')
 
@@ -361,7 +360,6 @@ def _generate_else(args, outfile, env):
 # --- with macro ---
 
 def _generate_with(args, outfile, env):
-    args = args.strip(_SPACE_CHARS)
     if not args:
         raise CompilerError(_MACRO_REQUIRES, 'with', 'an expression')
 
@@ -381,7 +379,6 @@ def _generator_try(args, outfile, env):
 # -- except macro ---
 
 def _generator_except(args, outfile, env):
-    args = args.strip(_SPACE_CHARS)
     if not args:
         raise CompilerError(_MACRO_REQUIRES, 'except', 'an expression')
 
@@ -414,14 +411,12 @@ def _generate_finally(args, outfile, env):
 # --- end macro ---
 
 def _generate_include(args, outfile, env):
-    args = args.strip(_SPACE_CHARS)
     if not args:
         raise CompilerError(_MACRO_REQUIRES, 'for', 'a filename')
 
     # TODO: implement _generator_include
 
 def _generate_place(args, outfile, env):
-    args = args.strip(_SPACE_CHARS)
     if not args:
         raise CompilerError(_MACRO_REQUIRES, 'for', 'a filename')
 
@@ -434,7 +429,6 @@ def _generate_end(args, outfile, env):
 
     last_macro = env.macro_stack.pop()
 
-    args = args.strip(_SPACE_CHARS)
     if args:
         if args != last_macro:
             raise CompilerError(_END_DOES_NOT_MATCH, 'end', last_macro, args)
