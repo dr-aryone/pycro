@@ -46,12 +46,17 @@ else:
 # TODO: test speed of both ways.
 
 
-_MACRO_PATTERN = r'\s*(?P<macro>{macros})\s?(?P<args>.*)'
+_MACRO_PATTERN = r'\s*{prefix}(?P<macro>{macros})\s*(?P<args>.*?){suffix}\s*'
 
-# we comment statement pattern because
-# _STATEMENT_PATTERN = r'(?P<stat>.*)'
+_STATEMENT_PATTERN = r'\s*{prefix}(?P<stat>.*){suffix}\s*'
 
-_EVALUATION_PATTERN = r'{prefix}(?P<eval>.*?){suffix}'
+_COMMENT_PATTERN = r'\s*{prefix}.*{suffix}\s*'
+
+_EVALUATION_PATTERN = r'{prefix}\s*(?P<eval>.*?)\s*{suffix}'
+
+_LINE_CONTINUATION_PATTERN = r'{}\s*$'
+
+_NEXT_LINE_RE = r'\s*{}'
 
 
 _DEFAULT_OUTFILE_VARIABLE_NAME = '__outfile__'
@@ -527,6 +532,9 @@ def _generate_line(line, outfile, env):
             )
         )
 
+_escape_prefix = lambda prefix: re.escape(prefix) + r'\s*' if prefix else ''
+_escape_suffix = lambda suffix: r'\s*' + re.escape(suffix) if suffix else ''
+
 class CompilerEnvironment:
     def __init__(
             self,
@@ -562,24 +570,36 @@ class CompilerEnvironment:
 
 
         # --- macro ---
-        self.macro_prefix = macro_prefix
-        self.macro_suffix = macro_suffix
-
         self.macro_re = re.compile(
             _MACRO_PATTERN.format(
+                prefix = _escape_prefix(macro_prefix),
                 macros = '|'.join(macro for macro in self.code_generators),
+                suffix = _escape_suffix(macro_suffix),
             )
         )
 
         # --- statement ---
-        self.statement_prefix = statement_prefix
-        self.statement_suffix = statement_suffix
+        self.statement_re = re.compile(
+            _STATEMENT_PATTERN.format(
+                prefix = _escape_prefix(statement_prefix),
+                suffix = _escape_suffix(statement_suffix),
+            )
+        )
 
         # --- comment ---
-        self.comment_prefix = comment_prefix
-        self.comment_suffix = comment_suffix
+        self.comment_re = re.compile(
+            _COMMENT_PATTERN.format(
+                prefix = re.escape(comment_prefix),
+                suffix = re.escape(comment_suffix),
+            )
+        )
 
         # --- evaluation ---
+        if (not evaluation_prefix) or (not evaluation_suffix):
+            rprint(evaluation_prefix, evaluation_suffix)
+            raise ValueError(
+                "evaluation_prefix & evaluation_suffix can't be empty")
+
         self.evaluation_re = re.compile(
             _EVALUATION_PATTERN.format(
                 prefix = re.escape(evaluation_prefix),
@@ -587,9 +607,17 @@ class CompilerEnvironment:
             )
         )
 
-        # --- line continuation & next line ---
-        self.line_continuation = line_continuation
-        self.next_line_prefix = next_line_prefix
+        # --- line continuation ---
+        self.line_continuation_re = re.compile(
+            _LINE_CONTINUATION_PATTERN.format(
+                line_continuation,
+            )
+        ) if line_continuation else None
+
+        # --- next line ---
+        self.next_line_re = re.compile(
+            _NEXT_LINE_RE.format(next_line_prefix),
+        ) if line_continuation else None
 
         # --- outfile variable name ---
         self.outfile_variable_name = outfile_variable_name
@@ -607,25 +635,20 @@ def generate_code(infile, outfile, env):
     code_generators = env.code_generators
 
     # --- macro ---
-    macro_prefix = env.macro_prefix
-    macro_suffix = env.macro_suffix
-
     macro_re = env.macro_re
 
     # --- statement ---
-    statement_prefix = env.statement_prefix
-    statement_suffix = env.statement_suffix
+    statement_re = env.statement_re
 
     # --- comment ---
-    comment_prefix = env.comment_prefix
-    comment_suffix = env.comment_suffix
+    comment_re = env.comment_re
 
     # --- evaluation ---
     evaluation_re = env.evaluation_re
 
     # --- line continuation & next line ---
-    line_continuation = env.line_continuation
-    next_line_prefix = env.next_line_prefix
+    line_continuation_re = env.line_continuation_re
+    next_line_re = env.next_line_re
 
     # --- outfile variable name ---
     outfile_variable_name = env.outfile_variable_name
@@ -633,14 +656,10 @@ def generate_code(infile, outfile, env):
     for line in infile:
 
         # append next line while line.endswith(line_continuation)
-        if line_continuation:
-
-            # NOTE: it's so clear what the fuck i'm doing here.
-
-            r_striped_line = line.rstrip(_SPACE_CHARS)
-
-            while r_striped_line.endswith(line_continuation):
-                r_striped_line = r_striped_line[:-len(line_continuation)]
+        if line_continuation_re:
+            m = line_continuation_re.search(line)
+            while m:
+                line = line[:m.start()]
 
                 next_line = infile.readline()
                 if not next_line:
@@ -648,60 +667,40 @@ def generate_code(infile, outfile, env):
 
                 outfile.write('\n')
 
-                l_striped_next_line = next_line.lstrip(_SPACE_CHARS)
-
-                if l_striped_next_line.startswith(next_line_prefix):
-                    line = \
-                        r_striped_line \
-                        + \
-                        l_striped_next_line[len(next_line_prefix):]
-
+                m = next_line_re.match(next_line)
+                if m:
+                    line += next_line[m.end():]
                 else:
-                    line = r_striped_line + next_line
+                    line += next_line
 
-                r_striped_line = line.rstrip(_SPACE_CHARS)
-
-            striped_line = r_striped_line.lstrip(_SPACE_CHARS)
-
-        else:
-            striped_line = line.strip(_SPACE_CHARS)
+                m = line_continuation_re.search(line)
 
         # now we can check two variables:
         # striped_line & line
 
         # --- check macro ---
-        if striped_line.startswith(macro_prefix) and \
-                striped_line.endswith(macro_suffix):
+        m = macro_re.fullmatch(line)
+        if m:
+            generate_code = code_generators[m.group('macro')]
+            generate_code(m.group('args'), outfile, env)
 
-            macro_striped_line = \
-                striped_line[   len(macro_prefix): \
-                                len(striped_line) - len(macro_suffix)]
-
-            m = __fullmatch(macro_re, macro_striped_line)
-            if m:
-
-                generate_code = code_generators[m.group('macro')]
-                generate_code(m.group('args'), outfile, env)
-
-                continue
+            continue
 
         # --- check statement ---
-        if striped_line.startswith(statement_prefix) and \
-                striped_line.endswith(statement_suffix):
+        m = statement_re.fullmatch(line)
+        if m:
             outfile.write(
                 '{}{}\n'.format(
                     env.tabs(),
-                    striped_line[
-                            len(statement_prefix): \
-                            len(striped_line) -len(statement_suffix)],
+                    m.group('stat'),
                     )
                 )
 
             continue
 
         # --- check comment ---
-        if striped_line.startswith(comment_prefix) and \
-                striped_line.endswith(comment_suffix):
+        m = comment_re.fullmatch(line)
+        if m:
             outfile.write('\n')
 
             continue
