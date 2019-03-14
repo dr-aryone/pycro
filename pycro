@@ -508,8 +508,8 @@ class CompilerEnvironment:
             comment_prefix = '#',
             comment_suffix = '',
 
-            evaluation_prefix = '${',
-            evaluation_suffix = '}',
+            evaluation_prefix = '${{',
+            evaluation_suffix = '}}',
 
             line_continuation = '/-',
             next_line_prefix = '/>',
@@ -766,8 +766,8 @@ _default_language_specifications = {
         evaluation_prefix =     '${',
         evaluation_suffix =     '}',
 
-        line_continuation =     '//-',
-        next_line_prefix =      '//>',
+        line_continuation =     '',
+        next_line_prefix =      '',
     )
 }
 
