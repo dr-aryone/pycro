@@ -7,6 +7,14 @@ import re
 import collections
 import marshal
 
+if __debug__:
+    def rprint(*objects, sep=', ', end='\n', file=sys.stdout):
+        if objects:
+            file.write(repr(objects[0]))
+            for obj in objects[1:]:
+                file.write(sep)
+                file.write(repr(obj))
+        file.write(end)
 
 _CACHE_FOLDER_NAME = '.pycro_cache'
 
