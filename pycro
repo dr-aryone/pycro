@@ -70,40 +70,6 @@ _COMPILE_FLAGS = 0
 
 _MARSHAL_VERSION = 4
 
-__LanguageSpecification = collections.namedtuple('__LanguageSpecification',
-    [
-        'macro_prefix',
-        'macro_suffix',
-
-        'statement_prefix',
-        'statement_suffix',
-
-        'comment_prefix',
-        'comment_suffix',
-
-        'evaluation_prefix',
-        'evaluation_suffix',
-
-        'line_continuation',
-        'next_line_prefix',
-
-    ]
-)
-
-_default_language_specifications = {
-    'c': __LanguageSpecification(
-            '//%', '',
-
-            '//@', '',
-
-            '//#', '',
-
-            '${', '}',
-
-            '//-', '//>',
-    )
-}
-
 __USAGE = "usage: {} [OPTION]... [[--] FILE | -]..."
 __HELP = """\
 preprocess FILEs to standard output. if no FILE or if FILE is '-', standard
@@ -321,7 +287,7 @@ def __read_string(infile):
 # --- errors ---
 _MACRO_REQUIRES = 1
 _WITHOUT_PRECEDING = 2
-_DOES_NOT_MATCH = 3
+_END_DOES_NOT_MATCH = 3
 _UNTERMINATED_BLOCK = 4
 
 class CompilerError(Exception):
@@ -476,7 +442,7 @@ def _generate_end(args, outfile, env):
     args = args.strip(_SPACE_CHARS)
     if args:
         if args != last_macro:
-            raise CompilerError(_DOES_NOT_MATCH, 'end', last_macro, args)
+            raise CompilerError(_END_DOES_NOT_MATCH, 'end', last_macro, args)
 
     env.indent -= 1
 
@@ -781,6 +747,25 @@ def execute_code(infile, outfile, variables, env):
 
 # --- main function ---
 
+_default_language_specifications = {
+    'c': dotdict(
+        macro_prefix =          '//%',
+        macro_suffix =          '',
+
+        statement_prefix =      '//@',
+        statement_suffix =      '',
+
+        comment_prefix =        '//#',
+        comment_suffix =        '',
+
+        evaluation_prefix =     '${',
+        evaluation_suffix =     '}',
+
+        line_continuation =     '//-',
+        next_line_prefix =      '//>',
+    )
+}
+
 __joinpath = os.path.join
 
 if sys.platform == 'win32':
@@ -804,7 +789,7 @@ def main(argv):
 if __name__ == '__main__':
     if __debug__:
         string_buffer = io.StringIO()
-        env = CompilerEnvironment(*_default_language_specifications['c'])
+        env = CompilerEnvironment(**_default_language_specifications['c'])
         with open('temp.c') as infile:
             generate_code(infile, string_buffer, env)
 
