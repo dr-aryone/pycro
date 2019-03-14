@@ -672,20 +672,22 @@ def generate_code(infile, outfile, env):
         else:
             striped_line = line.strip(_SPACE_CHARS)
 
-        # now we can check two variables
-
+        # now we can check two variables:
+        # striped_line & line
 
         # --- check macro ---
         if striped_line.startswith(macro_prefix) and \
                 striped_line.endswith(macro_suffix):
 
             macro_striped_line = \
-                striped_line[len(macro_prefix):-len(macro_suffix)]
+                striped_line[   len(macro_prefix): \
+                                len(striped_line) - len(macro_suffix)]
 
             m = __fullmatch(macro_re, macro_striped_line)
             if m:
-                code_generator = code_generators[m.group('macro')]
-                code_generator(m.group('args'), outfile, env)
+
+                generate_code = code_generators[m.group('macro')]
+                generate_code(m.group('args'), outfile, env)
 
                 continue
 
@@ -695,7 +697,9 @@ def generate_code(infile, outfile, env):
             outfile.write(
                 '{}{}\n'.format(
                     env.tabs(),
-                    striped_line[len(statement_prefix):-len(statement_suffix)],
+                    striped_line[
+                            len(statement_prefix): \
+                            len(striped_line) -len(statement_suffix)],
                     )
                 )
 
