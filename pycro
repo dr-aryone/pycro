@@ -53,12 +53,6 @@ _MACRO_PATTERN = r'\s*(?P<macro>{macros})\s?(?P<args>.*)'
 
 _EVALUATION_PATTERN = r'{prefix}(?P<eval>.*?){suffix}'
 
-_VARIABLE_NAME_PATTERN = r'[a-zA-Z_][a-zA-Z_0-9]*'
-
-_VARIABLE_PATTERN = r'{prefix}(?P<var>{pattern}){suffix}'
-
-_NEXT_LINE_RE = r'\s*{prefix}'
-
 
 _DEFAULT_OUTFILE_VARIABLE_NAME = '__outfile__'
 
