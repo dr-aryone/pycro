@@ -546,6 +546,10 @@ class CompilerEnvironment:
         self.comment_suffix = comment_suffix
 
         # --- evaluation ---
+        if (not evaluation_prefix) or (not evaluation_suffix):
+            raise ValueError(
+                    "evaluation_prefix & evaluation_suffix can't be empty")
+
         self.evaluation_re = re.compile(
             _EVALUATION_PATTERN.format(
                 prefix = re.escape(evaluation_prefix),
