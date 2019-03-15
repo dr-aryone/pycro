@@ -58,6 +58,8 @@ _VARIABLE_PATTERN = r'{prefix}(?P<name>{pattern}){suffix}'
 _EVALUATION_PATTERN = r'{prefix}\s*(?P<eval>.*?)\s*{suffix}'
 
 
+_LINE_CONTINUATION = '\\'
+
 _DEFAULT_OUTFILE_VARIABLE_NAME = '__outfile__'
 
 _DEFAULT_RUN_FUNCTION_NAME = '__run__'
@@ -308,7 +310,10 @@ def _generate_if(args, outfile, env):
     if not args:
         raise CompilerError(_MACRO_REQUIRES, 'if', 'a condition')
 
-    outfile.write('{}{} {}:\n'.format(env.tabs(), 'if', args))
+    if not args.endswith(_LINE_CONTINUATION):
+        args += ':'
+
+    outfile.write('{}{} {}\n'.format(env.tabs(), 'if', args))
     env.indent += 1
 
     env.macro_stack.append('if')
@@ -321,8 +326,11 @@ def _generate_elif(args, outfile, env):
 
     if env.macro_stack and env.macro_stack[-1] in ('if', 'elif'):
 
+        if not args.endswith(_LINE_CONTINUATION):
+            args += ':'
+
         env.indent -= 1
-        outfile.write('{}{} {}:\n'.format(env.tabs(), 'elif', args))
+        outfile.write('{}{} {}\n'.format(env.tabs(), 'elif', args))
         env.indent += 1
 
         env.macro_stack[-1] = 'elif'
@@ -336,7 +344,10 @@ def _generate_for(args, outfile, env):
     if not args:
         raise CompilerError(_MACRO_REQUIRES, 'for', 'an iterable statement')
 
-    outfile.write('{}{} {}:\n'.format(env.tabs(), 'for', args))
+    if not args.endswith(_LINE_CONTINUATION):
+        args += ':'
+
+    outfile.write('{}{} {}\n'.format(env.tabs(), 'for', args))
     env.indent += 1
 
     env.macro_stack.append('for')
@@ -347,7 +358,10 @@ def _generate_while(args, outfile, env):
     if not args:
         raise CompilerError(_MACRO_REQUIRES, 'while', 'a condition')
 
-    outfile.write('{}{} {}:\n'.format(env.tabs(), 'while', args))
+    if not args.endswith(_LINE_CONTINUATION):
+        args += ':'
+
+    outfile.write('{}{} {}\n'.format(env.tabs(), 'while', args))
     env.indent += 1
 
     env.macro_stack.append('while')
@@ -374,7 +388,10 @@ def _generate_with(args, outfile, env):
     if not args:
         raise CompilerError(_MACRO_REQUIRES, 'with', 'an expression')
 
-    outfile.write('{}{} {}:\n'.format(env.tabs(), 'with', args))
+    if not args.endswith(_LINE_CONTINUATION):
+        args += ':'
+
+    outfile.write('{}{} {}\n'.format(env.tabs(), 'with', args))
     env.indent += 1
 
     env.macro_stack.append('with')
@@ -395,8 +412,11 @@ def _generator_except(args, outfile, env):
 
     if env.macro_stack and env.macro_stack[-1] in ('try', 'except'):
 
+        if not args.endswith(_LINE_CONTINUATION):
+            args += ':'
+
         env.indent -= 1
-        outfile.write('{}{} {}:\n'.format(env.tabs(), 'except', args))
+        outfile.write('{}{} {}\n'.format(env.tabs(), 'except', args))
         env.indent += 1
 
         env.macro_stack[-1] = 'except'
@@ -462,47 +482,6 @@ _default_code_generators = {
         'end': _generate_end,
 }
 
-def _generate_line(line, outfile, env):
-    outfile.write(env.tabs())
-
-    m = env.evaluation_re.search(line)
-    while m:
-
-        # --- write primitive remains ---
-        if m.start() != 0:
-            outfile.write(
-                '{}.write({});'.format(
-                    env.outfile_variable_name,
-                    repr(line[:m.start()]),
-                )
-            )
-
-        # --- write evaluation ---
-        outfile.write(
-             '{}.write(str({}));'.format(
-                 env.outfile_variable_name,
-                 m.group('eval'),
-             )
-        )
-
-        # --- check remaining line ---
-        if m.end() == len(line):
-            outfile.write('\n')
-            break
-
-        line = line[m.end():]
-        m = env.evaluation_re.search(line)
-
-    else:
-
-        # --- writing text ---
-        outfile.write(
-            '{}.write({});\n'.format(
-                env.outfile_variable_name,
-                repr(line),
-            )
-        )
-
 class CompilerEnvironment:
     def __init__(
             self,
@@ -523,9 +502,6 @@ class CompilerEnvironment:
 
             evaluation_prefix = '${{',
             evaluation_suffix = '}}',
-
-            line_continuation = '/-',
-            next_line_prefix = '/>',
 
             tab = '\t',
             indent = 0,
@@ -584,11 +560,6 @@ class CompilerEnvironment:
             )
         )
 
-
-        # --- line continuation & next line ---
-        self.line_continuation = line_continuation
-        self.next_line_prefix = next_line_prefix
-
         # --- variable names ---
         self.outfile_variable_name = outfile_variable_name
         self.run_function_name = run_function_name
@@ -623,51 +594,12 @@ def generate_code(infile, outfile, env):
     # --- evaluation variable ---
     evaluation_variable_re = env.evaluation_variable_re
 
-    # --- line continuation & next line ---
-    line_continuation = env.line_continuation
-    next_line_prefix = env.next_line_prefix
-
     # --- outfile variable name ---
     outfile_variable_name = env.outfile_variable_name
 
     for line in infile:
 
-        # append next line while line.endswith(line_continuation)
-        if line_continuation:
-
-            # NOTE: it's so clear what the fuck i'm doing here.
-
-            r_striped_line = line.rstrip(_SPACE_CHARS)
-
-            while r_striped_line.endswith(line_continuation):
-                r_striped_line = r_striped_line[:-len(line_continuation)]
-
-                next_line = infile.readline()
-                if not next_line:
-                    break
-
-                outfile.write('\n')
-
-                l_striped_next_line = next_line.lstrip(_SPACE_CHARS)
-
-                if l_striped_next_line.startswith(next_line_prefix):
-                    line = \
-                        r_striped_line \
-                        + \
-                        l_striped_next_line[len(next_line_prefix):]
-
-                else:
-                    line = r_striped_line + next_line
-
-                r_striped_line = line.rstrip(_SPACE_CHARS)
-
-            striped_line = r_striped_line.lstrip(_SPACE_CHARS)
-
-        else:
-            striped_line = line.strip(_SPACE_CHARS)
-
-        # now we can check two variables:
-        # striped_line & line
+        striped_line = line.strip(_SPACE_CHARS)
 
         # --- check macro ---
         if striped_line.startswith(macro_prefix) and \
@@ -808,9 +740,6 @@ _default_language_specifications = {
 
         evaluation_prefix =     '$${{',
         evaluation_suffix =     '}}',
-
-        line_continuation =     '',
-        next_line_prefix =      '',
     )
 }
 
