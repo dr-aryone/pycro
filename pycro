@@ -58,7 +58,6 @@ _VARIABLE_PATTERN = r'{prefix}(?P<name>{pattern}){suffix}'
 _EVALUATION_PATTERN = r'{prefix}\s*(?P<eval>.*?)\s*{suffix}'
 
 
-_LINE_CONTINUATION = '\\'
 
 _DEFAULT_OUTFILE_VARIABLE_NAME = '__outfile__'
 
@@ -310,9 +309,6 @@ def _generate_if(args, outfile, env):
     if not args:
         raise CompilerError(_MACRO_REQUIRES, 'if', 'a condition')
 
-    if not args.endswith(_LINE_CONTINUATION):
-        args += ':'
-
     outfile.write('{}{} {}\n'.format(env.tabs(), 'if', args))
     env.indent += 1
 
@@ -325,9 +321,6 @@ def _generate_elif(args, outfile, env):
         raise CompilerError(_MACRO_REQUIRES, 'elif', 'a condition')
 
     if env.macro_stack and env.macro_stack[-1] in ('if', 'elif'):
-
-        if not args.endswith(_LINE_CONTINUATION):
-            args += ':'
 
         env.indent -= 1
         outfile.write('{}{} {}\n'.format(env.tabs(), 'elif', args))
@@ -344,9 +337,6 @@ def _generate_for(args, outfile, env):
     if not args:
         raise CompilerError(_MACRO_REQUIRES, 'for', 'an iterable statement')
 
-    if not args.endswith(_LINE_CONTINUATION):
-        args += ':'
-
     outfile.write('{}{} {}\n'.format(env.tabs(), 'for', args))
     env.indent += 1
 
@@ -357,9 +347,6 @@ def _generate_for(args, outfile, env):
 def _generate_while(args, outfile, env):
     if not args:
         raise CompilerError(_MACRO_REQUIRES, 'while', 'a condition')
-
-    if not args.endswith(_LINE_CONTINUATION):
-        args += ':'
 
     outfile.write('{}{} {}\n'.format(env.tabs(), 'while', args))
     env.indent += 1
@@ -388,9 +375,6 @@ def _generate_with(args, outfile, env):
     if not args:
         raise CompilerError(_MACRO_REQUIRES, 'with', 'an expression')
 
-    if not args.endswith(_LINE_CONTINUATION):
-        args += ':'
-
     outfile.write('{}{} {}\n'.format(env.tabs(), 'with', args))
     env.indent += 1
 
@@ -411,9 +395,6 @@ def _generator_except(args, outfile, env):
         raise CompilerError(_MACRO_REQUIRES, 'except', 'an expression')
 
     if env.macro_stack and env.macro_stack[-1] in ('try', 'except'):
-
-        if not args.endswith(_LINE_CONTINUATION):
-            args += ':'
 
         env.indent -= 1
         outfile.write('{}{} {}\n'.format(env.tabs(), 'except', args))
