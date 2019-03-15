@@ -60,6 +60,13 @@ _EVALUATION_PATTERN = r'{prefix}\s*(?P<eval>.*?)\s*{suffix}'
 
 _DEFAULT_OUTFILE_VARIABLE_NAME = '__outfile__'
 
+_DEFAULT_RUN_FUNCTION_NAME = '__run__'
+
+_DEFAULT_INCLUDE_FUNCTION_NAME = '__include__'
+
+_DEFAULT_PLACE_FUNCTION_NAME = '__place__'
+
+
 _SPACE_CHARS = ' \t\n'
 
 
@@ -414,19 +421,6 @@ def _generate_finally(args, outfile, env):
 
 # --- end macro ---
 
-def _generate_include(args, outfile, env):
-    if not args:
-        raise CompilerError(_MACRO_REQUIRES, 'for', 'a filename')
-
-    # TODO: implement _generator_include
-
-def _generate_place(args, outfile, env):
-    if not args:
-        raise CompilerError(_MACRO_REQUIRES, 'for', 'a filename')
-
-    # TODO: complete _generator_place()
-
-
 def _generate_end(args, outfile, env):
     if not env.macro_stack:
         raise CompilerError(_WITHOUT_PRECEDING, 'end', 'if/for/while/...')
@@ -439,6 +433,24 @@ def _generate_end(args, outfile, env):
 
     env.indent -= 1
 
+def _generate_include(args, outfile, env):
+    if not args:
+        raise CompilerError(_MACRO_REQUIRES, 'for', 'a filename')
+
+    outfile.write(
+        '{}{}.({})'.format(
+            env.tabs(),
+            env.include_function_name,
+            args
+        )
+    )
+    # TODO: implement _generator_include
+
+def _generate_place(args, outfile, env):
+    if not args:
+        raise CompilerError(_MACRO_REQUIRES, 'for', 'a filename')
+
+    # TODO: complete _generator_place()
 
 _default_code_generators = {
         'if': _generate_if,
@@ -519,6 +531,9 @@ class CompilerEnvironment:
             indent = 0,
 
             outfile_variable_name = _DEFAULT_OUTFILE_VARIABLE_NAME,
+            run_function_name = _DEFAULT_RUN_FUNCTION_NAME,
+            include_function_name = _DEFAULT_INCLUDE_FUNCTION_NAME,
+            place_function_name = _DEFAULT_PLACE_FUNCTION_NAME,
             ):
         """intialize code generator environment"""
 
@@ -574,9 +589,11 @@ class CompilerEnvironment:
         self.line_continuation = line_continuation
         self.next_line_prefix = next_line_prefix
 
-        # --- outfile variable name ---
+        # --- variable names ---
         self.outfile_variable_name = outfile_variable_name
-
+        self.run_function_name = run_function_name
+        self.include_function_name = include_function_name
+        self.place_function_name = place_function_name
 
         self.indent = indent
         self.tab = tab
