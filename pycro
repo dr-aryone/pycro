@@ -301,7 +301,7 @@ _UNTERMINATED_BLOCK = 4
 class CompilerError(Exception):
     pass
 
-# **** macros ****
+# *** macros ***
 
 # --- if macro ---
 
@@ -434,6 +434,8 @@ def _generate_end(args, outfile, env):
 
     env.indent -= 1
 
+# --- include macro ---
+
 def _generate_include(args, outfile, env):
     if not args:
         raise CompilerError(_MACRO_REQUIRES, 'for', 'a filename')
@@ -447,11 +449,23 @@ def _generate_include(args, outfile, env):
     )
     # TODO: implement _generator_include
 
+# --- place macro ---
+
+def _place_function_creator(outfile):
+    def _place_function(file_name):
+        with open(file_name) as infile:
+            outfile.write(infile.read())
+
 def _generate_place(args, outfile, env):
     if not args:
         raise CompilerError(_MACRO_REQUIRES, 'for', 'a filename')
 
     # TODO: complete _generator_place()
+
+# --- exec macro ---
+def _exec_function_creator():
+    def _exec_function(*args):
+        subprocess.run(*args)
 
 _default_code_generators = {
         'if': _generate_if,
