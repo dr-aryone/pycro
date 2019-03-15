@@ -51,6 +51,10 @@ _MACRO_PATTERN = r'\s*(?P<macro>{macros})\s*(?P<args>.*?)\s*'
 # we comment statement pattern because
 # _STATEMENT_PATTERN = r'(?P<stat>.*)'
 
+_VARIABLE_NAME_PATTERN = r'[a-zA-Z_][a-zA-Z_0-9]+'
+
+_VARIABLE_PATTERN = r'{prefix}(?P<name>{pattern}){suffix}'
+
 _EVALUATION_PATTERN = r'{prefix}\s*(?P<eval>.*?)\s*{suffix}'
 
 
@@ -344,8 +348,8 @@ def _generate_while(args, outfile, env):
 # --- else macro ---
 
 def _generate_else(args, outfile, env):
-    if env.macro_stack and env.macro_stack[-1] in ('if', 'elif', 'for',
-            'while', 'except'):
+    if env.macro_stack and env.macro_stack[-1] in \
+            ('if', 'elif', 'for', 'while', 'except'):
 
         env.indent -= 1
         outfile.write('{}{}:\n'.format(env.tabs(), 'else'))
@@ -502,6 +506,9 @@ class CompilerEnvironment:
             comment_prefix = '#',
             comment_suffix = '',
 
+            variable_prefix = '${',
+            variable_suffix = '}',
+
             evaluation_prefix = '${{',
             evaluation_suffix = '}}',
 
@@ -539,17 +546,29 @@ class CompilerEnvironment:
         self.comment_prefix = comment_prefix
         self.comment_suffix = comment_suffix
 
-        # --- evaluation ---
+
+        # --- evaluation & variable ---
+        if (not variable_prefix) or (not variable_suffix):
+            raise ValueError(
+                    "variable_prefix & variable_suffix can't be empty")
+
         if (not evaluation_prefix) or (not evaluation_suffix):
             raise ValueError(
                     "evaluation_prefix & evaluation_suffix can't be empty")
 
-        self.evaluation_re = re.compile(
+        self.evaluation_variable_re = re.compile(
             _EVALUATION_PATTERN.format(
                 prefix = re.escape(evaluation_prefix),
                 suffix = re.escape(evaluation_suffix),
+            ) + '|' +
+
+            _VARIABLE_PATTERN.format(
+                prefix = re.escape(variable_prefix),
+                pattern = _VARIABLE_NAME_PATTERN,
+                suffix = re.escape(variable_suffix),
             )
         )
+
 
         # --- line continuation & next line ---
         self.line_continuation = line_continuation
@@ -584,8 +603,8 @@ def generate_code(infile, outfile, env):
     comment_prefix = env.comment_prefix
     comment_suffix = env.comment_suffix
 
-    # --- evaluation ---
-    evaluation_re = env.evaluation_re
+    # --- evaluation variable ---
+    evaluation_variable_re = env.evaluation_variable_re
 
     # --- line continuation & next line ---
     line_continuation = env.line_continuation
@@ -673,25 +692,36 @@ def generate_code(infile, outfile, env):
         # --- check for evaluations ---
         outfile.write(env.tabs())
 
-        m = env.evaluation_re.search(line)
+        m = evaluation_variable_re.search(line)
         while m:
 
             # --- write primitive remains ---
             if m.start() != 0:
                 outfile.write(
                     '{}.write({});'.format(
-                        env.outfile_variable_name,
+                        outfile_variable_name,
                         repr(line[:m.start()]),
                     )
                 )
 
-            # --- write evaluation ---
-            outfile.write(
-                 '{}.write(str({}));'.format(
-                     env.outfile_variable_name,
-                     m.group('eval'),
-                 )
-            )
+            name = m.group('name')
+            if name is None:
+                # --- write evaluation ---
+                outfile.write(
+                    '{}.write(str({}));'.format(
+                        outfile_variable_name,
+                        m.group('eval'),
+                    )
+                )
+
+            else:
+                # --- write variable ---
+                outfile.write(
+                    '{}.write(str({}));'.format(
+                        outfile_variable_name,
+                        name,
+                    )
+                )
 
             # --- check remaining line ---
             if m.end() == len(line):
@@ -699,14 +729,14 @@ def generate_code(infile, outfile, env):
                 break
 
             line = line[m.end():]
-            m = env.evaluation_re.search(line)
+            m = evaluation_variable_re.search(line)
 
         else:
 
             # --- writing text ---
             outfile.write(
                 '{}.write({});\n'.format(
-                    env.outfile_variable_name,
+                    outfile_variable_name,
                     repr(line),
                 )
             )
@@ -757,8 +787,11 @@ _default_language_specifications = {
         comment_prefix =        '//#',
         comment_suffix =        '',
 
-        evaluation_prefix =     '${',
-        evaluation_suffix =     '}',
+        variable_prefix =       '${',
+        variable_suffix =       '}',
+
+        evaluation_prefix =     '$${{',
+        evaluation_suffix =     '}}',
 
         line_continuation =     '',
         next_line_prefix =      '',
