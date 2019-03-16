@@ -117,6 +117,10 @@ __TRY = "try '{} --help' for more information."
 
 # --- utilities ---
 
+__joinpath = os.path.join
+__abspath = os.path.abspath
+__realpath = os.path.realpath
+
 class dotdict(dict):
     __getattr__ = dict.get
     __setattr__ = dict.__setitem__
