@@ -283,6 +283,14 @@ def __parse_argv(argv):
 
 # *** binary file operations ***
 
+# --- objects ---
+
+def __write_object(outfile, _set):
+    marshal.dump(outfile, code_object, _MARSHAL_VERSION)
+
+def __read_object(infile):
+    return marshal.load(infile)
+
 # --- code objects ---
 
 def __write_code_object(outfile, code_object):
@@ -315,14 +323,14 @@ def __read_uint(infile, size = 1):
 
 # --- big integer ---
 
-def __write_size(outfile, size):
-    outfile.write(size.to_bytes(2, 'big', signed = False))
+def __write_big_integer(outfile, size):
+    outfile.write(size.to_bytes(__BIG_INTEGER_SIZE, 'big', signed = False))
 
-def __read_size(infile):
-    _buffer = infile.read(2)
-    if len(_buffer) != 2:
+def __read_big_integer(infile):
+    _buffer = infile.read(__BIG_INTEGER_SIZE)
+    if len(_buffer) != __BIG_INTEGER_SIZE:
         raise EOFError("End of file while reading size")
-    return return int.from_bytes(_buffer, 'big', signed = False)
+    return int.from_bytes(_buffer, 'big', signed = False)
 
 # --- strings ---
 
@@ -362,7 +370,6 @@ def __read_string(infile):
         _result += _buffer
 
     return _result.decode('utf-8')
-
 
 # *** errors ***
 
