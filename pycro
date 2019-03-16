@@ -2,12 +2,28 @@
 
 import sys
 import os
+
+if sys.version_info[0] == 3:
+    import builtins
+
+elif sys.version_info[1] == 2:
+    import __builtins__ as builtins
+
+else:
+    raise BaseException(
+            "import builtins module for your python version: {}".format(
+                ','.join(n for n in sys.version_info[:3]),
+            )
+        )
+
 import io
 import re
 import collections
 import marshal
 
 if __debug__:
+    from pprint import pprint
+
     def rprint(*objects, sep=', ', end='\n', file=sys.stdout):
         if objects:
             file.write(repr(objects[0]))
