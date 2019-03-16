@@ -91,7 +91,11 @@ _CACHE_FILE_MAGIC_NUMBER = b'.pycroche'
 
 _COMPILE_FLAGS = 0
 
+_OPTIMIZE_FLAG = -1
+
 _MARSHAL_VERSION = 4
+
+_BIG_INTEGER_SIZE = 4
 
 __USAGE = "usage: {} [OPTION]... [[--] FILE | -]..."
 __HELP = """\
@@ -532,18 +536,28 @@ def _generate_include(args, outfile, env):
 
 # --- place macro ---
 
-def _place_function_creator(outfile):
+def _place_function_creator(outfile, current_working_directory):
     def _place_function(file_name):
-        with open(file_name) as infile:
+        with open(__joinpath(current_working_directory, file_name)) as infile:
             outfile.write(infile.read())
 
 def _generate_place(args, outfile, env):
     if not args:
-        raise CompilerError(_MACRO_REQUIRES, 'for', 'a filename')
+        raise CompilerError(_MACRO_REQUIRES, 'place', 'a filename')
 
-    # TODO: complete _generator_place()
+    outfile.write(
+        '{}{}.({})'.format(
+            env.tabs(),
+            env.place_function_name,
+            args,
+        )
+    )
 
 # --- exec macro ---
+
+def _generate_exec(args, outfile, env):
+    pass
+
 def _exec_function_creator():
     def _exec_function(*args):
         subprocess.run(*args)
@@ -556,6 +570,8 @@ _default_code_generators = {
         'while': _generate_while,
         'with': _generate_with,
         'end': _generate_end,
+
+        'place': _generate_place,
 }
 
 class CompilerEnvironment:
@@ -701,7 +717,8 @@ def generate_code(infile, outfile, env):
                     env.tabs(),
                     striped_line[
                             len(statement_prefix): \
-                            len(striped_line) -len(statement_suffix)],
+                            len(striped_line) -len(statement_suffix)]\
+                                .strip(_SPACE_CHARS),
                     )
                 )
 
@@ -769,33 +786,77 @@ def generate_code(infile, outfile, env):
     if env.macro_stack:
         raise CompilerError(_UNTERMINATED_BLOCK, env.macro_stack[-1])
 
-def compile_code(infile, outfile, env,
-        compile_flags = _COMPILE_FLAGS, optimize = -1):
+def compile_code(infile, env,
+        compile_flags = _COMPILE_FLAGS, optimize = _OPTIMIZE_FLAG):
+
     string_buffer = io.StringIO()
     with string_buffer:
         generate_code(infile, string_buffer, env)
 
-    code_object = compile(string_buffer.getvalue(), infile.name, 'exec',
+    return compile(string_buffer.getvalue(), infile.name, 'exec',
             flags, True, optimize)
 
-    # --- magic number ---
+_default_builtins = builtins
+
+class ExecutorError:
+    def __init__(self,
+            variables = None,
+            builtins = None,
+
+            current_working_directory = '.',
+
+            outfile_variable_name = _DEFAULT_OUTFILE_VARIABLE_NAME,
+            run_function_name = _DEFAULT_RUN_FUNCTION_NAME,
+            include_function_name = _DEFAULT_INCLUDE_FUNCTION_NAME,
+            place_function_name = _DEFAULT_PLACE_FUNCTION_NAME,
+            ):
+
+        if variables is None:
+            variables = {}
+
+        if '__builtins__' not in variables:
+            if builtins is None:
+                builtins = _default_builtins.copy()
+
+            variables['__builtins__'] = builtins
+
+        self.current_working_directory = current_working_directory
+
+        self.outfile_variable_name = outfile_variable_name
+        self.run_function_name = run_function_name
+        self.include_function_name = include_function_name
+        self.place_function_name = place_function_name
+
+def execute_code_object(code_object, outfile, env):
+    variables[env.outfile_variable_name] = outfile
+    variables[env.run_function_name] = _place_function_creator()
+
+    return exec(code_object, variables)
+
+
+# --- main functions ---
+
+def write_compiled_code(code_object, env, outfile):
+    # --- writing to file ---
     outfile.write(_CACHE_FILE_MAGIC_NUMBER)
 
-    # TODO: it must write prefixes & suffixes
+    __write_big_integer(outfile, len(env.code_generators))
+    for name in env.code_generators:
+        __write_string(outfile, name)
 
+    __write_string(outfile, env.macro_prefix)
+    __write_string(outfile, env.macro_suffix)
+
+    __write_string(outfile, env.statement_prefix)
+    __write_string(outfile, env.statement_suffix)
+
+    __write_string(outfile, env.comment_prefix)
+    __write_string(outfile, env.comment_suffix)
+
+    __write_string(outfile, env.evaluation_prefix)
+    __write_string(outfile, env.evaluation_suffix)
 
     __write_code_object(outfile, code_object)
-
-def _compile_if_needed():
-    pass
-
-def execute_code(infile, outfile, variables, env):
-    if infile.read(len(_CACHE_FILE_MAGIC_NUMBER)) != _CACHE_FILE_MAGIC_NUMBER:
-        raise ValueError('file magic number mismatch!')
-
-    code_object = __read_code_object(infile)
-
-    exec(code_object, variables)
 
 
 # --- main function ---
@@ -818,8 +879,6 @@ _default_language_specifications = {
         evaluation_suffix =     '}}',
     )
 }
-
-__joinpath = os.path.join
 
 if sys.platform == 'win32':
     def __get_cache_file_path(cache_folder_path, file_real_path):
