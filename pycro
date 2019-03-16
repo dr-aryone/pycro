@@ -21,17 +21,6 @@ import re
 import collections
 import marshal
 
-if __debug__:
-    from pprint import pprint
-
-    def rprint(*objects, sep=', ', end='\n', file=sys.stdout):
-        if objects:
-            file.write(repr(objects[0]))
-            for obj in objects[1:]:
-                file.write(sep)
-                file.write(repr(obj))
-        file.write(end)
-
 _CACHE_FOLDER_NAME = '.pycro_cache'
 
 if sys.platform.startswith('linux') or sys.platform.startswith('freebsd'):
@@ -98,6 +87,62 @@ _MARSHAL_VERSION = 4
 
 _BIG_INTEGER_SIZE = 4
 
+_default_language_specifications = {
+    ('c', 'cpp', 'java', 'javascript'):
+        dotdict(
+            macro_prefix =          '//%',
+            macro_suffix =          '',
+
+            statement_prefix =      '//@',
+            statement_suffix =      '',
+
+            comment_prefix =        '//#',
+            comment_suffix =        '',
+
+            variable_prefix =       '${',
+            variable_suffix =       '}',
+
+            evaluation_prefix =     '$${{',
+            evaluation_suffix =     '}}',
+        ),
+
+    ('perl', 'python'):
+        dotdict(
+            macro_prefix =          '#%',
+            macro_suffix =          '',
+
+            statement_prefix =      '#@',
+            statement_suffix =      '',
+
+            comment_prefix =        '##',
+            comment_suffix =        '',
+
+            variable_prefix =       '${',
+            variable_suffix =       '}',
+
+            evaluation_prefix =     '$${{',
+            evaluation_suffix =     '}}',
+        ),
+
+    'html':
+        dotdict(
+            macro_prefix =          '<!--%',
+            macro_suffix =          '-->',
+
+            statement_prefix =      '<!--@',
+            statement_suffix =      '-->',
+
+            comment_prefix =        '<!--#',
+            comment_suffix =        '-->',
+
+            variable_prefix =       '${',
+            variable_suffix =       '}',
+
+            evaluation_prefix =     '$${{',
+            evaluation_suffix =     '}}',
+        ),
+}
+
 __USAGE = "usage: {} [OPTION]... [[--] FILE | -]..."
 __HELP = """\
 Pycro FILEs to standard output. if no FILE or if FILE is '-', standard input is
@@ -120,8 +165,24 @@ Sortable options:
                                       treats '-' as standard input)
 
 Known language specification:
-"""
+    c, cpp, java, perl, python, html
+""".format(
+    default_variable_value = _DEFAULT_VARIABLE_VALUE
+)
 __TRY = "try '{} --help' for more information."
+
+# --- debuging ---
+
+if __debug__:
+    from pprint import pprint
+
+    def rprint(*objects, sep=', ', end='\n', file=sys.stdout):
+        if objects:
+            file.write(repr(objects[0]))
+            for obj in objects[1:]:
+                file.write(sep)
+                file.write(repr(obj))
+        file.write(end)
 
 # --- utilities ---
 
@@ -146,18 +207,7 @@ else:
 # --- argument parser ---
 
 def __print_help():
-    supported_languages = collections.deque()
-    for specification in _default_language_specifications:
-        if isinstance(specification, tuple):
-            for name in specification:
-                supported_languages.append(name)
-        else:
-            supported_languages.append(specification)
-    for name in sorted(supported_languages):
-        pass
-
-    print(__HELP.format(
-        default_variable_value = _DEFAULT_VARIABLE_VALUE))
+    print(__HELP)
 
 def __parse_argv(argv):
     result = dotdict(
@@ -874,62 +924,6 @@ def write_compiled_code(code_object, env, outfile):
 
 
 # --- main function ---
-
-_default_language_specifications = {
-    ('c', 'cpp', 'java'):
-        dotdict(
-            macro_prefix =          '//%',
-            macro_suffix =          '',
-
-            statement_prefix =      '//@',
-            statement_suffix =      '',
-
-            comment_prefix =        '//#',
-            comment_suffix =        '',
-
-            variable_prefix =       '${',
-            variable_suffix =       '}',
-
-            evaluation_prefix =     '$${{',
-            evaluation_suffix =     '}}',
-        ),
-
-    ('perl', 'python'):
-        dotdict(
-            macro_prefix =          '#%',
-            macro_suffix =          '',
-
-            statement_prefix =      '#@',
-            statement_suffix =      '',
-
-            comment_prefix =        '##',
-            comment_suffix =        '',
-
-            variable_prefix =       '${',
-            variable_suffix =       '}',
-
-            evaluation_prefix =     '$${{',
-            evaluation_suffix =     '}}',
-        ),
-
-    'html':
-        dotdict(
-            macro_prefix =          '<!--%',
-            macro_suffix =          '-->',
-
-            statement_prefix =      '<!--@',
-            statement_suffix =      '-->',
-
-            comment_prefix =        '<!--#',
-            comment_suffix =        '-->',
-
-            variable_prefix =       '${',
-            variable_suffix =       '}',
-
-            evaluation_prefix =     '$${{',
-            evaluation_suffix =     '}}',
-        ),
-}
 
 if sys.platform == 'win32':
     def __get_cache_file_path(cache_folder_path, file_real_path):
