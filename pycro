@@ -83,6 +83,7 @@ _DEFAULT_INCLUDE_FUNCTION_NAME = '__include__'
 
 _DEFAULT_PLACE_FUNCTION_NAME = '__place__'
 
+_DEFAULT_VARIABLE_VALUE = None
 
 _SPACE_CHARS = ' \t\n'
 
@@ -99,23 +100,26 @@ _BIG_INTEGER_SIZE = 4
 
 __USAGE = "usage: {} [OPTION]... [[--] FILE | -]..."
 __HELP = """\
-preprocess FILEs to standard output. if no FILE or if FILE is '-', standard
-input is read.
+Pycro FILEs to standard output. if no FILE or if FILE is '-', standard input is
+read.
 
 Operation modes:
     -h, --help                      display this help and exit
-    -a, --arrange-performance       perform options and FILEs according to
+    -a, --arrange-process           perform OPTIONs and FILEs according to
                                       their orders
 
 Sortable options:
-    -D, --define NAME[=VAR]         define NAME variable as having VALUE or
+    -D, --define NAME[=VAR]         define NAME variable as having VALUE, or
                                       {default_variable_value}
     -U, --undefine NAME             undefine NAME variable
     -S, --set KEY=VALUE             set KEY setting to VALUE
     -l, --load JSONFILE             load JSONFILE and update variables
     -I, --import MODULE             import MODULE to interpreter variables
+    -L, --lang LANG                 set prefix and suffix for LANG specification
     --                              read next argument as input FILE (don't
                                       treats '-' as standard input)
+
+Known language specification:
 """
 __TRY = "try '{} --help' for more information."
 
@@ -142,6 +146,16 @@ else:
 # --- argument parser ---
 
 def __print_help():
+    supported_languages = collections.deque()
+    for specification in _default_language_specifications:
+        if isinstance(specification, tuple):
+            for name in specification:
+                supported_languages.append(name)
+        else:
+            supported_languages.append(specification)
+    for name in sorted(supported_languages):
+        pass
+
     print(__HELP.format(
         default_variable_value = _DEFAULT_VARIABLE_VALUE))
 
@@ -199,9 +213,9 @@ def __parse_argv(argv):
                     __print_help()
                     return 0
 
-                # order performances, ('--order-performance')
-                elif option == 'order-performance':
-                    result.operation_modes.add('order')
+                # arrange performances, ('--arrange-performance')
+                elif option == 'arrange-process':
+                    result.operation_modes.add('arrange')
 
                 # define variable, ('--define')
                 elif option == 'define':
@@ -237,9 +251,9 @@ def __parse_argv(argv):
                         __print_help()
                         return 0
 
-                    # order performances, ('-o')
-                    elif ch == 'o':
-                        result.operation_modes.add('order')
+                    # arrange performances, ('-a')
+                    elif ch == 'a':
+                        result.operation_modes.add('arrange')
 
                     # define variable, ('-D')
                     elif ch == 'D':
@@ -878,7 +892,7 @@ _default_language_specifications = {
 
             evaluation_prefix =     '$${{',
             evaluation_suffix =     '}}',
-        )
+        ),
 
     ('perl', 'python'):
         dotdict(
@@ -896,7 +910,7 @@ _default_language_specifications = {
 
             evaluation_prefix =     '$${{',
             evaluation_suffix =     '}}',
-        )
+        ),
 
     'html':
         dotdict(
@@ -914,7 +928,7 @@ _default_language_specifications = {
 
             evaluation_prefix =     '$${{',
             evaluation_suffix =     '}}',
-        )
+        ),
 }
 
 if sys.platform == 'win32':
@@ -932,9 +946,7 @@ def main(argv):
     if isinstance(options, int):
         return options
 
-    for file_name in options.inputs:
-        pass
+
 
 if __name__ == '__main__':
-    else:
-        sys.exit(main(sys.argv))
+    sys.exit(main(sys.argv))
