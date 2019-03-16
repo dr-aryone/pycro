@@ -862,22 +862,59 @@ def write_compiled_code(code_object, env, outfile):
 # --- main function ---
 
 _default_language_specifications = {
-    'c': dotdict(
-        macro_prefix =          '//%',
-        macro_suffix =          '',
+    ('c', 'cpp', 'java'):
+        dotdict(
+            macro_prefix =          '//%',
+            macro_suffix =          '',
 
-        statement_prefix =      '//@',
-        statement_suffix =      '',
+            statement_prefix =      '//@',
+            statement_suffix =      '',
 
-        comment_prefix =        '//#',
-        comment_suffix =        '',
+            comment_prefix =        '//#',
+            comment_suffix =        '',
 
-        variable_prefix =       '${',
-        variable_suffix =       '}',
+            variable_prefix =       '${',
+            variable_suffix =       '}',
 
-        evaluation_prefix =     '$${{',
-        evaluation_suffix =     '}}',
-    )
+            evaluation_prefix =     '$${{',
+            evaluation_suffix =     '}}',
+        )
+
+    ('perl', 'python'):
+        dotdict(
+            macro_prefix =          '#%',
+            macro_suffix =          '',
+
+            statement_prefix =      '#@',
+            statement_suffix =      '',
+
+            comment_prefix =        '##',
+            comment_suffix =        '',
+
+            variable_prefix =       '${',
+            variable_suffix =       '}',
+
+            evaluation_prefix =     '$${{',
+            evaluation_suffix =     '}}',
+        )
+
+    'html':
+        dotdict(
+            macro_prefix =          '<!--%',
+            macro_suffix =          '-->',
+
+            statement_prefix =      '<!--@',
+            statement_suffix =      '-->',
+
+            comment_prefix =        '<!--#',
+            comment_suffix =        '-->',
+
+            variable_prefix =       '${',
+            variable_suffix =       '}',
+
+            evaluation_prefix =     '$${{',
+            evaluation_suffix =     '}}',
+        )
 }
 
 if sys.platform == 'win32':
