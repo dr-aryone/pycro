@@ -10,7 +10,7 @@ elif sys.version_info[0] == 2:
     import __builtins__ as builtins
 
 else:
-    raise BaseException(
+    raise NotImplemented(
             "import builtins module for your python version: {}".format(
                 ','.join(n for n in sys.version_info[:3]),
             )
@@ -53,9 +53,6 @@ else:
 
 _MACRO_PATTERN = r'\s*(?P<macro>{macros})\s*(?P<args>.*?)\s*'
 
-# we comment statement pattern because
-# _STATEMENT_PATTERN = r'(?P<stat>.*)'
-
 _VARIABLE_NAME_PATTERN = r'[a-zA-Z_][a-zA-Z_0-9]*'
 
 _VARIABLE_PATTERN = r'{prefix}(?P<name>{pattern}){suffix}'
@@ -68,16 +65,17 @@ _DEFAULT_VARIABLE_VALUE = None
 _SPACE_CHARS = ' \t\n'
 
 
+# NOTE: pycro reversed variable names
+
 _DEFAULT_OUTFILE_VARIABLE_NAME = '__outfile__'
 
+_DEFAULT_PIPES_VARIABLE_NAME = '__pipes__'
 _DEFAULT_DIVERT_FUNCTION_NAME = '__divert__'
-
 _DEFAULT_UNDIVERT_FUNCTION_NAME = '__undivert__'
 
 _DEFAULT_RUN_FUNCTION_NAME = '__run__'
 
 _DEFAULT_INCLUDE_FUNCTION_NAME = '__include__'
-
 _DEFAULT_PLACE_FUNCTION_NAME = '__place__'
 
 
@@ -85,7 +83,6 @@ _DEFAULT_PLACE_FUNCTION_NAME = '__place__'
 _CACHE_FILE_MAGIC_NUMBER = b'.pycroche'
 
 _COMPILE_FLAGS = 0
-
 _OPTIMIZE_FLAG = -1
 
 _MARSHAL_VERSION = 4
@@ -151,11 +148,6 @@ __joinpath = os.path.join
 __abspath = os.path.abspath
 __realpath = os.path.realpath
 
-class dotdict(dict):
-    __getattr__ = dict.get
-    __setattr__ = dict.__setitem__
-    __delattr__ = dict.__delitem__
-
 if sys.version_info >= (3, 4):
     __fullmatch = re._pattern_type.fullmatch
 
@@ -164,6 +156,117 @@ else:
         m = pattern.match(string)
         if m and m.end() == len(string):
             return m
+
+class Pipe:
+    if sys.version_info[0] == 3:
+        _fdopen = open
+
+    elif sys.version_info[0] == 2:
+        _fdopen = os.fdopen
+
+    else:
+        raise NotImplemented(
+                "implement fdopen function for your python version: {}".format(
+                    ','.join(n for n in sys.version_info[:3]),
+                )
+            )
+
+    def __init__(self, read_mode = 'rt', write_mode = 'wt'):
+        pipe = os.pipe()
+        self.read_fd = Pipe._fdopen(pipe[0], read_mode)
+        self.write_fd = Pipe._fdopen(pipe[1], write_mode)
+
+    # --- IOBase functions ---
+
+    def close(self):
+        try:
+            self.read_fd.close()
+        finally:
+            self.write_fd.close()
+
+    @property
+    def closed(self):
+        return self.closed or self.closed
+
+    def fileno(self):
+        return self.read_fd.fileno(), self.write_fd.fileno()
+
+    def flush(self):
+        try:
+            self.read_fd.flush()
+        finally:
+            self.write_fd.flush()
+
+    def isatty(self):
+        return False
+
+    def readable(self):
+        return self.read_fd.readable()
+
+    def readline(self, hint=-1):
+        return self.read_fd.readline(hint)
+
+    def readlines(self, hint=-1):
+        return self.read_fd.readlines(hint)
+
+    def seek(self, offset, whence=0):
+        raise io.UnsupportedOperation('not seekable')
+
+    def seekable(self):
+        return False
+
+    def tell():
+        raise io.UnsupportedOperation('tell')
+
+    def truncate(size = None):
+        raise io.UnsupportedOperation('truncate')
+
+    def writable():
+        return self.write_fd.writable()
+
+    def writelines(lines):
+        return self.write_fd.writelines(lines)
+
+    # --- TextIOBase functions & variables ---
+
+    @property
+    def encoding(self):
+        return self.read_fd.encoding, self.write_fd.encoding
+
+    @property
+    def errors(self):
+        return self.read_fd.errors, self.write_fd.errors
+
+    @property
+    def newlines(self):
+        return self.read_fd.newlines, self.write_fd.newlines
+
+    @property
+    def buffer(self):
+        raise io.UnsupportedOperation('buffer')
+
+    def detach(self):
+        result = self.read_fd, self.write_fd
+        self.read_fd = None
+        self.write_fd = None
+        return result
+
+    def read(self, size = -1):
+        return self.read_fd.read(size)
+
+    def readline(self, size = -1):
+        return self.read_fd.readline(size)
+
+    # seek is implemented.
+    # tell is implemented.
+
+    def write(self, s):
+        return self.write_fd.write(s)
+
+class dotdict(dict):
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
 
 # --- argument parser ---
 
@@ -635,8 +738,13 @@ class CompilerEnvironment:
             indent = 0,
 
             outfile_variable_name = _DEFAULT_OUTFILE_VARIABLE_NAME,
-            divert_function_name = _DEFAULT_DIVERT_NAME,
+
+            pipes_varaible_name = _DEFAULT_PIPES_VARIABLE_NAME,
+            divert_function_name = _DEFAULT_DIVERT_FUNCTION_NAME,
+            undivert_function_name = _DEFAULT_UNDIVERT_FUNCTION_NAME,
+
             run_function_name = _DEFAULT_RUN_FUNCTION_NAME,
+
             include_function_name = _DEFAULT_INCLUDE_FUNCTION_NAME,
             place_function_name = _DEFAULT_PLACE_FUNCTION_NAME,
             ):
@@ -691,9 +799,17 @@ class CompilerEnvironment:
 
         # --- variable names ---
         self.outfile_variable_name = outfile_variable_name
+
+        self.pipes_varaible_name = pipes_varaible_name
+        self.divert_function_name = divert_function_name
+        self.undivert_function_name = undivert_function_name
+
         self.run_function_name = run_function_name
+
         self.include_function_name = include_function_name
         self.place_function_name = place_function_name
+
+        # --- indent & tabs ---
 
         self.indent = indent
         self.tab = tab
@@ -848,8 +964,15 @@ class ExecutorEnvironment:
 
             pipes = None,
 
+            # --- variable names ---
             outfile_variable_name = _DEFAULT_OUTFILE_VARIABLE_NAME,
+
+            pipes_varaible_name = _DEFAULT_PIPES_VARIABLE_NAME,
+            divert_function_name = _DEFAULT_DIVERT_FUNCTION_NAME,
+            undivert_function_name = _DEFAULT_UNDIVERT_FUNCTION_NAME,
+
             run_function_name = _DEFAULT_RUN_FUNCTION_NAME,
+
             include_function_name = _DEFAULT_INCLUDE_FUNCTION_NAME,
             place_function_name = _DEFAULT_PLACE_FUNCTION_NAME,
             ):
@@ -865,10 +988,17 @@ class ExecutorEnvironment:
 
         self.variables = variables
 
-        self.pipes = pipes or {}
+        self.pipes = pipes or collections.defaultdict(io.StringIO)
 
+        # --- variable names ---
         self.outfile_variable_name = outfile_variable_name
+
+        self.pipes_varaible_name = pipes_varaible_name
+        self.divert_function_name = divert_function_name
+        self.undivert_function_name = undivert_function_name
+
         self.run_function_name = run_function_name
+
         self.include_function_name = include_function_name
         self.place_function_name = place_function_name
 
@@ -882,11 +1012,27 @@ def execute_code_object(
 
     variables = env.variables
 
-    env.pipes[None] = outfile
+    pipes = env.pipes
+
+    pipes[None] = outfile
+
+    # --- outfile variable ---
 
     variables[env.outfile_variable_name] = outfile
 
+    # --- pipes variable ---
+
+    variables[env.pipes_varaible_name] = pipes
+
     # --- divert function ---
+
+    def _divert_function(target = None):
+        if not (isinstance(target, (str, int)) or target is None):
+            raise ValueError(
+                    "divert target must be type of str or int or None")
+        variables = pipes[target]
+
+    variables[env.divert_function_name] = _divert_function
 
     # --- place function ---
 
