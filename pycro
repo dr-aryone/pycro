@@ -612,7 +612,7 @@ class CompilerEnvironment:
             variable_prefix = '${',
             variable_suffix = '}',
 
-            evaluation_prefix = '${{',
+            evaluation_prefix = '$${{',
             evaluation_suffix = '}}',
 
             tab = '\t',
@@ -737,7 +737,7 @@ def generate_code(infile, outfile, env):
                     env.tabs(),
                     striped_line[
                             len(statement_prefix): \
-                            len(striped_line) -len(statement_suffix)]\
+                            len(striped_line) -len(statement_suffix)] \
                                 .strip(_SPACE_CHARS),
                     )
                 )
@@ -751,7 +751,7 @@ def generate_code(infile, outfile, env):
 
             continue
 
-        # --- check for evaluations ---
+        # --- check for evaluations & variables ---
         outfile.write(env.tabs())
 
         m = evaluation_variable_re.search(line)
@@ -807,7 +807,12 @@ def generate_code(infile, outfile, env):
     if env.macro_stack:
         raise CompilerError(_UNTERMINATED_BLOCK, env.macro_stack[-1])
 
-def compile_code(infile, env,
+def compile_generated_code(code, infile_name,
+        compile_flags = _COMPILE_FLAGS, optimize = _OPTIMIZE_FLAG):
+
+    return compile(code, infile_name, 'exec', compile_flags, True, optimize)
+
+def compile_file(infile, env,
         compile_flags = _COMPILE_FLAGS, optimize = _OPTIMIZE_FLAG):
 
     string_buffer = io.StringIO()
@@ -815,11 +820,11 @@ def compile_code(infile, env,
         generate_code(infile, string_buffer, env)
 
     return compile(string_buffer.getvalue(), infile.name, 'exec',
-            flags, True, optimize)
+            compile_flags, True, optimize)
 
 _default_builtins = builtins
 
-class ExecutorError:
+class ExecutorEnvironment:
     def __init__(self,
             variables = None,
             builtins = None,
@@ -837,7 +842,7 @@ class ExecutorError:
 
         if '__builtins__' not in variables:
             if builtins is None:
-                builtins = _default_builtins.copy()
+                builtins = _default_builtins
 
             variables['__builtins__'] = builtins
 
