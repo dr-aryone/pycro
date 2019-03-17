@@ -946,12 +946,40 @@ else:
             'implement __get_cache_file_path() for your platform: {}'.format(
                 sys.platform))
 
+def temp_code():
+    infile_name = 'temp.txt'
+
+    compiler_env = CompilerEnvironment()
+
+    string_buffer = io.StringIO()
+
+    with open(infile_name) as infile:
+        generate_code(infile, string_buffer, compiler_env)
+
+    generated_code = string_buffer.getvalue()
+
+    print(generated_code)
+    print_line()
+
+    print('compiling ...')
+
+    code_object = compile_generated_code(generated_code, infile_name)
+
+
+    execution_env = ExecutorEnvironment()
+
+    print('running ...')
+
+    print_line()
+    execute_code_object(code_object, sys.stdout, execution_env)
+    print_line('end of result')
+
 def main(argv):
     options = __parse_argv(sys.argv)
     if isinstance(options, int):
         return options
 
-
+    temp_code()
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))
