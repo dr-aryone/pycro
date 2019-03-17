@@ -566,36 +566,9 @@ def _generate_while(args, outfile, env):
 
     env.macro_stack.append('while')
 
-# --- else macro ---
-
-def _generate_else(args, outfile, env):
-    if env.macro_stack and env.macro_stack[-1] in \
-            ('if', 'elif', 'for', 'while', 'except'):
-
-        env.indent -= 1
-        outfile.write('{}{}:\n'.format(env.tabs(), 'else'))
-        env.indent += 1
-
-        env.macro_stack[-1] = 'else'
-
-    else:
-        raise CompilerError(_WITHOUT_PRECEDING,
-                'else', 'if/elif/for/while/except')
-
-# --- with macro ---
-
-def _generate_with(args, outfile, env):
-    if not args:
-        raise CompilerError(_MACRO_REQUIRES, 'with', 'an expression')
-
-    outfile.write('{}{} {}\n'.format(env.tabs(), 'with', args))
-    env.indent += 1
-
-    env.macro_stack.append('with')
-
 # --- try macro ---
 
-def _generator_try(args, outfile, env):
+def _generate_try(args, outfile, env):
     outfile.write('{}{}:\n'.format(env.tabs, 'try'))
     env.indent += 1
 
@@ -603,7 +576,7 @@ def _generator_try(args, outfile, env):
 
 # -- except macro ---
 
-def _generator_except(args, outfile, env):
+def _generate_except(args, outfile, env):
     if not args:
         raise CompilerError(_MACRO_REQUIRES, 'except', 'an expression')
 
@@ -632,6 +605,43 @@ def _generate_finally(args, outfile, env):
     else:
         raise CompilerError(_WITHOUT_PRECEDING, 'finally', 'try/except/else')
 
+# --- else macro ---
+
+def _generate_else(args, outfile, env):
+    if env.macro_stack and env.macro_stack[-1] in \
+            ('if', 'elif', 'for', 'while', 'except'):
+
+        env.indent -= 1
+        outfile.write('{}{}:\n'.format(env.tabs(), 'else'))
+        env.indent += 1
+
+        env.macro_stack[-1] = 'else'
+
+    else:
+        raise CompilerError(_WITHOUT_PRECEDING,
+                'else', 'if/elif/for/while/except')
+
+# --- with macro ---
+
+def _generate_with(args, outfile, env):
+    if not args:
+        raise CompilerError(_MACRO_REQUIRES, 'with', 'an expression')
+
+    outfile.write('{}{} {}\n'.format(env.tabs(), 'with', args))
+    env.indent += 1
+
+    env.macro_stack.append('with')
+
+# --- def macro ---
+
+def _generate_def(args, outfile, env):
+    if not args:
+        raise CompilerError(_MACRO_REQUIRES, 'def', 'a function definition')
+
+    outfile.write('{}{} {}\n'.format(env.tabs(), 'def', args))
+    env.indent += 1
+
+    env.macro_stack.append('def')
 
 # --- end macro ---
 
@@ -687,6 +697,17 @@ def _generate_divert(args, outfile, env):
         )
     )
 
+# -- undivert macro ---
+
+def _generate_divert(args, outfile, env):
+    outfile.write(
+        '{}{}({})\n'.format(
+            env.tabs(),
+            env.undivert_function_name,
+            args
+        )
+    )
+
 # --- exec macro ---
 
 # TODO: complete _generate_exec
@@ -704,10 +725,19 @@ def _generate_load(args, outfile, env):
 _default_code_generators = {
         'if': _generate_if,
         'elif': _generate_elif,
-        'else': _generate_else,
+
         'for': _generate_for,
         'while': _generate_while,
+
+        'try': _generate_try,
+        'except': _generate_except,
+        'finally': _generate_finally,
+
+        'else': _generate_else,
         'with': _generate_with,
+
+        'def': _generate_def,
+
         'end': _generate_end,
 
         'place': _generate_place,
@@ -1144,6 +1174,7 @@ else:
                 sys.platform))
 
 def temp_code():
+    print_line('run temporary code')
     infile_name = 'temp.txt'
 
     compiler_env = CompilerEnvironment()
@@ -1167,7 +1198,7 @@ def temp_code():
 
     print('running ...')
 
-    print_line()
+    print_line('result')
     execute_code_object(code_object, sys.stdout, execution_env)
     print_line('end of result')
 
