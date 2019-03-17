@@ -63,8 +63,16 @@ _VARIABLE_PATTERN = r'{prefix}(?P<name>{pattern}){suffix}'
 _EVALUATION_PATTERN = r'{prefix}\s*(?P<eval>.*?)\s*{suffix}'
 
 
+_DEFAULT_VARIABLE_VALUE = None
+
+_SPACE_CHARS = ' \t\n'
+
 
 _DEFAULT_OUTFILE_VARIABLE_NAME = '__outfile__'
+
+_DEFAULT_DIVERT_FUNCTION_NAME = '__divert__'
+
+_DEFAULT_UNDIVERT_FUNCTION_NAME = '__undivert__'
 
 _DEFAULT_RUN_FUNCTION_NAME = '__run__'
 
@@ -72,9 +80,6 @@ _DEFAULT_INCLUDE_FUNCTION_NAME = '__include__'
 
 _DEFAULT_PLACE_FUNCTION_NAME = '__place__'
 
-_DEFAULT_VARIABLE_VALUE = None
-
-_SPACE_CHARS = ' \t\n'
 
 
 _CACHE_FILE_MAGIC_NUMBER = b'.pycroche'
@@ -552,35 +557,46 @@ def _generate_include(args, outfile, env):
             args
         )
     )
-    # TODO: implement _generator_include
+    # TODO: complete _generator_include
 
 # --- place macro ---
-
-def _place_function_creator(outfile, current_working_directory):
-    def _place_function(file_name):
-        with open(__joinpath(current_working_directory, file_name)) as infile:
-            outfile.write(infile.read())
 
 def _generate_place(args, outfile, env):
     if not args:
         raise CompilerError(_MACRO_REQUIRES, 'place', 'a filename')
 
     outfile.write(
-        '{}{}.({})'.format(
+        '{}{}({})\n'.format(
             env.tabs(),
             env.place_function_name,
             args,
         )
     )
 
+# --- divert macro ---
+
+def _generate_divert(args, outfile, env):
+    outfile.write(
+        '{}{}({})\n'.format(
+            env.tabs(),
+            env.divert_function_name,
+            args
+        )
+    )
+
 # --- exec macro ---
+
+# TODO: complete _generate_exec
 
 def _generate_exec(args, outfile, env):
     pass
 
-def _exec_function_creator():
-    def _exec_function(*args):
-        subprocess.run(*args)
+# --- load macro ---
+
+# TODO: complete _generate_load
+
+def _generate_load(args, outfile, env):
+    pass
 
 _default_code_generators = {
         'if': _generate_if,
@@ -619,6 +635,7 @@ class CompilerEnvironment:
             indent = 0,
 
             outfile_variable_name = _DEFAULT_OUTFILE_VARIABLE_NAME,
+            divert_function_name = _DEFAULT_DIVERT_NAME,
             run_function_name = _DEFAULT_RUN_FUNCTION_NAME,
             include_function_name = _DEFAULT_INCLUDE_FUNCTION_NAME,
             place_function_name = _DEFAULT_PLACE_FUNCTION_NAME,
@@ -829,7 +846,7 @@ class ExecutorEnvironment:
             variables = None,
             builtins = None,
 
-            current_working_directory = '.',
+            pipes = None,
 
             outfile_variable_name = _DEFAULT_OUTFILE_VARIABLE_NAME,
             run_function_name = _DEFAULT_RUN_FUNCTION_NAME,
@@ -846,16 +863,46 @@ class ExecutorEnvironment:
 
             variables['__builtins__'] = builtins
 
-        self.current_working_directory = current_working_directory
+        self.variables = variables
+
+        self.pipes = pipes or {}
 
         self.outfile_variable_name = outfile_variable_name
         self.run_function_name = run_function_name
         self.include_function_name = include_function_name
         self.place_function_name = place_function_name
 
-def execute_code_object(code_object, outfile, env):
+def execute_code_object(
+        code_object,
+        outfile,
+        env,
+
+        working_directory = '.',
+        ):
+
+    variables = env.variables
+
+    env.pipes[None] = outfile
+
     variables[env.outfile_variable_name] = outfile
-    variables[env.run_function_name] = _place_function_creator()
+
+    # --- divert function ---
+
+    # --- place function ---
+
+    def _place_function(file_name, output = None):
+        output = env.pipes[output]
+        with open(__joinpath(working_directory, file_name)) as infile:
+            output.write(infile.read())
+
+    variables[env.place_function_name] = _place_function
+
+    # --- exec function ---
+
+    # TODO: complete exec function
+
+    def _exec_function(command, stdin = None, stdout = None, stderr = None):
+        pass
 
     return exec(code_object, variables)
 
