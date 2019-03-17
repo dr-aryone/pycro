@@ -87,61 +87,6 @@ _MARSHAL_VERSION = 4
 
 _BIG_INTEGER_SIZE = 4
 
-_default_language_specifications = {
-    ('c', 'cpp', 'java', 'javascript'):
-        dotdict(
-            macro_prefix =          '//%',
-            macro_suffix =          '',
-
-            statement_prefix =      '//@',
-            statement_suffix =      '',
-
-            comment_prefix =        '//#',
-            comment_suffix =        '',
-
-            variable_prefix =       '${',
-            variable_suffix =       '}',
-
-            evaluation_prefix =     '$${{',
-            evaluation_suffix =     '}}',
-        ),
-
-    ('perl', 'python'):
-        dotdict(
-            macro_prefix =          '#%',
-            macro_suffix =          '',
-
-            statement_prefix =      '#@',
-            statement_suffix =      '',
-
-            comment_prefix =        '##',
-            comment_suffix =        '',
-
-            variable_prefix =       '${',
-            variable_suffix =       '}',
-
-            evaluation_prefix =     '$${{',
-            evaluation_suffix =     '}}',
-        ),
-
-    'html':
-        dotdict(
-            macro_prefix =          '<!--%',
-            macro_suffix =          '-->',
-
-            statement_prefix =      '<!--@',
-            statement_suffix =      '-->',
-
-            comment_prefix =        '<!--#',
-            comment_suffix =        '-->',
-
-            variable_prefix =       '${',
-            variable_suffix =       '}',
-
-            evaluation_prefix =     '$${{',
-            evaluation_suffix =     '}}',
-        ),
-}
 
 __USAGE = "usage: {} [OPTION]... [[--] FILE | -]..."
 __HELP = """\
@@ -822,6 +767,7 @@ def generate_code(infile, outfile, env):
                 )
 
             name = m.group('name')
+
             if name is None:
                 # --- write evaluation ---
                 outfile.write(
@@ -933,8 +879,61 @@ def write_compiled_code(code_object, env, outfile):
 
     __write_code_object(outfile, code_object)
 
+_default_language_specifications = {
+    ('c', 'cpp', 'java', 'javascript'):
+        dotdict(
+            macro_prefix =          '//%',
+            macro_suffix =          '',
 
-# --- main function ---
+            statement_prefix =      '//@',
+            statement_suffix =      '',
+
+            comment_prefix =        '//#',
+            comment_suffix =        '',
+
+            variable_prefix =       '${',
+            variable_suffix =       '}',
+
+            evaluation_prefix =     '$${{',
+            evaluation_suffix =     '}}',
+        ),
+
+    ('perl', 'python'):
+        dotdict(
+            macro_prefix =          '#%',
+            macro_suffix =          '',
+
+            statement_prefix =      '#@',
+            statement_suffix =      '',
+
+            comment_prefix =        '##',
+            comment_suffix =        '',
+
+            variable_prefix =       '${',
+            variable_suffix =       '}',
+
+            evaluation_prefix =     '$${{',
+            evaluation_suffix =     '}}',
+        ),
+
+    'html':
+        dotdict(
+            macro_prefix =          '<!--%',
+            macro_suffix =          '-->',
+
+            statement_prefix =      '<!--@',
+            statement_suffix =      '-->',
+
+            comment_prefix =        '<!--#',
+            comment_suffix =        '-->',
+
+            variable_prefix =       '${',
+            variable_suffix =       '}',
+
+            evaluation_prefix =     '$${{',
+            evaluation_suffix =     '}}',
+        ),
+}
 
 if sys.platform == 'win32':
     def __get_cache_file_path(cache_folder_path, file_real_path):
