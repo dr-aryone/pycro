@@ -699,7 +699,7 @@ def _generate_divert(args, outfile, env):
 
 # -- undivert macro ---
 
-def _generate_divert(args, outfile, env):
+def _generate_undivert(args, outfile, env):
     outfile.write(
         '{}{}({})\n'.format(
             env.tabs(),
@@ -1064,6 +1064,15 @@ def execute_code_object(
 
     variables[env.divert_function_name] = _divert_function
 
+    # --- undivert function ---
+    def _undivert_function(target):
+        if not isinstance(target, (str, int)):
+            raise ValueError(
+                    "undivert target must be type of str or int")
+        outfile.write(pipes[target])
+
+    variables[env.undivert_function_name] = _undivert_function
+
     # --- place function ---
 
     def _place_function(file_name, output = None):
@@ -1175,9 +1184,11 @@ else:
 
 def temp_code():
     print_line('run temporary code')
-    infile_name = 'temp.txt'
+    infile_name = '_README.md'
 
-    compiler_env = CompilerEnvironment()
+    compiler_env = CompilerEnvironment(
+        **_default_language_specifications['html']
+    )
 
     string_buffer = io.StringIO()
 
