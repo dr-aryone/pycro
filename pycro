@@ -176,6 +176,17 @@ __TRY = "try '{} --help' for more information."
 if __debug__:
     from pprint import pprint
 
+    def print_line(title = None, fill='-', width=80):
+        if title:
+            print('{:{fill}^{width}}'.format(
+                    ' ' + title.strip() + ' ',
+                    width=80,
+                    fill=fill,
+                    )
+                )
+        else:
+            print(fill * width)
+
     def rprint(*objects, sep=', ', end='\n', file=sys.stdout):
         if objects:
             file.write(repr(objects[0]))
