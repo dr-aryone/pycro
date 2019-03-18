@@ -749,13 +749,13 @@ class CompilerEnvironment:
 
             code_generators = None,
 
-            macro_prefix = '%',
+            macro_prefix = '@',
             macro_suffix = '',
 
-            statement_prefix = '@',
+            statement_prefix = '#',
             statement_suffix = '',
 
-            comment_prefix = '#',
+            comment_prefix = '%',
             comment_suffix = '',
 
             variable_prefix = '${',
@@ -1119,13 +1119,13 @@ def write_compiled_code(code_object, env, outfile):
 _default_language_specifications = {
     ('c', 'cpp', 'java', 'javascript'):
         dotdict(
-            macro_prefix =          '//%',
+            macro_prefix =          '//@',
             macro_suffix =          '',
 
-            statement_prefix =      '//@',
+            statement_prefix =      '//#',
             statement_suffix =      '',
 
-            comment_prefix =        '//#',
+            comment_prefix =        '//%',
             comment_suffix =        '',
 
             variable_prefix =       '${',
@@ -1137,13 +1137,13 @@ _default_language_specifications = {
 
     ('perl', 'python'):
         dotdict(
-            macro_prefix =          '#%',
+            macro_prefix =          '#@',
             macro_suffix =          '',
 
-            statement_prefix =      '#@',
+            statement_prefix =      '##',
             statement_suffix =      '',
 
-            comment_prefix =        '##',
+            comment_prefix =        '#%',
             comment_suffix =        '',
 
             variable_prefix =       '${',
@@ -1155,13 +1155,13 @@ _default_language_specifications = {
 
     'html':
         dotdict(
-            macro_prefix =          '<!--%',
+            macro_prefix =          '<!--@',
             macro_suffix =          '-->',
 
-            statement_prefix =      '<!--@',
+            statement_prefix =      '<!--#',
             statement_suffix =      '-->',
 
-            comment_prefix =        '<!--#',
+            comment_prefix =        '<!--%',
             comment_suffix =        '-->',
 
             variable_prefix =       '${',
