@@ -7,6 +7,7 @@ import re
 import collections
 import marshal
 import subprocess
+import configparser
 
 if sys.version_info[0] == 3:
     import builtins
@@ -23,7 +24,6 @@ else:
 
 _CACHE_FOLDER_NAME = '.pycro_cache'
 
-# TODO: read _CONFIG_FILE_NAME as a `ini` or `json` and apply them to settings
 _CONFIG_FILE_NAME = '.pycro'
 
 if sys.platform.startswith('linux') or sys.platform.startswith('freebsd'):
@@ -110,7 +110,8 @@ Sortable options:
                                       {default_variable_value}
     -U, --undefine NAME             undefine NAME variable
     -S, --set KEY=VALUE             set KEY setting to VALUE
-    -L, --lang LANG                 set prefix and suffix for LANG specification
+    -L, --lang LANGUAGE             set prefix and suffix for LANGUAGE
+                                      specification
     -l, --load JSONFILE             load JSONFILE and update variables
     -I, --import MODULE             import MODULE to interpreter variables
     --                              read next argument as input FILE (don't
@@ -227,7 +228,7 @@ def __parse_argv(argv):
         # read next arg
         if next_args:
             next_arg = next_args.popleft()
-            if next_arg[0] in ('input', 'import'):
+            if next_arg[0] in ('input', 'import', 'lang', 'jsonfile'):
                 result.jobs.append((next_arg[0], arg))
 
             elif next_arg[0] == 'define':
@@ -346,6 +347,10 @@ def __parse_argv(argv):
                 elif option == 'set':
                     next_args.append(('setting', '--set'))
 
+                # specify language
+                elif option == 'lang':
+                    next_args.append(('lang', '--lang'))
+
                 # load json files
                 elif option == 'load':
                     next_args.append(('jsonfile', '--load'))
@@ -388,6 +393,10 @@ def __parse_argv(argv):
                     elif ch == 'S':
                         next_args.append(('setting', '-S'))
 
+                    # specify language
+                    elif ch == 'L':
+                        next_args.append(('lang', '-L'))
+
                     # load json files
                     elif ch == 'l':
                         next_args.append(('jsonfile', '-l'))
@@ -415,7 +424,9 @@ def __parse_argv(argv):
             list(tup[1] for tup in result.jobs if tup[0] == 'input')
 
     result.settings = \
-            list(tup[1] for tup in result.jobs if tup[0] == 'setting')
+            list(
+                tup[1] for tup in result.jobs if tup[0] in ('setting', '')
+            )
 
 
     result.jobs = list(result.jobs)
@@ -1240,6 +1251,72 @@ else:
             'implement __get_cache_file_path() for your platform: {}'.format(
                 sys.platform))
 
+def __apply_settings(key, value, compiler_env):
+    if key in ('mp', 'macro_prefix'):
+        compiler_env.macro_prefix = value
+
+    elif key in ('ms', 'macro_suffix'):
+        compiler_env.macro_suffix = value
+
+    elif key in ('sp', 'statement_prefix'):
+        compiler_env.statement_prefix = value
+
+    elif key in ('ss', 'statement_suffix'):
+        compiler_env.statement_suffix = value
+
+    elif key in ('vp', 'variable_prefix'):
+        compiler_env.variable_prefix = value
+
+    elif key in ('vs', 'variable_suffix'):
+        compiler_env.variable_suffix = value
+
+    elif key in ('ep', 'evaluation_prefix'):
+        compiler_env.evaluation_prefix = value
+
+    elif key in ('es', 'evaluation_suffix'):
+        compiler_env.evaluation_suffix = value
+
+    else:
+        raise KeyError('unknown keyword: {!r}'.format(key))
+
+def main(argv):
+    options = __parse_argv(sys.argv)
+    if isinstance(options, int):
+        return options
+
+    # first clear cache folder
+    if 'clear' in options.switchs:
+        # clear cache
+        pass
+
+    # TODO: read _CONFIG_FILE_NAME as a `ini` or `json` and apply them to
+    #       settings
+
+    if 'arrange' in options.switchs:
+        # we must process '-S', FILEs according to their order.
+        pass
+
+    else:
+        # initialize environments
+        compiler_env = CompilerEnvironment()
+        executor_env = ExecutorEnvironment()
+
+        # apply settings
+        for key, value in options.settings:
+            __apply_settings(key.lower(), value, compiler_env)
+
+        # compile and cache input files
+
+        # apply variable definitions, or undefinitions
+
+        pass
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv))
+
+
+# --- temporary codes ---
+
 def temp_code():
     print_line('run temporary code')
     infile_name = 'temp.txt'
@@ -1268,29 +1345,3 @@ def temp_code():
     print_line('result')
     execute_code_object(code_object, sys.stdout, execution_env)
     print_line('end of result')
-
-def main(argv):
-    options = __parse_argv(sys.argv)
-    if isinstance(options, int):
-        return options
-
-    # first clear cache folder
-    if 'clear' in options.switchs:
-        # clear cache
-        pass
-
-
-    if 'arrange' in options.switchs:
-        # we must process '-S', FILEs according to their order.
-        pass
-
-    else:
-        # initialize compiler environment
-        compiler_env = CompilerEnvironment()
-
-        # apply '-S' option
-
-        pass
-
-if __name__ == '__main__':
-    sys.exit(main(sys.argv))
