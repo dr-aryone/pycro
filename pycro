@@ -92,6 +92,9 @@ _MARSHAL_VERSION = 4
 _BIG_INTEGER_SIZE = 4
 
 
+# TODO: some interesting options:
+#       -
+
 __USAGE = "usage: {} [OPTION]... [[--] FILE | -]..."
 __HELP = """\
 Pycro FILEs to standard output. if no FILE or if FILE is '-', standard input is
@@ -107,9 +110,9 @@ Sortable options:
                                       {default_variable_value}
     -U, --undefine NAME             undefine NAME variable
     -S, --set KEY=VALUE             set KEY setting to VALUE
+    -L, --lang LANG                 set prefix and suffix for LANG specification
     -l, --load JSONFILE             load JSONFILE and update variables
     -I, --import MODULE             import MODULE to interpreter variables
-    -L, --lang LANG                 set prefix and suffix for LANG specification
     --                              read next argument as input FILE (don't
                                       treats '-' as standard input)
 
@@ -132,7 +135,7 @@ __TRY = "try '{} --help' for more information."
 
 __setting_keys = {
     'mp', 'macro_prefix'                'ms', 'macro_suffix',
-    'sp', 'statement_prefix',           'ss', 'statement_suffix,
+    'sp', 'statement_prefix',           'ss', 'statement_suffix',
     'cp', 'comment_prefix',             'cs', 'comment_suffix',
     'vp', 'variable_prefix',            'vs', 'variable_suffix',
     'ep', 'evaluation_prefix',          'es', 'evaluation_suffix',
@@ -281,7 +284,7 @@ def __parse_argv(argv):
                 if arg[0] not in __setting_keys:
                     __print_erro(
                         "unknown setting key: {} for option: {!r}".format(
-                            arg[0]
+                            arg[0],
                             next_arg[1],
                         )
                     )
@@ -1166,7 +1169,8 @@ def write_compiled_code(code_object, env, outfile):
     __write_code_object(outfile, code_object)
 
 _default_language_specifications = {
-    ('c', 'cpp', 'java', 'javascript'):
+    **dict.fromkeys(
+        ['c', 'cpp', 'java', 'javascript'],
         dotdict(
             macro_prefix =          '//@',
             macro_suffix =          '',
@@ -1183,8 +1187,10 @@ _default_language_specifications = {
             evaluation_prefix =     '$${{',
             evaluation_suffix =     '}}',
         ),
+    ),
 
-    ('perl', 'python'):
+    **dict.fromkeys(
+        ['perl', 'python'],
         dotdict(
             macro_prefix =          '#@',
             macro_suffix =          '',
@@ -1201,8 +1207,10 @@ _default_language_specifications = {
             evaluation_prefix =     '$${{',
             evaluation_suffix =     '}}',
         ),
+    ),
 
-    'html':
+    **dict.fromkeys(
+        ['html'],
         dotdict(
             macro_prefix =          '<!--@',
             macro_suffix =          '-->',
@@ -1219,6 +1227,7 @@ _default_language_specifications = {
             evaluation_prefix =     '$${{',
             evaluation_suffix =     '}}',
         ),
+    )
 }
 
 if sys.platform == 'win32':
