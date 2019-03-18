@@ -24,6 +24,9 @@ import subprocess
 
 _CACHE_FOLDER_NAME = '.pycro_cache'
 
+# experimental
+_CONFIG_FILE_NAME = '.pycro'
+
 if sys.platform.startswith('linux') or sys.platform.startswith('freebsd'):
     _HOME_DIRECTORY = os.environ['HOME']
 
@@ -108,11 +111,17 @@ Sortable options:
                                       treats '-' as standard input)
 
 common options:
-    -C, --clear-cache               first clear cashed code objects
-
+    -C, --clear-cache               first clear compiler cache
 
 Known language specification:
     c, cpp, java, perl, python, html
+
+Setting Keys:
+    mp, macro_prefix                ms, macro_suffix,
+    sp, statement_prefix,           ss, statement_suffix,
+    cp, comment_prefix,             cs, comment_suffix,
+    vp, variable_prefix,            vs, variable_suffix,
+    ep, evaluation_prefix,          es, evaluation_suffix,
 """.format(
     default_variable_value = _DEFAULT_VARIABLE_VALUE
 )
@@ -336,7 +345,7 @@ def __parse_argv(argv):
 
                 # clear cache, ('--clear-cache')
                 elif option == 'clear-cache':
-                    result.switchs.add('clear-cache')
+                    result.switchs.add('clear')
 
                 # define variable, ('--define')
                 elif option == 'define':
@@ -378,7 +387,7 @@ def __parse_argv(argv):
 
                     # clear cache, ('-C')
                     elif ch == 'C':
-                        result.switchs.add('clear-cache')
+                        result.switchs.add('clear')
 
                     # define variable, ('-D')
                     elif ch == 'D':
@@ -1270,12 +1279,21 @@ def main(argv):
     if isinstance(options, int):
         return options
 
-    # --- first clear cache folder ---
-    if 'clear-cache' in options.switchs:
+    # first clear cache folder
+    if 'clear' in options.switchs:
         # clear cache
         pass
 
+    compiler_env = CompilerEnvironment()
+    executor_env = ExecutorEnvironment()
 
+    if 'arrange' in options.switchs:
+        # we must process '-S', FILEs according to their order.
+        pass
+
+    else:
+        # initialize compiler environment
+        pass
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))
