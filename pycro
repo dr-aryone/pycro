@@ -107,6 +107,10 @@ Sortable options:
     --                              read next argument as input FILE (don't
                                       treats '-' as standard input)
 
+common options:
+    -C, --clear-cache               first clear cashed code objects
+
+
 Known language specification:
     c, cpp, java, perl, python, html
 """.format(
@@ -275,7 +279,7 @@ def __print_erro(line):
 def __parse_argv(argv):
     result = dotdict(
             jobs = collections.deque(),
-            operation_modes = set(),
+            switchs = set(),
 
             # NOTE: these fields will be filled on end
             inputs = None,
@@ -328,7 +332,11 @@ def __parse_argv(argv):
 
                 # arrange performances, ('--arrange-performance')
                 elif option == 'arrange-process':
-                    result.operation_modes.add('arrange')
+                    result.switchs.add('arrange')
+
+                # clear cache, ('--clear-cache')
+                elif option == 'clear-cache':
+                    result.switchs.add('clear-cache')
 
                 # define variable, ('--define')
                 elif option == 'define':
@@ -366,7 +374,11 @@ def __parse_argv(argv):
 
                     # arrange performances, ('-a')
                     elif ch == 'a':
-                        result.operation_modes.add('arrange')
+                        result.switchs.add('arrange')
+
+                    # clear cache, ('-C')
+                    elif ch == 'C':
+                        result.switchs.add('clear-cache')
 
                     # define variable, ('-D')
                     elif ch == 'D':
@@ -1258,7 +1270,12 @@ def main(argv):
     if isinstance(options, int):
         return options
 
-    temp_code()
+    # --- first clear cache folder ---
+    if 'clear-cache' in options.switchs:
+        # clear cache
+        pass
+
+
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))
