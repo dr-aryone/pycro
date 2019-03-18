@@ -20,6 +20,7 @@ import io
 import re
 import collections
 import marshal
+import subprocess
 
 _CACHE_FOLDER_NAME = '.pycro_cache'
 
@@ -657,35 +658,6 @@ def _generate_end(args, outfile, env):
 
     env.indent -= 1
 
-# --- include macro ---
-
-def _generate_include(args, outfile, env):
-    if not args:
-        raise CompilerError(_MACRO_REQUIRES, 'for', 'a filename')
-
-    outfile.write(
-        '{}{}.({})'.format(
-            env.tabs(),
-            env.include_function_name,
-            args
-        )
-    )
-    # TODO: complete _generator_include
-
-# --- place macro ---
-
-def _generate_place(args, outfile, env):
-    if not args:
-        raise CompilerError(_MACRO_REQUIRES, 'place', 'a filename')
-
-    outfile.write(
-        '{}{}({})\n'.format(
-            env.tabs(),
-            env.place_function_name,
-            args,
-        )
-    )
-
 # --- divert macro ---
 
 def _generate_divert(args, outfile, env):
@@ -708,12 +680,49 @@ def _generate_undivert(args, outfile, env):
         )
     )
 
-# --- exec macro ---
+# --- place macro ---
 
-# TODO: complete _generate_exec
+def _generate_place(args, outfile, env):
+    if not args:
+        raise CompilerError(_MACRO_REQUIRES, 'place', 'a filename')
 
-def _generate_exec(args, outfile, env):
-    pass
+    outfile.write(
+        '{}{}({})\n'.format(
+            env.tabs(),
+            env.place_function_name,
+            args,
+        )
+    )
+
+# --- include macro ---
+
+def _generate_include(args, outfile, env):
+    if not args:
+        raise CompilerError(_MACRO_REQUIRES, 'for', 'a filename')
+
+    outfile.write(
+        '{}{}({})\n'.format(
+            env.tabs(),
+            env.include_function_name,
+            args,
+        )
+    )
+
+    # TODO: complete _generator_include
+
+# --- run macro ---
+
+def _generate_run(args, outfile, env):
+    if not args:
+        raise CompilerError(_MACRO_REQUIRES, 'run', 'a command')
+
+    outfile.write(
+        '{}{}({})\n'.format(
+            env.tabs(),
+            env.run_function_name,
+            args,
+        )
+    )
 
 # --- load macro ---
 
@@ -737,10 +746,14 @@ _default_code_generators = {
         'with': _generate_with,
 
         'def': _generate_def,
-
         'end': _generate_end,
 
+        'divert': _generate_divert,
+        'undivert': _generate_undivert,
+
         'place': _generate_place,
+
+        'run': _generate_run,
 }
 
 class CompilerEnvironment:
@@ -1058,18 +1071,19 @@ def execute_code_object(
 
     def _divert_function(target = None):
         if not (isinstance(target, (str, int)) or target is None):
-            raise ValueError(
+            raise TypeError(
                     "divert target must be type of str or int or None")
-        variables = pipes[target]
+        variables[env.outfile_variable_name] = pipes[target]
 
     variables[env.divert_function_name] = _divert_function
 
     # --- undivert function ---
+
     def _undivert_function(target):
         if not isinstance(target, (str, int)):
-            raise ValueError(
+            raise TypeError(
                     "undivert target must be type of str or int")
-        outfile.write(pipes[target])
+        outfile.write(pipes[target].getvalue())
 
     variables[env.undivert_function_name] = _undivert_function
 
@@ -1082,12 +1096,43 @@ def execute_code_object(
 
     variables[env.place_function_name] = _place_function
 
-    # --- exec function ---
+    # --- include function ---
 
-    # TODO: complete exec function
+    # TODO: write _include_function
 
-    def _exec_function(command, stdin = None, stdout = None, stderr = None):
-        pass
+    # --- run function ---
+
+    def _run_function(command,
+            stdin = None,
+            stdout = None,
+            stderr = None,
+            check = True
+            ):
+
+        if stdin is None:
+            input = ''
+        elif isinstance(stdin, (str, int)):
+            input = pipes[stdin].getvalue()
+        else:
+            raise TypeError("run stdin argument must be type of str or int")
+
+        if stdout is None or isinstance(stdout, (str, int)):
+            stdout = pipes[stdout]
+        else:
+            raise TypeError(
+                    "run stdout argument must be type of str or int or None")
+
+        if stderr is None or isinstance(stderr, (str, int)):
+            stderr = pipes[stderr]
+        else:
+            raise TypeError(
+                    "run stderr argument must be type of str or int or None")
+
+        subprocess.run(command, input=input, stdout=stdout, stderr=stderr)
+
+    variables[env.run_function_name] = _run_function
+
+    # --- executing code_object ---
 
     return exec(code_object, variables)
 
@@ -1184,11 +1229,9 @@ else:
 
 def temp_code():
     print_line('run temporary code')
-    infile_name = '_README.md'
+    infile_name = 'temp.txt'
 
-    compiler_env = CompilerEnvironment(
-        **_default_language_specifications['html']
-    )
+    compiler_env = CompilerEnvironment()
 
     string_buffer = io.StringIO()
 
