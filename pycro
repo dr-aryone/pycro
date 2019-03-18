@@ -224,7 +224,7 @@ def __parse_argv(argv):
         # read next arg
         if next_args:
             next_arg = next_args.popleft()
-            if next_arg[0] in ('define', 'undefine', 'input', 'import'):
+            if next_arg[0] in ('input', 'import'):
                 result.jobs.append((next_arg[0], arg))
 
             elif next_arg[0] == 'define':
@@ -249,6 +249,21 @@ def __parse_argv(argv):
                     return 1
 
                 result.jobs.append(('define', arg))
+
+            elif next_arg[0] == 'undefine':
+
+                # --- parsing undefinition ---
+                if not __fullmatch(_VARIABLE_NAME_RE, arg[0]):
+                    __print_erro(
+                        "invalid variable name: {!r} for option: {!r}".format(
+                            arg[0],
+                            next_arg[1],
+                        )
+                    )
+                    print(__TRY.format(argv[0]))
+                    return 1
+
+                result.jobs.append(('undefine', arg))
 
             elif next_arg[0] == 'setting':
 
