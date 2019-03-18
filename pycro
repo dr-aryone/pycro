@@ -127,7 +127,7 @@ Setting Keys:
 )
 __TRY = "try '{} --help' for more information."
 
-# --- debuging ---
+# --- debuging code ---
 
 if __debug__:
     from pprint import pprint
@@ -166,6 +166,22 @@ else:
         if m and m.end() == len(string):
             return m
 
+if sys.version_info[0] == 3:
+    __fdopen = open
+
+elif sys.version_info[0] == 2:
+    __fdopen = os.fdopen
+
+else:
+    raise NotImplemented(
+            "implement _fdopen function for your python version: {}".format(
+                ','.join(n for n in sys.version_info[:3]),
+            )
+        )
+
+def _create_pipe(read_mode = 'rt', write_mode = 'wt'):
+    read_fd, write_fd = os.pipe()
+    return __fdopen(read_fd, read_mode), __fdopen(write_fd, write_mode)
 
 class dotdict(dict):
     __getattr__ = dict.get
