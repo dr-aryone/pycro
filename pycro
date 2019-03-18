@@ -2,6 +2,11 @@
 
 import sys
 import os
+import io
+import re
+import collections
+import marshal
+import subprocess
 
 if sys.version_info[0] == 3:
     import builtins
@@ -15,12 +20,6 @@ else:
                 ','.join(n for n in sys.version_info[:3]),
             )
         )
-
-import io
-import re
-import collections
-import marshal
-import subprocess
 
 _CACHE_FOLDER_NAME = '.pycro_cache'
 
@@ -56,9 +55,13 @@ else:
 
 
 _MACRO_PATTERN = r'\s*(?P<macro>{macros})\s*(?P<args>.*?)\s*'
+
 _VARIABLE_NAME_PATTERN = r'[a-zA-Z_][a-zA-Z_0-9]*'
+_VARIABLE_NAME_RE = re.compile(_VARIABLE_NAME_PATTERN)
+
 _VARIABLE_PATTERN = r'{prefix}(?P<name>{pattern}){suffix}'
 _EVALUATION_PATTERN = r'{prefix}\s*(?P<eval>.*?)\s*{suffix}'
+
 
 
 _DEFAULT_VARIABLE_VALUE = None
@@ -224,27 +227,49 @@ def __parse_argv(argv):
             if next_arg[0] in ('define', 'undefine', 'input', 'import'):
                 result.jobs.append((next_arg[0], arg))
 
+            elif next_arg[0] == 'define':
 
-            elif next_arg[0] in ('setting'):
+                # --- parsing definition ---
+                arg = arg.split('=', maxsplit=1)
+                if len(arg) != 2:
+                    __print_erro(
+                        "{!r} option requires a 'NAME=VALUE' pair.".format(
+                            next_arg[1],
+                        )
+                    )
+
+                if not __fullmatch(_VARIABLE_NAME_RE, arg[0]):
+                    __print_erro(
+                        "invalid variable name: {!r} for option: {!r}".format(
+                            arg[0],
+                            next_arg[1],
+                        )
+                    )
+                    print(__TRY.format(argv[0]))
+                    return 1
+
+                result.jobs.append(('define', arg))
+
+            elif next_arg[0] == 'setting':
 
                 # --- parsing setting ---
                 arg = arg.split('=', maxsplit=1)
                 if len(arg) != 2:
                     __print_erro(
-                            "{!r} option needs a KEY, VALUE pair.".format(
-                                next_arg[1]
-                            )
+                        "{!r} option requires a 'KEY=VALUE' pair.".format(
+                            next_arg[1],
                         )
+                    )
                     print(__TRY.format(argv[0]))
                     return 1
 
                 if arg[0] not in __setting_keys:
                     __print_erro(
-                            "unknown setting key: {} for option: {!r}".format(
-                                arg[0]
-                                next_arg[1],
-                            )
+                        "unknown setting key: {} for option: {!r}".format(
+                            arg[0]
+                            next_arg[1],
                         )
+                    )
                     print(__TRY.format(argv[0]))
                     return 1
 
