@@ -6,9 +6,25 @@ import io
 import re
 import collections
 import marshal
+import subprocess
 
+if sys.version_info[0] == 3:
+    import builtins
+
+elif sys.version_info[0] == 2:
+    import __builtins__ as builtins
+
+else:
+    raise NotImplemented(
+            "import builtins module for your python version: {}".format(
+                ','.join(n for n in sys.version_info[:3]),
+            )
+        )
 
 _CACHE_FOLDER_NAME = '.pycro_cache'
+
+# TODO: read _CONFIG_FILE_NAME as a `ini` or `json` and apply them to settings
+_CONFIG_FILE_NAME = '.pycro'
 
 if sys.platform.startswith('linux') or sys.platform.startswith('freebsd'):
     _HOME_DIRECTORY = os.environ['HOME']
@@ -38,80 +54,145 @@ else:
 # TODO: test speed of both ways.
 
 
-_MACRO_PATTERN = r'\s*{prefix}(?P<macro>{macros})\s(?P<args>.*){suffix}\s*'
+_MACRO_PATTERN = r'\s*(?P<macro>{macros})\s*(?P<args>.*?)\s*'
 
-_STATEMENT_PATTERN = r'\s*{prefix}(?P<stat>.*){suffix}\s*'
+_VARIABLE_NAME_PATTERN = r'[a-zA-Z_][a-zA-Z_0-9]*'
+_VARIABLE_NAME_RE = re.compile(_VARIABLE_NAME_PATTERN)
 
-_EVALUATION_PATTERN = r'{prefix}(?P<eval>.*){suffix}'
+_VARIABLE_PATTERN = r'{prefix}(?P<name>{pattern}){suffix}'
+_EVALUATION_PATTERN = r'{prefix}\s*(?P<eval>.*?)\s*{suffix}'
 
-_COMMENT_PATTERN = r'\s*{prefix}.*{suffix}\s*'
 
-_NEXT_LINE_RE = r'\s*{prefix}'
 
+_DEFAULT_VARIABLE_VALUE = None
+_SPACE_CHARS = ' \t\n'
+
+
+# NOTE: pycro reversed variable names
 
 _DEFAULT_OUTFILE_VARIABLE_NAME = '__outfile__'
 
-_SPACE_CHARS = ' \t\n'
+_DEFAULT_PIPES_VARIABLE_NAME = '__pipes__'
+_DEFAULT_DIVERT_FUNCTION_NAME = '__divert__'
+_DEFAULT_UNDIVERT_FUNCTION_NAME = '__undivert__'
+
+_DEFAULT_RUN_FUNCTION_NAME = '__run__'
+
+_DEFAULT_INCLUDE_FUNCTION_NAME = '__include__'
+_DEFAULT_PLACE_FUNCTION_NAME = '__place__'
+
 
 
 _CACHE_FILE_MAGIC_NUMBER = b'.pycroche'
 
 _COMPILE_FLAGS = 0
-
+_OPTIMIZE_FLAG = -1
 _MARSHAL_VERSION = 4
 
-__LanguageSpecification = collections.namedtuple('__LanguageSpecification',
-    [
-        'macro_prefix',
-        'macro_suffix',
+_BIG_INTEGER_SIZE = 4
 
-        'statement_prefix',
-        'statement_suffix',
-
-        'evaluation_prefix',
-        'evaluation_suffix',
-
-        'comment_prefix',
-        'comment_suffix',
-
-    ]
-)
-
-_default_language_specifications = {
-    'c': __LanguageSpecification(
-            '//#', '',
-
-            '//-', '',
-
-            '/*[', ']*/',
-
-            '//#', '',
-    )
-}
 
 __USAGE = "usage: {} [OPTION]... [[--] FILE | -]..."
 __HELP = """\
-preprocess FILEs to standard output. if no FILE or if FILE is '-', standard
-input is read.
+Pycro FILEs to standard output. if no FILE or if FILE is '-', standard input is
+read.
 
 Operation modes:
     -h, --help                      display this help and exit
-    -a, --arrange-performance       perform options and FILEs according to
+    -a, --arrange-process           perform OPTIONs and FILEs according to
                                       their orders
 
 Sortable options:
-    -D, --define NAME[=VAR]         define NAME variable as having VALUE or
+    -D, --define NAME[=VAR]         define NAME variable as having VALUE, or
                                       {default_variable_value}
     -U, --undefine NAME             undefine NAME variable
     -S, --set KEY=VALUE             set KEY setting to VALUE
     -l, --load JSONFILE             load JSONFILE and update variables
     -I, --import MODULE             import MODULE to interpreter variables
+    -L, --lang LANG                 set prefix and suffix for LANG specification
     --                              read next argument as input FILE (don't
                                       treats '-' as standard input)
-"""
+
+common options:
+    -C, --clear-cache               first clear compiler cache
+
+Known language specification:
+    c, cpp, java, perl, python, html
+
+Setting Keys:
+    mp, macro_prefix                ms, macro_suffix,
+    sp, statement_prefix,           ss, statement_suffix,
+    cp, comment_prefix,             cs, comment_suffix,
+    vp, variable_prefix,            vs, variable_suffix,
+    ep, evaluation_prefix,          es, evaluation_suffix,
+""".format(
+    default_variable_value = _DEFAULT_VARIABLE_VALUE
+)
 __TRY = "try '{} --help' for more information."
 
+__setting_keys = {
+    'mp', 'macro_prefix'                'ms', 'macro_suffix',
+    'sp', 'statement_prefix',           'ss', 'statement_suffix,
+    'cp', 'comment_prefix',             'cs', 'comment_suffix',
+    'vp', 'variable_prefix',            'vs', 'variable_suffix',
+    'ep', 'evaluation_prefix',          'es', 'evaluation_suffix',
+}
+
+# --- debuging code ---
+
+if __debug__:
+    from pprint import pprint
+
+    def print_line(title = None, fill='-', width=80):
+        if title:
+            print('{:{fill}^{width}}'.format(
+                    ' ' + title.strip() + ' ',
+                    width=80,
+                    fill=fill,
+                    )
+                )
+        else:
+            print(fill * width)
+
+    def rprint(*objects, sep=', ', end='\n', file=sys.stdout):
+        if objects:
+            file.write(repr(objects[0]))
+            for obj in objects[1:]:
+                file.write(sep)
+                file.write(repr(obj))
+        file.write(end)
+
 # --- utilities ---
+
+__joinpath = os.path.join
+__abspath = os.path.abspath
+__realpath = os.path.realpath
+
+if sys.version_info >= (3, 4):
+    __fullmatch = re._pattern_type.fullmatch
+
+else:
+    def __fullmatch(pattern, string):
+        m = pattern.match(string)
+        if m and m.end() == len(string):
+            return m
+
+if sys.version_info[0] == 3:
+    __fdopen = open
+
+elif sys.version_info[0] == 2:
+    __fdopen = os.fdopen
+
+else:
+    raise NotImplemented(
+            "implement _fdopen function for your python version: {}".format(
+                ','.join(n for n in sys.version_info[:3]),
+            )
+        )
+
+def _create_pipe(read_mode = 'rt', write_mode = 'wt'):
+    read_fd, write_fd = os.pipe()
+    return __fdopen(read_fd, read_mode), __fdopen(write_fd, write_mode)
 
 class dotdict(dict):
     __getattr__ = dict.get
@@ -121,13 +202,15 @@ class dotdict(dict):
 # --- argument parser ---
 
 def __print_help():
-    print(__HELP.format(
-        default_variable_value = _DEFAULT_VARIABLE_VALUE))
+    print(__HELP)
+
+def __print_erro(line):
+    print('pycro: error:', line)
 
 def __parse_argv(argv):
     result = dotdict(
             jobs = collections.deque(),
-            operation_modes = set(),
+            switchs = set(),
 
             # NOTE: these fields will be filled on end
             inputs = None,
@@ -141,9 +224,71 @@ def __parse_argv(argv):
         # read next arg
         if next_args:
             next_arg = next_args.popleft()
-            if next_arg[0] in ('define', 'undefine', 'input', 'setting',
-                               'import'):
+            if next_arg[0] in ('input', 'import'):
                 result.jobs.append((next_arg[0], arg))
+
+            elif next_arg[0] == 'define':
+
+                # --- parsing definition ---
+                arg = arg.split('=', maxsplit=1)
+                if len(arg) != 2:
+                    __print_erro(
+                        "{!r} option requires a 'NAME=VALUE' pair.".format(
+                            next_arg[1],
+                        )
+                    )
+
+                if not __fullmatch(_VARIABLE_NAME_RE, arg[0]):
+                    __print_erro(
+                        "invalid variable name: {!r} for option: {!r}".format(
+                            arg[0],
+                            next_arg[1],
+                        )
+                    )
+                    print(__TRY.format(argv[0]))
+                    return 1
+
+                result.jobs.append(('define', arg))
+
+            elif next_arg[0] == 'undefine':
+
+                # --- parsing undefinition ---
+                if not __fullmatch(_VARIABLE_NAME_RE, arg[0]):
+                    __print_erro(
+                        "invalid variable name: {!r} for option: {!r}".format(
+                            arg[0],
+                            next_arg[1],
+                        )
+                    )
+                    print(__TRY.format(argv[0]))
+                    return 1
+
+                result.jobs.append(('undefine', arg))
+
+            elif next_arg[0] == 'setting':
+
+                # --- parsing setting ---
+                arg = arg.split('=', maxsplit=1)
+                if len(arg) != 2:
+                    __print_erro(
+                        "{!r} option requires a 'KEY=VALUE' pair.".format(
+                            next_arg[1],
+                        )
+                    )
+                    print(__TRY.format(argv[0]))
+                    return 1
+
+                if arg[0] not in __setting_keys:
+                    __print_erro(
+                        "unknown setting key: {} for option: {!r}".format(
+                            arg[0]
+                            next_arg[1],
+                        )
+                    )
+                    print(__TRY.format(argv[0]))
+                    return 1
+
+                result.jobs.append(('setting', arg))
 
             else:
                 raise BaseException("unknown argument name pushed to "
@@ -151,97 +296,105 @@ def __parse_argv(argv):
 
             continue
 
-        # empty argument, ('')
+        # empty argument
         if not arg:
-            print("error: empty argument: #{} argument".format(i + 1))
+            __print_erro("empty argument: #{} argument".format(i + 1))
             print(__TRY.format(argv[0]))
             return 1
 
         if arg[0] == '-':
 
-            # append stdin as input, ('-')
+            # append stdin as input
             if len(arg) == 1:
                 continue
 
             if arg[1] == '-':
 
-                # read next argument as input file name, ('--')
+                # read next argument as input file name
                 if len(arg) == 2:
                     next_args.append(('input', '--'))
                     continue
 
                 option = arg[2:]
 
-                # show help, ('--help')
+                # show help
                 if option == 'help':
                     print(__USAGE.format(argv[0]))
                     __print_help()
                     return 0
 
-                # order performances, ('--order-performance')
-                elif option == 'order-performance':
-                    result.operation_modes.add('order')
+                # arrange performances
+                elif option == 'arrange-process':
+                    result.switchs.add('arrange')
 
-                # define variable, ('--define')
+                # clear cache
+                elif option == 'clear-cache':
+                    result.switchs.add('clear')
+
+                # define variable
                 elif option == 'define':
                     next_args.append(('define', '--define'))
 
-                # undefine variable, ('--undefine')
+                # undefine variable
                 elif option == 'undefine':
                     next_args.append(('undefine', '--undefine'))
 
-                # change settings, ('--set')
+                # change settings
                 elif option == 'set':
                     next_args.append(('setting', '--set'))
 
-                # load json files, ('--load')
+                # load json files
                 elif option == 'load':
                     next_args.append(('jsonfile', '--load'))
 
-                # import module, ('--import')
+                # import module
                 elif option == 'import':
                     next_args.append(('import', '--import'))
 
                 else:
-                    print("error: unknown option: '{}'".format(arg))
+                    __print_erro("unknown option: '{}'".format(arg))
                     print(__TRY.format(argv[0]))
                     return 1
 
             else: # if arg[1] == '-'
                 for ch in arg[1:]:
 
-                    # show help, ('-h')
+                    # show help
                     if ch == 'h':
                         print(__USAGE.format(sys.argv[0]))
                         __print_help()
                         return 0
 
-                    # order performances, ('-o')
-                    elif ch == 'o':
-                        result.operation_modes.add('order')
+                    # arrange performances
+                    elif ch == 'a':
+                        result.switchs.add('arrange')
 
-                    # define variable, ('-D')
+                    # clear cache
+                    elif ch == 'C':
+                        result.switchs.add('clear')
+
+                    # define variable
                     elif ch == 'D':
                         next_args.append(('define', '-D'))
 
-                    # undefine variable, ('-U')
+                    # undefine variable
                     elif ch == 'U':
                         next_args.append(('undefine', '-U'))
 
-                    # change settings, ('-S')
+                    # change settings
                     elif ch == 'S':
                         next_args.append(('setting', '-S'))
 
-                    # load json files, ('-l')
+                    # load json files
                     elif ch == 'l':
                         next_args.append(('jsonfile', '-l'))
 
-                    # import module, ('-i')
+                    # import module
                     elif ch == 'i':
                         next_args.append(('import', '-I'))
 
                     else:
-                        print("error: invalid option: '{}'".format('-' + ch))
+                        __print_erro("invalid option: '{}'".format('-' + ch))
                         print(__TRY.format(argv[0]))
                         return 1
 
@@ -249,11 +402,11 @@ def __parse_argv(argv):
             result.jobs.append(('input', arg))
 
     if next_args:
-        print("error: '{}' option requires an argument".format(
-            next_args[0][1]
-            ))
+        __print_erro(
+                "'{}' option requires an argument".format(next_args[0][1]))
         print(__TRY.format(argv[0]))
         return 1
+
 
     result.inputs = \
             list(tup[1] for tup in result.jobs if tup[0] == 'input')
@@ -261,16 +414,62 @@ def __parse_argv(argv):
     result.settings = \
             list(tup[1] for tup in result.jobs if tup[0] == 'setting')
 
+
     result.jobs = list(result.jobs)
     return result
 
-# --- binary file operations ---
+# *** binary file operations ***
+
+# --- objects ---
+
+def __write_object(outfile, _set):
+    marshal.dump(outfile, code_object, _MARSHAL_VERSION)
+
+def __read_object(infile):
+    return marshal.load(infile)
+
+# --- code objects ---
 
 def __write_code_object(outfile, code_object):
     marshal.dump(outfile, code_object, _MARSHAL_VERSION)
 
 def __read_code_object(infile):
     return marshal.load(infile)
+
+# --- integers ---
+
+def __write_int(outfile, integer, size = 1):
+    outfile.write(integer.to_bytes(size, 'big', signed = True))
+
+def __write_uint(outfile, integer, size = 1):
+    outfile.write(integer.to_bytes(size, 'big', signed = False))
+
+def __read_int(infile, size = 1):
+    _buffer = infile.read(size)
+    if len(_buffer) != size:
+        raise EOFError(
+                "End of file while reading {} byte integer".format(size))
+    return int.from_bytes(_buffer, 'big', signed = True)
+
+def __read_uint(infile, size = 1):
+    _buffer = infile.read(size)
+    if len(_buffer) != size:
+        raise EOFError(
+                "End of file while reading {} byte integer".format(size))
+    return int.from_bytes(_buffer, 'big', signed = False)
+
+# --- big integer ---
+
+def __write_big_integer(outfile, size):
+    outfile.write(size.to_bytes(__BIG_INTEGER_SIZE, 'big', signed = False))
+
+def __read_big_integer(infile):
+    _buffer = infile.read(__BIG_INTEGER_SIZE)
+    if len(_buffer) != __BIG_INTEGER_SIZE:
+        raise EOFError("End of file while reading size")
+    return int.from_bytes(_buffer, 'big', signed = False)
+
+# --- strings ---
 
 def __write_string(outfile, string):
     _buffer = string.encode('utf-8')
@@ -281,36 +480,54 @@ def __write_string(outfile, string):
         outfile.write(_buffer[:0xFFFF])
         _buffer = _buffer[0xFFFF:]
 
-    outfile.write(len(_buffer).to_bytes(2, 'big', signed=False))
+    outfile.write(len(_buffer).to_bytes(2, 'big', signed = False))
     outfile.write(_buffer)
 
 def __read_string(infile):
-    _buffer_size = int.from_bytes(infile.read(2), 'big', signed=False)
-    _buffer = bytearray(infile.read(_buffer_size))
+    _buffer = infile.read(2)
+    if len(_buffer) != 2:
+        raise EOFError("End of file while reading string")
+    _buffer_size = int.from_bytes(_buffer, 'big', signed = False)
+
+    _buffer = infile.read(_buffer_size)
+    if len(_buffer) != _buffer_size:
+        raise EOFError("End of file while reading string")
+    _result = bytearray(_buffer)
 
     while _buffer_size == 0xFFFF:
-        _buffer_size = int.from_bytes(infile.read(2), 'big', signed=False)
-        _buffer += infile.read(_buffer_size)
+        _buffer = infile.read(2)
+        if len(_buffer) != 2:
+            raise EOFError("End of file while reading string")
+        _buffer_size = int.from_bytes(_buffer, 'big', signed = False)
 
-    return _buffer.decode('utf-8')
+        _buffer = infile.read(_buffer_size)
+        if len(_buffer) != _buffer_size:
+            raise EOFError("End of file while reading string")
 
-# --- errors ---
+        _result += _buffer
+
+    return _result.decode('utf-8')
+
+# *** errors ***
+
+# NOTE: cross-python-version error values
 _MACRO_REQUIRES = 1
 _WITHOUT_PRECEDING = 2
-_DOES_NOT_MATCH = 3
+_END_DOES_NOT_MATCH = 3
 _UNTERMINATED_BLOCK = 4
 
 class CompilerError(Exception):
     pass
 
+# *** macros ***
+
 # --- if macro ---
 
 def _generate_if(args, outfile, env):
-    args = args.strip(_SPACE_CHARS)
     if not args:
         raise CompilerError(_MACRO_REQUIRES, 'if', 'a condition')
 
-    outfile.write('{}{} {}:\n'.format(env.tabs(), 'if', args))
+    outfile.write('{}{} {}\n'.format(env.tabs(), 'if', args))
     env.indent += 1
 
     env.macro_stack.append('if')
@@ -318,14 +535,13 @@ def _generate_if(args, outfile, env):
 # --- elif macro ---
 
 def _generate_elif(args, outfile, env):
-    args = args.strip(_SPACE_CHARS)
     if not args:
         raise CompilerError(_MACRO_REQUIRES, 'elif', 'a condition')
 
     if env.macro_stack and env.macro_stack[-1] in ('if', 'elif'):
 
         env.indent -= 1
-        outfile.write('{}{} {}:\n'.format(env.tabs(), 'elif', args))
+        outfile.write('{}{} {}\n'.format(env.tabs(), 'elif', args))
         env.indent += 1
 
         env.macro_stack[-1] = 'elif'
@@ -336,11 +552,10 @@ def _generate_elif(args, outfile, env):
 # --- for macro ---
 
 def _generate_for(args, outfile, env):
-    args = args.strip(_SPACE_CHARS)
     if not args:
         raise CompilerError(_MACRO_REQUIRES, 'for', 'an iterable statement')
 
-    outfile.write('{}{} {}:\n'.format(env.tabs(), 'for', args))
+    outfile.write('{}{} {}\n'.format(env.tabs(), 'for', args))
     env.indent += 1
 
     env.macro_stack.append('for')
@@ -348,46 +563,17 @@ def _generate_for(args, outfile, env):
 # --- while macro ---
 
 def _generate_while(args, outfile, env):
-    args = args.strip(_SPACE_CHARS)
     if not args:
         raise CompilerError(_MACRO_REQUIRES, 'while', 'a condition')
 
-    outfile.write('{}{} {}:\n'.format(env.tabs(), 'while', args))
+    outfile.write('{}{} {}\n'.format(env.tabs(), 'while', args))
     env.indent += 1
 
     env.macro_stack.append('while')
 
-# --- else macro ---
-
-def _generate_else(args, outfile, env):
-    if env.macro_stack and env.macro_stack[-1] in ('if', 'elif', 'for',
-            'while', 'except'):
-
-        env.indent -= 1
-        outfile.write('{}{}:\n'.format(env.tabs(), 'else'))
-        env.indent += 1
-
-        env.macro_stack[-1] = 'else'
-
-    else:
-        raise CompilerError(_WITHOUT_PRECEDING,
-                'else', 'if/elif/for/while/except')
-
-# --- with macro ---
-
-def _generate_with(args, outfile, env):
-    args = args.strip(_SPACE_CHARS)
-    if not args:
-        raise CompilerError(_MACRO_REQUIRES, 'with', 'an expression')
-
-    outfile.write('{}{} {}:\n'.format(env.tabs(), 'with', args))
-    env.indent += 1
-
-    env.macro_stack.append('with')
-
 # --- try macro ---
 
-def _generator_try(args, outfile, env):
+def _generate_try(args, outfile, env):
     outfile.write('{}{}:\n'.format(env.tabs, 'try'))
     env.indent += 1
 
@@ -395,15 +581,14 @@ def _generator_try(args, outfile, env):
 
 # -- except macro ---
 
-def _generator_except(args, outfile, env):
-    args = args.strip(_SPACE_CHARS)
+def _generate_except(args, outfile, env):
     if not args:
         raise CompilerError(_MACRO_REQUIRES, 'except', 'an expression')
 
     if env.macro_stack and env.macro_stack[-1] in ('try', 'except'):
 
         env.indent -= 1
-        outfile.write('{}{} {}:\n'.format(env.tabs(), 'except', args))
+        outfile.write('{}{} {}\n'.format(env.tabs(), 'except', args))
         env.indent += 1
 
         env.macro_stack[-1] = 'except'
@@ -425,23 +610,45 @@ def _generate_finally(args, outfile, env):
     else:
         raise CompilerError(_WITHOUT_PRECEDING, 'finally', 'try/except/else')
 
+# --- else macro ---
+
+def _generate_else(args, outfile, env):
+    if env.macro_stack and env.macro_stack[-1] in \
+            ('if', 'elif', 'for', 'while', 'except'):
+
+        env.indent -= 1
+        outfile.write('{}{}:\n'.format(env.tabs(), 'else'))
+        env.indent += 1
+
+        env.macro_stack[-1] = 'else'
+
+    else:
+        raise CompilerError(_WITHOUT_PRECEDING,
+                'else', 'if/elif/for/while/except')
+
+# --- with macro ---
+
+def _generate_with(args, outfile, env):
+    if not args:
+        raise CompilerError(_MACRO_REQUIRES, 'with', 'an expression')
+
+    outfile.write('{}{} {}\n'.format(env.tabs(), 'with', args))
+    env.indent += 1
+
+    env.macro_stack.append('with')
+
+# --- def macro ---
+
+def _generate_def(args, outfile, env):
+    if not args:
+        raise CompilerError(_MACRO_REQUIRES, 'def', 'a function definition')
+
+    outfile.write('{}{} {}\n'.format(env.tabs(), 'def', args))
+    env.indent += 1
+
+    env.macro_stack.append('def')
 
 # --- end macro ---
-
-def _generate_include(args, outfile, env):
-    args = args.strip(_SPACE_CHARS)
-    if not args:
-        raise CompilerError(_MACRO_REQUIRES, 'for', 'a filename')
-
-    # TODO: implement _generator_include
-
-def _generate_place(args, outfile, env):
-    args = args.strip(_SPACE_CHARS)
-    if not args:
-        raise CompilerError(_MACRO_REQUIRES, 'for', 'a filename')
-
-    # TODO: complete _generator_place()
-
 
 def _generate_end(args, outfile, env):
     if not env.macro_stack:
@@ -449,64 +656,109 @@ def _generate_end(args, outfile, env):
 
     last_macro = env.macro_stack.pop()
 
-    args = args.strip(_SPACE_CHARS)
     if args:
         if args != last_macro:
-            raise CompilerError(_DOES_NOT_MATCH, 'end', last_macro, args)
+            raise CompilerError(_END_DOES_NOT_MATCH, 'end', last_macro, args)
 
     env.indent -= 1
 
+# --- divert macro ---
+
+def _generate_divert(args, outfile, env):
+    outfile.write(
+        '{}{}({})\n'.format(
+            env.tabs(),
+            env.divert_function_name,
+            args
+        )
+    )
+
+# -- undivert macro ---
+
+def _generate_undivert(args, outfile, env):
+    outfile.write(
+        '{}{}({})\n'.format(
+            env.tabs(),
+            env.undivert_function_name,
+            args
+        )
+    )
+
+# --- place macro ---
+
+def _generate_place(args, outfile, env):
+    if not args:
+        raise CompilerError(_MACRO_REQUIRES, 'place', 'a filename')
+
+    outfile.write(
+        '{}{}({})\n'.format(
+            env.tabs(),
+            env.place_function_name,
+            args,
+        )
+    )
+
+# --- include macro ---
+
+def _generate_include(args, outfile, env):
+    if not args:
+        raise CompilerError(_MACRO_REQUIRES, 'for', 'a filename')
+
+    outfile.write(
+        '{}{}({})\n'.format(
+            env.tabs(),
+            env.include_function_name,
+            args,
+        )
+    )
+
+    # TODO: complete _generator_include
+
+# --- run macro ---
+
+def _generate_run(args, outfile, env):
+    if not args:
+        raise CompilerError(_MACRO_REQUIRES, 'run', 'a command')
+
+    outfile.write(
+        '{}{}({})\n'.format(
+            env.tabs(),
+            env.run_function_name,
+            args,
+        )
+    )
+
+# --- load macro ---
+
+# TODO: complete _generate_load
+
+def _generate_load(args, outfile, env):
+    pass
 
 _default_code_generators = {
         'if': _generate_if,
         'elif': _generate_elif,
-        'else': _generate_else,
+
         'for': _generate_for,
         'while': _generate_while,
+
+        'try': _generate_try,
+        'except': _generate_except,
+        'finally': _generate_finally,
+
+        'else': _generate_else,
         'with': _generate_with,
+
+        'def': _generate_def,
         'end': _generate_end,
+
+        'divert': _generate_divert,
+        'undivert': _generate_undivert,
+
+        'place': _generate_place,
+
+        'run': _generate_run,
 }
-
-def _generate_line(line, outfile, env):
-    outfile.write(env.tabs())
-
-    m = env.evaluation_re.search(line)
-    while m:
-
-        # --- write primitive remains ---
-        if m.start() != 0:
-            outfile.write(
-                '{}.write({});'.format(
-                    env.outfile_variable_name,
-                    repr(line[:m.start()]),
-                )
-            )
-
-        # --- write evaluation ---
-        outfile.write(
-             '{}.write(str({}));'.format(
-                 env.outfile_variable_name,
-                 m.group('eval'),
-             )
-        )
-
-        # --- check remaining line ---
-        if m.end() == len(line):
-            outfile.write('\n')
-            break
-
-        line = line[m.end():]
-        m = env.evaluation_re.search(line)
-
-    else:
-
-        # --- writing text ---
-        outfile.write(
-            '{}.write({});\n'.format(
-                env.outfile_variable_name,
-                repr(line),
-            )
-        )
 
 class CompilerEnvironment:
     def __init__(
@@ -514,27 +766,34 @@ class CompilerEnvironment:
 
             code_generators = None,
 
-            macro_prefix = '%',
+            macro_prefix = '@',
             macro_suffix = '',
 
             statement_prefix = '#',
             statement_suffix = '',
 
-            # TODO: may be we must add a variable subsitution mechanism.
-
-            evaluation_prefix = '${',
-            evaluation_suffix = '}',
-
-            comment_prefix = '#',
+            comment_prefix = '%',
             comment_suffix = '',
 
-            line_continuation = '//\n',
-            next_line_prefix = '//',
+            variable_prefix = '${',
+            variable_suffix = '}',
+
+            evaluation_prefix = '$${{',
+            evaluation_suffix = '}}',
 
             tab = '\t',
             indent = 0,
 
             outfile_variable_name = _DEFAULT_OUTFILE_VARIABLE_NAME,
+
+            pipes_varaible_name = _DEFAULT_PIPES_VARIABLE_NAME,
+            divert_function_name = _DEFAULT_DIVERT_FUNCTION_NAME,
+            undivert_function_name = _DEFAULT_UNDIVERT_FUNCTION_NAME,
+
+            run_function_name = _DEFAULT_RUN_FUNCTION_NAME,
+
+            include_function_name = _DEFAULT_INCLUDE_FUNCTION_NAME,
+            place_function_name = _DEFAULT_PLACE_FUNCTION_NAME,
             ):
         """intialize code generator environment"""
 
@@ -543,47 +802,64 @@ class CompilerEnvironment:
 
         self.macro_stack = collections.deque()
 
+
+        # --- macro ---
+        self.macro_prefix = macro_prefix
+        self.macro_suffix = macro_suffix
+
         self.macro_re = re.compile(
             _MACRO_PATTERN.format(
-                prefix = \
-                    (re.escape(macro_prefix) + '\s*') if macro_prefix else '',
                 macros = '|'.join(macro for macro in self.code_generators),
-                suffix = re.escape(macro_suffix),
             )
         )
 
-        self.statement_re = re.compile(
-            _STATEMENT_PATTERN.format(
-                prefix = re.escape(statement_prefix),
-                suffix = re.escape(statement_suffix),
-            )
-        )
+        # --- statement ---
+        self.statement_prefix = statement_prefix
+        self.statement_suffix = statement_suffix
 
-        self.evaluation_re = re.compile(
+        # --- comment ---
+        self.comment_prefix = comment_prefix
+        self.comment_suffix = comment_suffix
+
+
+        # --- evaluation & variable ---
+        if (not variable_prefix) or (not variable_suffix):
+            raise ValueError(
+                    "variable_prefix & variable_suffix can't be empty")
+
+        if (not evaluation_prefix) or (not evaluation_suffix):
+            raise ValueError(
+                    "evaluation_prefix & evaluation_suffix can't be empty")
+
+        self.evaluation_variable_re = re.compile(
             _EVALUATION_PATTERN.format(
                 prefix = re.escape(evaluation_prefix),
                 suffix = re.escape(evaluation_suffix),
+            ) + '|' +
+
+            _VARIABLE_PATTERN.format(
+                prefix = re.escape(variable_prefix),
+                pattern = _VARIABLE_NAME_PATTERN,
+                suffix = re.escape(variable_suffix),
             )
         )
 
-        self.comment_re = re.compile(
-            _COMMENT_PATTERN.format(
-                prefix = re.escape(comment_prefix),
-                suffix = re.escape(comment_suffix),
-            )
-        )
+        # --- variable names ---
+        self.outfile_variable_name = outfile_variable_name
 
-        self.line_continuation = line_continuation
-        self.next_line_re = re.compile(
-            _NEXT_LINE_RE.format(
-                prefix = re.escape(next_line_prefix),
-            )
-        )
+        self.pipes_varaible_name = pipes_varaible_name
+        self.divert_function_name = divert_function_name
+        self.undivert_function_name = undivert_function_name
+
+        self.run_function_name = run_function_name
+
+        self.include_function_name = include_function_name
+        self.place_function_name = place_function_name
+
+        # --- indent & tabs ---
 
         self.indent = indent
         self.tab = tab
-
-        self.outfile_variable_name = outfile_variable_name
 
     def tabs(self):
         return self.tab * self.indent
@@ -591,92 +867,359 @@ class CompilerEnvironment:
 def generate_code(infile, outfile, env):
     """read from infile and generats python code to outfile"""
 
-    macro_re = env.macro_re
-    statement_re = env.statement_re
-    comment_re = env.comment_re
+    code_generators = env.code_generators
 
-    line_continuation = env.line_continuation
-    next_line_re = env.next_line_re
+    # --- macro ---
+    macro_prefix = env.macro_prefix
+    macro_suffix = env.macro_suffix
+
+    macro_re = env.macro_re
+
+    # --- statement ---
+    statement_prefix = env.statement_prefix
+    statement_suffix = env.statement_suffix
+
+    # --- comment ---
+    comment_prefix = env.comment_prefix
+    comment_suffix = env.comment_suffix
+
+    # --- evaluation variable ---
+    evaluation_variable_re = env.evaluation_variable_re
+
+    # --- outfile variable name ---
+    outfile_variable_name = env.outfile_variable_name
 
     for line in infile:
 
-        if line_continuation:
-            while line.endswith(line_continuation):
-                line = line[:-len(line_continuation)]
+        striped_line = line.strip(_SPACE_CHARS)
 
-                next_line = infile.readline()
-                if not next_line:
-                    break
+        # --- check macro ---
+        if striped_line.startswith(macro_prefix) and \
+                striped_line.endswith(macro_suffix):
 
-                outfile.write('\n')
+            macro_striped_line = \
+                striped_line[   len(macro_prefix): \
+                                len(striped_line) - len(macro_suffix)]
 
-                m = next_line_re.match(next_line)
-                if m:
-                    next_line = next_line[m.end():]
+            m = __fullmatch(macro_re, macro_striped_line)
+            if m:
 
-                line += next_line
+                generate_code = code_generators[m.group('macro')]
+                generate_code(m.group('args'), outfile, env)
 
-        m = macro_re.fullmatch(line)
-        if m:
-            code_generator = env.code_generators[m.group('macro')]
-            code_generator(m.group('args'), outfile, env)
+                continue
 
-            continue
-
-        m = statement_re.fullmatch(line)
-        if m:
+        # --- check statement ---
+        if striped_line.startswith(statement_prefix) and \
+                striped_line.endswith(statement_suffix):
             outfile.write(
                 '{}{}\n'.format(
                     env.tabs(),
-                    m.group('stat').strip(_SPACE_CHARS),
+                    striped_line[
+                            len(statement_prefix): \
+                            len(striped_line) -len(statement_suffix)] \
+                                .strip(_SPACE_CHARS),
                     )
                 )
 
             continue
 
-        if comment_re.fullmatch(line):
+        # --- check comment ---
+        if striped_line.startswith(comment_prefix) and \
+                striped_line.endswith(comment_suffix):
             outfile.write('\n')
 
             continue
 
-        _generate_line(line, outfile, env)
+        # --- check for evaluations & variables ---
+        outfile.write(env.tabs())
+
+        m = evaluation_variable_re.search(line)
+        while m:
+
+            # --- write primitive remains ---
+            if m.start() != 0:
+                outfile.write(
+                    '{}.write({});'.format(
+                        outfile_variable_name,
+                        repr(line[:m.start()]),
+                    )
+                )
+
+            name = m.group('name')
+
+            if name is None:
+                # --- write evaluation ---
+                outfile.write(
+                    '{}.write(str({}));'.format(
+                        outfile_variable_name,
+                        m.group('eval'),
+                    )
+                )
+
+            else:
+                # --- write variable ---
+                outfile.write(
+                    '{}.write(str({}));'.format(
+                        outfile_variable_name,
+                        name,
+                    )
+                )
+
+            # --- check remaining line ---
+            if m.end() == len(line):
+                outfile.write('\n')
+                break
+
+            line = line[m.end():]
+            m = evaluation_variable_re.search(line)
+
+        else:
+
+            # --- writing text ---
+            outfile.write(
+                '{}.write({});\n'.format(
+                    outfile_variable_name,
+                    repr(line),
+                )
+            )
 
     if env.macro_stack:
-        raise GenerateError(_UNTERMINATED_BLOCK, env.macro_stack[-1])
+        raise CompilerError(_UNTERMINATED_BLOCK, env.macro_stack[-1])
 
-def compile_code(infile, outfile, env,
-        compile_flags = _COMPILE_FLAGS, optimize = -1):
+def compile_generated_code(code, infile_name,
+        compile_flags = _COMPILE_FLAGS, optimize = _OPTIMIZE_FLAG):
+
+    return compile(code, infile_name, 'exec', compile_flags, True, optimize)
+
+def compile_file(infile, env,
+        compile_flags = _COMPILE_FLAGS, optimize = _OPTIMIZE_FLAG):
+
     string_buffer = io.StringIO()
     with string_buffer:
         generate_code(infile, string_buffer, env)
 
-    code_object = compile(string_buffer.getvalue(), infile.name, 'exec',
-            flags, True, optimize)
+    return compile(string_buffer.getvalue(), infile.name, 'exec',
+            compile_flags, True, optimize)
 
-    # --- magic number ---
+_default_builtins = builtins
+
+class ExecutorEnvironment:
+    def __init__(self,
+            variables = None,
+            builtins = None,
+
+            pipes = None,
+
+            # --- variable names ---
+            outfile_variable_name = _DEFAULT_OUTFILE_VARIABLE_NAME,
+
+            pipes_varaible_name = _DEFAULT_PIPES_VARIABLE_NAME,
+            divert_function_name = _DEFAULT_DIVERT_FUNCTION_NAME,
+            undivert_function_name = _DEFAULT_UNDIVERT_FUNCTION_NAME,
+
+            run_function_name = _DEFAULT_RUN_FUNCTION_NAME,
+
+            include_function_name = _DEFAULT_INCLUDE_FUNCTION_NAME,
+            place_function_name = _DEFAULT_PLACE_FUNCTION_NAME,
+            ):
+
+        if variables is None:
+            variables = {}
+
+        if '__builtins__' not in variables:
+            if builtins is None:
+                builtins = _default_builtins
+
+            variables['__builtins__'] = builtins
+
+        self.variables = variables
+
+        self.pipes = pipes or collections.defaultdict(io.StringIO)
+
+        # --- variable names ---
+        self.outfile_variable_name = outfile_variable_name
+
+        self.pipes_varaible_name = pipes_varaible_name
+        self.divert_function_name = divert_function_name
+        self.undivert_function_name = undivert_function_name
+
+        self.run_function_name = run_function_name
+
+        self.include_function_name = include_function_name
+        self.place_function_name = place_function_name
+
+def execute_code_object(
+        code_object,
+        outfile,
+        env,
+
+        working_directory = '.',
+        ):
+
+    variables = env.variables
+
+    pipes = env.pipes
+
+    pipes[None] = outfile
+
+    # --- outfile variable ---
+
+    variables[env.outfile_variable_name] = outfile
+
+    # --- pipes variable ---
+
+    variables[env.pipes_varaible_name] = pipes
+
+    # --- divert function ---
+
+    def _divert_function(target = None):
+        if not (isinstance(target, (str, int)) or target is None):
+            raise TypeError(
+                    "divert target must be type of str or int or None")
+        variables[env.outfile_variable_name] = pipes[target]
+
+    variables[env.divert_function_name] = _divert_function
+
+    # --- undivert function ---
+
+    def _undivert_function(target):
+        if not isinstance(target, (str, int)):
+            raise TypeError(
+                    "undivert target must be type of str or int")
+        outfile.write(pipes[target].getvalue())
+
+    variables[env.undivert_function_name] = _undivert_function
+
+    # --- place function ---
+
+    def _place_function(file_name, output = None):
+        output = env.pipes[output]
+        with open(__joinpath(working_directory, file_name)) as infile:
+            output.write(infile.read())
+
+    variables[env.place_function_name] = _place_function
+
+    # --- include function ---
+
+    # TODO: write _include_function
+
+    # --- run function ---
+
+    def _run_function(command,
+            stdin = None,
+            stdout = None,
+            stderr = None,
+            check = True
+            ):
+
+        if stdin is None:
+            input = ''
+        elif isinstance(stdin, (str, int)):
+            input = pipes[stdin].getvalue()
+        else:
+            raise TypeError("run stdin argument must be type of str or int")
+
+        if stdout is None or isinstance(stdout, (str, int)):
+            stdout = pipes[stdout]
+        else:
+            raise TypeError(
+                    "run stdout argument must be type of str or int or None")
+
+        if stderr is None or isinstance(stderr, (str, int)):
+            stderr = pipes[stderr]
+        else:
+            raise TypeError(
+                    "run stderr argument must be type of str or int or None")
+
+        subprocess.run(command, input=input, stdout=stdout, stderr=stderr)
+
+    variables[env.run_function_name] = _run_function
+
+    # --- executing code_object ---
+
+    return exec(code_object, variables)
+
+
+# --- main functions ---
+
+def write_compiled_code(code_object, env, outfile):
+    # --- writing to file ---
     outfile.write(_CACHE_FILE_MAGIC_NUMBER)
 
-    # TODO: it must write prefixes & suffixes
+    __write_big_integer(outfile, len(env.code_generators))
+    for name in env.code_generators:
+        __write_string(outfile, name)
 
-    outfile.write()
+    __write_string(outfile, env.macro_prefix)
+    __write_string(outfile, env.macro_suffix)
+
+    __write_string(outfile, env.statement_prefix)
+    __write_string(outfile, env.statement_suffix)
+
+    __write_string(outfile, env.comment_prefix)
+    __write_string(outfile, env.comment_suffix)
+
+    __write_string(outfile, env.evaluation_prefix)
+    __write_string(outfile, env.evaluation_suffix)
 
     __write_code_object(outfile, code_object)
 
-def _compile_if_needed():
-    pass
+_default_language_specifications = {
+    ('c', 'cpp', 'java', 'javascript'):
+        dotdict(
+            macro_prefix =          '//@',
+            macro_suffix =          '',
 
-def execute_code(infile, outfile, variables, env):
-    if infile.read(len(_CACHE_FILE_MAGIC_NUMBER)) != _CACHE_FILE_MAGIC_NUMBER:
-        raise ValueError('file magic number mismatch!')
+            statement_prefix =      '//#',
+            statement_suffix =      '',
 
-    code_object = __read_code_object(infile)
+            comment_prefix =        '//%',
+            comment_suffix =        '',
 
-    exec(code_object, variables)
+            variable_prefix =       '${',
+            variable_suffix =       '}',
 
+            evaluation_prefix =     '$${{',
+            evaluation_suffix =     '}}',
+        ),
 
-# --- main function ---
+    ('perl', 'python'):
+        dotdict(
+            macro_prefix =          '#@',
+            macro_suffix =          '',
 
-__joinpath = os.path.join
+            statement_prefix =      '##',
+            statement_suffix =      '',
+
+            comment_prefix =        '#%',
+            comment_suffix =        '',
+
+            variable_prefix =       '${',
+            variable_suffix =       '}',
+
+            evaluation_prefix =     '$${{',
+            evaluation_suffix =     '}}',
+        ),
+
+    'html':
+        dotdict(
+            macro_prefix =          '<!--@',
+            macro_suffix =          '-->',
+
+            statement_prefix =      '<!--#',
+            statement_suffix =      '-->',
+
+            comment_prefix =        '<!--%',
+            comment_suffix =        '-->',
+
+            variable_prefix =       '${',
+            variable_suffix =       '}',
+
+            evaluation_prefix =     '$${{',
+            evaluation_suffix =     '}}',
+        ),
+}
 
 if sys.platform == 'win32':
     def __get_cache_file_path(cache_folder_path, file_real_path):
@@ -688,29 +1231,57 @@ else:
             'implement __get_cache_file_path() for your platform: {}'.format(
                 sys.platform))
 
+def temp_code():
+    print_line('run temporary code')
+    infile_name = 'temp.txt'
+
+    compiler_env = CompilerEnvironment()
+
+    string_buffer = io.StringIO()
+
+    with open(infile_name) as infile:
+        generate_code(infile, string_buffer, compiler_env)
+
+    generated_code = string_buffer.getvalue()
+
+    print(generated_code)
+    print_line()
+
+    print('compiling ...')
+
+    code_object = compile_generated_code(generated_code, infile_name)
+
+
+    execution_env = ExecutorEnvironment()
+
+    print('running ...')
+
+    print_line('result')
+    execute_code_object(code_object, sys.stdout, execution_env)
+    print_line('end of result')
+
 def main(argv):
     options = __parse_argv(sys.argv)
     if isinstance(options, int):
         return options
 
-    for file_name in options.inputs:
+    # first clear cache folder
+    if 'clear' in options.switchs:
+        # clear cache
+        pass
+
+
+    if 'arrange' in options.switchs:
+        # we must process '-S', FILEs according to their order.
+        pass
+
+    else:
+        # initialize compiler environment
+        compiler_env = CompilerEnvironment()
+
+        # apply '-S' option
+
         pass
 
 if __name__ == '__main__':
-    if __debug__:
-        string_buffer = io.StringIO()
-        env = CompilerEnvironment(
-            macro_prefix = '//#',
-            statement_prefix = '//@',
-        )
-        with open('temp.c') as infile:
-            generate_code(infile, string_buffer, env)
-
-        print(string_buffer.getvalue())
-        print('-' * 80)
-
-        exec(string_buffer.getvalue(),
-                {'__outfile__': sys.stdout})
-
-    else:
-        sys.exit(main(sys.argv))
+    sys.exit(main(sys.argv))
