@@ -24,7 +24,7 @@ import subprocess
 
 _CACHE_FOLDER_NAME = '.pycro_cache'
 
-# experimental
+# TODO: read _CONFIG_FILE_NAME as a `ini` or `json` and apply them to settings
 _CONFIG_FILE_NAME = '.pycro'
 
 if sys.platform.startswith('linux') or sys.platform.startswith('freebsd'):
@@ -127,6 +127,14 @@ Setting Keys:
 )
 __TRY = "try '{} --help' for more information."
 
+__setting_keys = {
+    'mp', 'macro_prefix'                'ms', 'macro_suffix',
+    'sp', 'statement_prefix',           'ss', 'statement_suffix,
+    'cp', 'comment_prefix',             'cs', 'comment_suffix',
+    'vp', 'variable_prefix',            'vs', 'variable_suffix',
+    'ep', 'evaluation_prefix',          'es', 'evaluation_suffix',
+}
+
 # --- debuging code ---
 
 if __debug__:
@@ -213,9 +221,34 @@ def __parse_argv(argv):
         # read next arg
         if next_args:
             next_arg = next_args.popleft()
-            if next_arg[0] in ('define', 'undefine', 'input', 'setting',
-                               'import'):
+            if next_arg[0] in ('define', 'undefine', 'input', 'import'):
                 result.jobs.append((next_arg[0], arg))
+
+
+            elif next_arg[0] in ('setting'):
+
+                # --- parsing setting ---
+                arg = arg.split('=', maxsplit=1)
+                if len(arg) != 2:
+                    __print_erro(
+                            "{!r} option needs a KEY, VALUE pair.".format(
+                                next_arg[1]
+                            )
+                        )
+                    print(__TRY.format(argv[0]))
+                    return 1
+
+                if arg[0] not in __setting_keys:
+                    __print_erro(
+                            "unknown setting key: {} for option: {!r}".format(
+                                arg[0]
+                                next_arg[1],
+                            )
+                        )
+                    print(__TRY.format(argv[0]))
+                    return 1
+
+                result.jobs.append(('setting', arg))
 
             else:
                 raise BaseException("unknown argument name pushed to "
@@ -1195,8 +1228,6 @@ def main(argv):
         # clear cache
         pass
 
-    compiler_env = CompilerEnvironment()
-    executor_env = ExecutorEnvironment()
 
     if 'arrange' in options.switchs:
         # we must process '-S', FILEs according to their order.
@@ -1204,6 +1235,10 @@ def main(argv):
 
     else:
         # initialize compiler environment
+        compiler_env = CompilerEnvironment()
+
+        # apply '-S' option
+
         pass
 
 if __name__ == '__main__':
