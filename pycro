@@ -256,7 +256,7 @@ def __parse_argv(argv):
 
             continue
 
-        # empty argument, ('')
+        # empty argument
         if not arg:
             __print_erro("empty argument: #{} argument".format(i + 1))
             print(__TRY.format(argv[0]))
@@ -264,50 +264,50 @@ def __parse_argv(argv):
 
         if arg[0] == '-':
 
-            # append stdin as input, ('-')
+            # append stdin as input
             if len(arg) == 1:
                 continue
 
             if arg[1] == '-':
 
-                # read next argument as input file name, ('--')
+                # read next argument as input file name
                 if len(arg) == 2:
                     next_args.append(('input', '--'))
                     continue
 
                 option = arg[2:]
 
-                # show help, ('--help')
+                # show help
                 if option == 'help':
                     print(__USAGE.format(argv[0]))
                     __print_help()
                     return 0
 
-                # arrange performances, ('--arrange-performance')
+                # arrange performances
                 elif option == 'arrange-process':
                     result.switchs.add('arrange')
 
-                # clear cache, ('--clear-cache')
+                # clear cache
                 elif option == 'clear-cache':
                     result.switchs.add('clear')
 
-                # define variable, ('--define')
+                # define variable
                 elif option == 'define':
                     next_args.append(('define', '--define'))
 
-                # undefine variable, ('--undefine')
+                # undefine variable
                 elif option == 'undefine':
                     next_args.append(('undefine', '--undefine'))
 
-                # change settings, ('--set')
+                # change settings
                 elif option == 'set':
                     next_args.append(('setting', '--set'))
 
-                # load json files, ('--load')
+                # load json files
                 elif option == 'load':
                     next_args.append(('jsonfile', '--load'))
 
-                # import module, ('--import')
+                # import module
                 elif option == 'import':
                     next_args.append(('import', '--import'))
 
@@ -319,37 +319,37 @@ def __parse_argv(argv):
             else: # if arg[1] == '-'
                 for ch in arg[1:]:
 
-                    # show help, ('-h')
+                    # show help
                     if ch == 'h':
                         print(__USAGE.format(sys.argv[0]))
                         __print_help()
                         return 0
 
-                    # arrange performances, ('-a')
+                    # arrange performances
                     elif ch == 'a':
                         result.switchs.add('arrange')
 
-                    # clear cache, ('-C')
+                    # clear cache
                     elif ch == 'C':
                         result.switchs.add('clear')
 
-                    # define variable, ('-D')
+                    # define variable
                     elif ch == 'D':
                         next_args.append(('define', '-D'))
 
-                    # undefine variable, ('-U')
+                    # undefine variable
                     elif ch == 'U':
                         next_args.append(('undefine', '-U'))
 
-                    # change settings, ('-S')
+                    # change settings
                     elif ch == 'S':
                         next_args.append(('setting', '-S'))
 
-                    # load json files, ('-l')
+                    # load json files
                     elif ch == 'l':
                         next_args.append(('jsonfile', '-l'))
 
-                    # import module, ('-i')
+                    # import module
                     elif ch == 'i':
                         next_args.append(('import', '-I'))
 
@@ -367,11 +367,13 @@ def __parse_argv(argv):
         print(__TRY.format(argv[0]))
         return 1
 
+
     result.inputs = \
             list(tup[1] for tup in result.jobs if tup[0] == 'input')
 
     result.settings = \
             list(tup[1] for tup in result.jobs if tup[0] == 'setting')
+
 
     result.jobs = list(result.jobs)
     return result
