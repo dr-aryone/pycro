@@ -6,11 +6,11 @@ import os
 if sys.version_info[0] == 3:
     import builtins
 
-elif sys.version_info[1] == 2:
+elif sys.version_info[0] == 2:
     import __builtins__ as builtins
 
 else:
-    raise BaseException(
+    raise NotImplemented(
             "import builtins module for your python version: {}".format(
                 ','.join(n for n in sys.version_info[:3]),
             )
@@ -20,17 +20,7 @@ import io
 import re
 import collections
 import marshal
-
-if __debug__:
-    from pprint import pprint
-
-    def rprint(*objects, sep=', ', end='\n', file=sys.stdout):
-        if objects:
-            file.write(repr(objects[0]))
-            for obj in objects[1:]:
-                file.write(sep)
-                file.write(repr(obj))
-        file.write(end)
+import subprocess
 
 _CACHE_FOLDER_NAME = '.pycro_cache'
 
@@ -64,71 +54,100 @@ else:
 
 _MACRO_PATTERN = r'\s*(?P<macro>{macros})\s*(?P<args>.*?)\s*'
 
-# we comment statement pattern because
-# _STATEMENT_PATTERN = r'(?P<stat>.*)'
-
-_VARIABLE_NAME_PATTERN = r'[a-zA-Z_][a-zA-Z_0-9]+'
+_VARIABLE_NAME_PATTERN = r'[a-zA-Z_][a-zA-Z_0-9]*'
 
 _VARIABLE_PATTERN = r'{prefix}(?P<name>{pattern}){suffix}'
 
 _EVALUATION_PATTERN = r'{prefix}\s*(?P<eval>.*?)\s*{suffix}'
 
 
+_DEFAULT_VARIABLE_VALUE = None
+
+_SPACE_CHARS = ' \t\n'
+
+
+# NOTE: pycro reversed variable names
 
 _DEFAULT_OUTFILE_VARIABLE_NAME = '__outfile__'
+
+_DEFAULT_PIPES_VARIABLE_NAME = '__pipes__'
+_DEFAULT_DIVERT_FUNCTION_NAME = '__divert__'
+_DEFAULT_UNDIVERT_FUNCTION_NAME = '__undivert__'
 
 _DEFAULT_RUN_FUNCTION_NAME = '__run__'
 
 _DEFAULT_INCLUDE_FUNCTION_NAME = '__include__'
-
 _DEFAULT_PLACE_FUNCTION_NAME = '__place__'
 
-
-_SPACE_CHARS = ' \t\n'
 
 
 _CACHE_FILE_MAGIC_NUMBER = b'.pycroche'
 
 _COMPILE_FLAGS = 0
-
 _OPTIMIZE_FLAG = -1
 
 _MARSHAL_VERSION = 4
 
 _BIG_INTEGER_SIZE = 4
 
+
 __USAGE = "usage: {} [OPTION]... [[--] FILE | -]..."
 __HELP = """\
-preprocess FILEs to standard output. if no FILE or if FILE is '-', standard
-input is read.
+Pycro FILEs to standard output. if no FILE or if FILE is '-', standard input is
+read.
 
 Operation modes:
     -h, --help                      display this help and exit
-    -a, --arrange-performance       perform options and FILEs according to
+    -a, --arrange-process           perform OPTIONs and FILEs according to
                                       their orders
 
 Sortable options:
-    -D, --define NAME[=VAR]         define NAME variable as having VALUE or
+    -D, --define NAME[=VAR]         define NAME variable as having VALUE, or
                                       {default_variable_value}
     -U, --undefine NAME             undefine NAME variable
     -S, --set KEY=VALUE             set KEY setting to VALUE
     -l, --load JSONFILE             load JSONFILE and update variables
     -I, --import MODULE             import MODULE to interpreter variables
+    -L, --lang LANG                 set prefix and suffix for LANG specification
     --                              read next argument as input FILE (don't
                                       treats '-' as standard input)
-"""
+
+Known language specification:
+    c, cpp, java, perl, python, html
+""".format(
+    default_variable_value = _DEFAULT_VARIABLE_VALUE
+)
 __TRY = "try '{} --help' for more information."
+
+# --- debuging ---
+
+if __debug__:
+    from pprint import pprint
+
+    def print_line(title = None, fill='-', width=80):
+        if title:
+            print('{:{fill}^{width}}'.format(
+                    ' ' + title.strip() + ' ',
+                    width=80,
+                    fill=fill,
+                    )
+                )
+        else:
+            print(fill * width)
+
+    def rprint(*objects, sep=', ', end='\n', file=sys.stdout):
+        if objects:
+            file.write(repr(objects[0]))
+            for obj in objects[1:]:
+                file.write(sep)
+                file.write(repr(obj))
+        file.write(end)
 
 # --- utilities ---
 
 __joinpath = os.path.join
 __abspath = os.path.abspath
 __realpath = os.path.realpath
-
-class dotdict(dict):
-    __getattr__ = dict.get
-    __setattr__ = dict.__setitem__
-    __delattr__ = dict.__delitem__
 
 if sys.version_info >= (3, 4):
     __fullmatch = re._pattern_type.fullmatch
@@ -139,11 +158,121 @@ else:
         if m and m.end() == len(string):
             return m
 
+class Pipe:
+    if sys.version_info[0] == 3:
+        _fdopen = open
+
+    elif sys.version_info[0] == 2:
+        _fdopen = os.fdopen
+
+    else:
+        raise NotImplemented(
+                "implement fdopen function for your python version: {}".format(
+                    ','.join(n for n in sys.version_info[:3]),
+                )
+            )
+
+    def __init__(self, read_mode = 'rt', write_mode = 'wt'):
+        pipe = os.pipe()
+        self.read_fd = Pipe._fdopen(pipe[0], read_mode)
+        self.write_fd = Pipe._fdopen(pipe[1], write_mode)
+
+    # --- IOBase functions ---
+
+    def close(self):
+        try:
+            self.read_fd.close()
+        finally:
+            self.write_fd.close()
+
+    @property
+    def closed(self):
+        return self.closed or self.closed
+
+    def fileno(self):
+        return self.read_fd.fileno(), self.write_fd.fileno()
+
+    def flush(self):
+        try:
+            self.read_fd.flush()
+        finally:
+            self.write_fd.flush()
+
+    def isatty(self):
+        return False
+
+    def readable(self):
+        return self.read_fd.readable()
+
+    def readline(self, hint=-1):
+        return self.read_fd.readline(hint)
+
+    def readlines(self, hint=-1):
+        return self.read_fd.readlines(hint)
+
+    def seek(self, offset, whence=0):
+        raise io.UnsupportedOperation('not seekable')
+
+    def seekable(self):
+        return False
+
+    def tell():
+        raise io.UnsupportedOperation('tell')
+
+    def truncate(size = None):
+        raise io.UnsupportedOperation('truncate')
+
+    def writable():
+        return self.write_fd.writable()
+
+    def writelines(lines):
+        return self.write_fd.writelines(lines)
+
+    # --- TextIOBase functions & variables ---
+
+    @property
+    def encoding(self):
+        return self.read_fd.encoding, self.write_fd.encoding
+
+    @property
+    def errors(self):
+        return self.read_fd.errors, self.write_fd.errors
+
+    @property
+    def newlines(self):
+        return self.read_fd.newlines, self.write_fd.newlines
+
+    @property
+    def buffer(self):
+        raise io.UnsupportedOperation('buffer')
+
+    def detach(self):
+        result = self.read_fd, self.write_fd
+        self.read_fd = None
+        self.write_fd = None
+        return result
+
+    def read(self, size = -1):
+        return self.read_fd.read(size)
+
+    def readline(self, size = -1):
+        return self.read_fd.readline(size)
+
+    # seek is implemented.
+    # tell is implemented.
+
+    def write(self, s):
+        return self.write_fd.write(s)
+
+class dotdict(dict):
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
+
 # --- argument parser ---
 
 def __print_help():
-    print(__HELP.format(
-        default_variable_value = _DEFAULT_VARIABLE_VALUE))
+    print(__HELP)
 
 def __parse_argv(argv):
     result = dotdict(
@@ -199,9 +328,9 @@ def __parse_argv(argv):
                     __print_help()
                     return 0
 
-                # order performances, ('--order-performance')
-                elif option == 'order-performance':
-                    result.operation_modes.add('order')
+                # arrange performances, ('--arrange-performance')
+                elif option == 'arrange-process':
+                    result.operation_modes.add('arrange')
 
                 # define variable, ('--define')
                 elif option == 'define':
@@ -237,9 +366,9 @@ def __parse_argv(argv):
                         __print_help()
                         return 0
 
-                    # order performances, ('-o')
-                    elif ch == 'o':
-                        result.operation_modes.add('order')
+                    # arrange performances, ('-a')
+                    elif ch == 'a':
+                        result.operation_modes.add('arrange')
 
                     # define variable, ('-D')
                     elif ch == 'D':
@@ -438,36 +567,9 @@ def _generate_while(args, outfile, env):
 
     env.macro_stack.append('while')
 
-# --- else macro ---
-
-def _generate_else(args, outfile, env):
-    if env.macro_stack and env.macro_stack[-1] in \
-            ('if', 'elif', 'for', 'while', 'except'):
-
-        env.indent -= 1
-        outfile.write('{}{}:\n'.format(env.tabs(), 'else'))
-        env.indent += 1
-
-        env.macro_stack[-1] = 'else'
-
-    else:
-        raise CompilerError(_WITHOUT_PRECEDING,
-                'else', 'if/elif/for/while/except')
-
-# --- with macro ---
-
-def _generate_with(args, outfile, env):
-    if not args:
-        raise CompilerError(_MACRO_REQUIRES, 'with', 'an expression')
-
-    outfile.write('{}{} {}\n'.format(env.tabs(), 'with', args))
-    env.indent += 1
-
-    env.macro_stack.append('with')
-
 # --- try macro ---
 
-def _generator_try(args, outfile, env):
+def _generate_try(args, outfile, env):
     outfile.write('{}{}:\n'.format(env.tabs, 'try'))
     env.indent += 1
 
@@ -475,7 +577,7 @@ def _generator_try(args, outfile, env):
 
 # -- except macro ---
 
-def _generator_except(args, outfile, env):
+def _generate_except(args, outfile, env):
     if not args:
         raise CompilerError(_MACRO_REQUIRES, 'except', 'an expression')
 
@@ -504,6 +606,43 @@ def _generate_finally(args, outfile, env):
     else:
         raise CompilerError(_WITHOUT_PRECEDING, 'finally', 'try/except/else')
 
+# --- else macro ---
+
+def _generate_else(args, outfile, env):
+    if env.macro_stack and env.macro_stack[-1] in \
+            ('if', 'elif', 'for', 'while', 'except'):
+
+        env.indent -= 1
+        outfile.write('{}{}:\n'.format(env.tabs(), 'else'))
+        env.indent += 1
+
+        env.macro_stack[-1] = 'else'
+
+    else:
+        raise CompilerError(_WITHOUT_PRECEDING,
+                'else', 'if/elif/for/while/except')
+
+# --- with macro ---
+
+def _generate_with(args, outfile, env):
+    if not args:
+        raise CompilerError(_MACRO_REQUIRES, 'with', 'an expression')
+
+    outfile.write('{}{} {}\n'.format(env.tabs(), 'with', args))
+    env.indent += 1
+
+    env.macro_stack.append('with')
+
+# --- def macro ---
+
+def _generate_def(args, outfile, env):
+    if not args:
+        raise CompilerError(_MACRO_REQUIRES, 'def', 'a function definition')
+
+    outfile.write('{}{} {}\n'.format(env.tabs(), 'def', args))
+    env.indent += 1
+
+    env.macro_stack.append('def')
 
 # --- end macro ---
 
@@ -519,6 +658,42 @@ def _generate_end(args, outfile, env):
 
     env.indent -= 1
 
+# --- divert macro ---
+
+def _generate_divert(args, outfile, env):
+    outfile.write(
+        '{}{}({})\n'.format(
+            env.tabs(),
+            env.divert_function_name,
+            args
+        )
+    )
+
+# -- undivert macro ---
+
+def _generate_undivert(args, outfile, env):
+    outfile.write(
+        '{}{}({})\n'.format(
+            env.tabs(),
+            env.undivert_function_name,
+            args
+        )
+    )
+
+# --- place macro ---
+
+def _generate_place(args, outfile, env):
+    if not args:
+        raise CompilerError(_MACRO_REQUIRES, 'place', 'a filename')
+
+    outfile.write(
+        '{}{}({})\n'.format(
+            env.tabs(),
+            env.place_function_name,
+            args,
+        )
+    )
+
 # --- include macro ---
 
 def _generate_include(args, outfile, env):
@@ -526,52 +701,59 @@ def _generate_include(args, outfile, env):
         raise CompilerError(_MACRO_REQUIRES, 'for', 'a filename')
 
     outfile.write(
-        '{}{}.({})'.format(
+        '{}{}({})\n'.format(
             env.tabs(),
             env.include_function_name,
-            args
-        )
-    )
-    # TODO: implement _generator_include
-
-# --- place macro ---
-
-def _place_function_creator(outfile, current_working_directory):
-    def _place_function(file_name):
-        with open(__joinpath(current_working_directory, file_name)) as infile:
-            outfile.write(infile.read())
-
-def _generate_place(args, outfile, env):
-    if not args:
-        raise CompilerError(_MACRO_REQUIRES, 'place', 'a filename')
-
-    outfile.write(
-        '{}{}.({})'.format(
-            env.tabs(),
-            env.place_function_name,
             args,
         )
     )
 
-# --- exec macro ---
+    # TODO: complete _generator_include
 
-def _generate_exec(args, outfile, env):
+# --- run macro ---
+
+def _generate_run(args, outfile, env):
+    if not args:
+        raise CompilerError(_MACRO_REQUIRES, 'run', 'a command')
+
+    outfile.write(
+        '{}{}({})\n'.format(
+            env.tabs(),
+            env.run_function_name,
+            args,
+        )
+    )
+
+# --- load macro ---
+
+# TODO: complete _generate_load
+
+def _generate_load(args, outfile, env):
     pass
-
-def _exec_function_creator():
-    def _exec_function(*args):
-        subprocess.run(*args)
 
 _default_code_generators = {
         'if': _generate_if,
         'elif': _generate_elif,
-        'else': _generate_else,
+
         'for': _generate_for,
         'while': _generate_while,
+
+        'try': _generate_try,
+        'except': _generate_except,
+        'finally': _generate_finally,
+
+        'else': _generate_else,
         'with': _generate_with,
+
+        'def': _generate_def,
         'end': _generate_end,
 
+        'divert': _generate_divert,
+        'undivert': _generate_undivert,
+
         'place': _generate_place,
+
+        'run': _generate_run,
 }
 
 class CompilerEnvironment:
@@ -580,26 +762,32 @@ class CompilerEnvironment:
 
             code_generators = None,
 
-            macro_prefix = '%',
+            macro_prefix = '@',
             macro_suffix = '',
 
-            statement_prefix = '@',
+            statement_prefix = '#',
             statement_suffix = '',
 
-            comment_prefix = '#',
+            comment_prefix = '%',
             comment_suffix = '',
 
             variable_prefix = '${',
             variable_suffix = '}',
 
-            evaluation_prefix = '${{',
+            evaluation_prefix = '$${{',
             evaluation_suffix = '}}',
 
             tab = '\t',
             indent = 0,
 
             outfile_variable_name = _DEFAULT_OUTFILE_VARIABLE_NAME,
+
+            pipes_varaible_name = _DEFAULT_PIPES_VARIABLE_NAME,
+            divert_function_name = _DEFAULT_DIVERT_FUNCTION_NAME,
+            undivert_function_name = _DEFAULT_UNDIVERT_FUNCTION_NAME,
+
             run_function_name = _DEFAULT_RUN_FUNCTION_NAME,
+
             include_function_name = _DEFAULT_INCLUDE_FUNCTION_NAME,
             place_function_name = _DEFAULT_PLACE_FUNCTION_NAME,
             ):
@@ -654,9 +842,17 @@ class CompilerEnvironment:
 
         # --- variable names ---
         self.outfile_variable_name = outfile_variable_name
+
+        self.pipes_varaible_name = pipes_varaible_name
+        self.divert_function_name = divert_function_name
+        self.undivert_function_name = undivert_function_name
+
         self.run_function_name = run_function_name
+
         self.include_function_name = include_function_name
         self.place_function_name = place_function_name
+
+        # --- indent & tabs ---
 
         self.indent = indent
         self.tab = tab
@@ -717,7 +913,7 @@ def generate_code(infile, outfile, env):
                     env.tabs(),
                     striped_line[
                             len(statement_prefix): \
-                            len(striped_line) -len(statement_suffix)]\
+                            len(striped_line) -len(statement_suffix)] \
                                 .strip(_SPACE_CHARS),
                     )
                 )
@@ -731,7 +927,7 @@ def generate_code(infile, outfile, env):
 
             continue
 
-        # --- check for evaluations ---
+        # --- check for evaluations & variables ---
         outfile.write(env.tabs())
 
         m = evaluation_variable_re.search(line)
@@ -747,6 +943,7 @@ def generate_code(infile, outfile, env):
                 )
 
             name = m.group('name')
+
             if name is None:
                 # --- write evaluation ---
                 outfile.write(
@@ -786,7 +983,12 @@ def generate_code(infile, outfile, env):
     if env.macro_stack:
         raise CompilerError(_UNTERMINATED_BLOCK, env.macro_stack[-1])
 
-def compile_code(infile, env,
+def compile_generated_code(code, infile_name,
+        compile_flags = _COMPILE_FLAGS, optimize = _OPTIMIZE_FLAG):
+
+    return compile(code, infile_name, 'exec', compile_flags, True, optimize)
+
+def compile_file(infile, env,
         compile_flags = _COMPILE_FLAGS, optimize = _OPTIMIZE_FLAG):
 
     string_buffer = io.StringIO()
@@ -794,19 +996,26 @@ def compile_code(infile, env,
         generate_code(infile, string_buffer, env)
 
     return compile(string_buffer.getvalue(), infile.name, 'exec',
-            flags, True, optimize)
+            compile_flags, True, optimize)
 
 _default_builtins = builtins
 
-class ExecutorError:
+class ExecutorEnvironment:
     def __init__(self,
             variables = None,
             builtins = None,
 
-            current_working_directory = '.',
+            pipes = None,
 
+            # --- variable names ---
             outfile_variable_name = _DEFAULT_OUTFILE_VARIABLE_NAME,
+
+            pipes_varaible_name = _DEFAULT_PIPES_VARIABLE_NAME,
+            divert_function_name = _DEFAULT_DIVERT_FUNCTION_NAME,
+            undivert_function_name = _DEFAULT_UNDIVERT_FUNCTION_NAME,
+
             run_function_name = _DEFAULT_RUN_FUNCTION_NAME,
+
             include_function_name = _DEFAULT_INCLUDE_FUNCTION_NAME,
             place_function_name = _DEFAULT_PLACE_FUNCTION_NAME,
             ):
@@ -816,20 +1025,114 @@ class ExecutorError:
 
         if '__builtins__' not in variables:
             if builtins is None:
-                builtins = _default_builtins.copy()
+                builtins = _default_builtins
 
             variables['__builtins__'] = builtins
 
-        self.current_working_directory = current_working_directory
+        self.variables = variables
 
+        self.pipes = pipes or collections.defaultdict(io.StringIO)
+
+        # --- variable names ---
         self.outfile_variable_name = outfile_variable_name
+
+        self.pipes_varaible_name = pipes_varaible_name
+        self.divert_function_name = divert_function_name
+        self.undivert_function_name = undivert_function_name
+
         self.run_function_name = run_function_name
+
         self.include_function_name = include_function_name
         self.place_function_name = place_function_name
 
-def execute_code_object(code_object, outfile, env):
+def execute_code_object(
+        code_object,
+        outfile,
+        env,
+
+        working_directory = '.',
+        ):
+
+    variables = env.variables
+
+    pipes = env.pipes
+
+    pipes[None] = outfile
+
+    # --- outfile variable ---
+
     variables[env.outfile_variable_name] = outfile
-    variables[env.run_function_name] = _place_function_creator()
+
+    # --- pipes variable ---
+
+    variables[env.pipes_varaible_name] = pipes
+
+    # --- divert function ---
+
+    def _divert_function(target = None):
+        if not (isinstance(target, (str, int)) or target is None):
+            raise TypeError(
+                    "divert target must be type of str or int or None")
+        variables[env.outfile_variable_name] = pipes[target]
+
+    variables[env.divert_function_name] = _divert_function
+
+    # --- undivert function ---
+
+    def _undivert_function(target):
+        if not isinstance(target, (str, int)):
+            raise TypeError(
+                    "undivert target must be type of str or int")
+        outfile.write(pipes[target].getvalue())
+
+    variables[env.undivert_function_name] = _undivert_function
+
+    # --- place function ---
+
+    def _place_function(file_name, output = None):
+        output = env.pipes[output]
+        with open(__joinpath(working_directory, file_name)) as infile:
+            output.write(infile.read())
+
+    variables[env.place_function_name] = _place_function
+
+    # --- include function ---
+
+    # TODO: write _include_function
+
+    # --- run function ---
+
+    def _run_function(command,
+            stdin = None,
+            stdout = None,
+            stderr = None,
+            check = True
+            ):
+
+        if stdin is None:
+            input = ''
+        elif isinstance(stdin, (str, int)):
+            input = pipes[stdin].getvalue()
+        else:
+            raise TypeError("run stdin argument must be type of str or int")
+
+        if stdout is None or isinstance(stdout, (str, int)):
+            stdout = pipes[stdout]
+        else:
+            raise TypeError(
+                    "run stdout argument must be type of str or int or None")
+
+        if stderr is None or isinstance(stderr, (str, int)):
+            stderr = pipes[stderr]
+        else:
+            raise TypeError(
+                    "run stderr argument must be type of str or int or None")
+
+        subprocess.run(command, input=input, stdout=stdout, stderr=stderr)
+
+    variables[env.run_function_name] = _run_function
+
+    # --- executing code_object ---
 
     return exec(code_object, variables)
 
@@ -858,19 +1161,16 @@ def write_compiled_code(code_object, env, outfile):
 
     __write_code_object(outfile, code_object)
 
-
-# --- main function ---
-
 _default_language_specifications = {
-    ('c', 'cpp', 'java'):
+    ('c', 'cpp', 'java', 'javascript'):
         dotdict(
-            macro_prefix =          '//%',
+            macro_prefix =          '//@',
             macro_suffix =          '',
 
-            statement_prefix =      '//@',
+            statement_prefix =      '//#',
             statement_suffix =      '',
 
-            comment_prefix =        '//#',
+            comment_prefix =        '//%',
             comment_suffix =        '',
 
             variable_prefix =       '${',
@@ -878,17 +1178,17 @@ _default_language_specifications = {
 
             evaluation_prefix =     '$${{',
             evaluation_suffix =     '}}',
-        )
+        ),
 
     ('perl', 'python'):
         dotdict(
-            macro_prefix =          '#%',
+            macro_prefix =          '#@',
             macro_suffix =          '',
 
-            statement_prefix =      '#@',
+            statement_prefix =      '##',
             statement_suffix =      '',
 
-            comment_prefix =        '##',
+            comment_prefix =        '#%',
             comment_suffix =        '',
 
             variable_prefix =       '${',
@@ -896,17 +1196,17 @@ _default_language_specifications = {
 
             evaluation_prefix =     '$${{',
             evaluation_suffix =     '}}',
-        )
+        ),
 
     'html':
         dotdict(
-            macro_prefix =          '<!--%',
+            macro_prefix =          '<!--@',
             macro_suffix =          '-->',
 
-            statement_prefix =      '<!--@',
+            statement_prefix =      '<!--#',
             statement_suffix =      '-->',
 
-            comment_prefix =        '<!--#',
+            comment_prefix =        '<!--%',
             comment_suffix =        '-->',
 
             variable_prefix =       '${',
@@ -914,7 +1214,7 @@ _default_language_specifications = {
 
             evaluation_prefix =     '$${{',
             evaluation_suffix =     '}}',
-        )
+        ),
 }
 
 if sys.platform == 'win32':
@@ -927,23 +1227,41 @@ else:
             'implement __get_cache_file_path() for your platform: {}'.format(
                 sys.platform))
 
+def temp_code():
+    print_line('run temporary code')
+    infile_name = 'temp.txt'
+
+    compiler_env = CompilerEnvironment()
+
+    string_buffer = io.StringIO()
+
+    with open(infile_name) as infile:
+        generate_code(infile, string_buffer, compiler_env)
+
+    generated_code = string_buffer.getvalue()
+
+    print(generated_code)
+    print_line()
+
+    print('compiling ...')
+
+    code_object = compile_generated_code(generated_code, infile_name)
+
+
+    execution_env = ExecutorEnvironment()
+
+    print('running ...')
+
+    print_line('result')
+    execute_code_object(code_object, sys.stdout, execution_env)
+    print_line('end of result')
+
 def main(argv):
     options = __parse_argv(sys.argv)
     if isinstance(options, int):
         return options
 
-    for file_name in options.inputs:
-        pass
+    temp_code()
 
 if __name__ == '__main__':
-    if __debug__:
-        string_buffer = io.StringIO()
-        env = CompilerEnvironment(**_default_language_specifications['c'])
-        with open('temp.c') as infile:
-            generate_code(infile, string_buffer, env)
-
-        print(string_buffer.getvalue())
-        print('-' * 80)
-
-    else:
-        sys.exit(main(sys.argv))
+    sys.exit(main(sys.argv))
