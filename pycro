@@ -269,6 +269,9 @@ class dotdict(dict):
 def __print_help():
     print(__HELP)
 
+def __print_erro(line):
+    print('pycro: error:', line)
+
 def __parse_argv(argv):
     result = dotdict(
             jobs = collections.deque(),
@@ -298,7 +301,7 @@ def __parse_argv(argv):
 
         # empty argument, ('')
         if not arg:
-            print("error: empty argument: #{} argument".format(i + 1))
+            __print_erro("empty argument: #{} argument".format(i + 1))
             print(__TRY.format(argv[0]))
             return 1
 
@@ -348,7 +351,7 @@ def __parse_argv(argv):
                     next_args.append(('import', '--import'))
 
                 else:
-                    print("error: unknown option: '{}'".format(arg))
+                    __print_erro("unknown option: '{}'".format(arg))
                     print(__TRY.format(argv[0]))
                     return 1
 
@@ -386,7 +389,7 @@ def __parse_argv(argv):
                         next_args.append(('import', '-I'))
 
                     else:
-                        print("error: invalid option: '{}'".format('-' + ch))
+                        __print_erro("invalid option: '{}'".format('-' + ch))
                         print(__TRY.format(argv[0]))
                         return 1
 
@@ -394,9 +397,8 @@ def __parse_argv(argv):
             result.jobs.append(('input', arg))
 
     if next_args:
-        print("error: '{}' option requires an argument".format(
-            next_args[0][1]
-            ))
+        __print_erro(
+                "'{}' option requires an argument".format(next_args[0][1]))
         print(__TRY.format(argv[0]))
         return 1
 
