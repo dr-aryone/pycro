@@ -211,7 +211,7 @@ def __parse_argv(argv):
 
             # NOTE: these fields will be filled on end
             inputs = None,
-            settings = None,
+            settings_langs = None,
             )
 
     next_args = collections.deque()
@@ -437,9 +437,9 @@ def __parse_argv(argv):
     result.inputs = \
             list(tup[1] for tup in result.jobs if tup[0] == 'input')
 
-    result.settings = \
+    result.settings_langs = \
             list(
-                tup[1] for tup in result.jobs if tup[0] in ('setting', '')
+                tup[1] for tup in result.jobs if tup[0] in ('setting', 'lang')
             )
 
 
@@ -1188,12 +1188,38 @@ def write_compiled_code(code_object, env, outfile):
     __write_string(outfile, env.comment_prefix)
     __write_string(outfile, env.comment_suffix)
 
+    __write_string(outfile, env.variable_prefix)
+    __write_string(outfile, env.variable_suffix)
+
     __write_string(outfile, env.evaluation_prefix)
     __write_string(outfile, env.evaluation_suffix)
 
     __write_code_object(outfile, code_object)
 
-_default_language_specifications = {
+def __compile_if_needed(code_path, cache_path):
+    code_stat = os.stat(code_path)
+    try:
+        cache_path = os.stat(cache_path)
+        if code_stat.st_mtime_ns >= cache_path.st_mtime_ns:
+            return
+
+    except FileNotFoundError:
+        pass
+
+    
+
+if sys.platform == 'win32':
+    def __get_cache_file_path(cache_folder_path, file_real_path):
+        parts = file_real_path.split(os.sep)
+        return __joinpath(cache_folder_path, parts[0][0].lower(), *parts[1:])
+
+else:
+    raise NotImplemented(
+            'implement __get_cache_file_path() for your platform: {}'.format(
+                sys.platform))
+
+
+__language_specifications = {
     **dict.fromkeys(
         ['c', 'cpp', 'java', 'javascript'],
         dotdict(
@@ -1255,15 +1281,10 @@ _default_language_specifications = {
     )
 }
 
-if sys.platform == 'win32':
-    def __get_cache_file_path(cache_folder_path, file_real_path):
-        parts = file_real_path.split(os.sep)
-        return __joinpath(cache_folder_path, parts[0][0].lower(), *parts[1:])
 
-else:
-    raise NotImplemented(
-            'implement __get_cache_file_path() for your platform: {}'.format(
-                sys.platform))
+def __apply_language(lang, compiler_env):
+    for key, value in __language_specifications[lang]:
+        setattr(compiler_env, key, value)
 
 def __apply_settings(key, value, compiler_env):
     if key in ('mp', 'macro_prefix'):
@@ -1319,11 +1340,17 @@ def main(argv):
         compiler_env = CompilerEnvironment()
         executor_env = ExecutorEnvironment()
 
-        # apply settings
-        for key, value in options.settings:
-            __apply_settings(key.lower(), value, compiler_env)
+        # apply settings & languages
+        for item in options.settings_langs:
+            if isinstance(item, tuple):
+                # item is a (Key, Value)
+                __apply_settings(item[0].lower(), item[1], compiler_env)
+            else:
+                # item is language specification
+                __apply_language(lang, compiler_env)
 
         # compile and cache input files by threading
+
 
         # apply variable definitions, or undefinitions
 
