@@ -114,7 +114,7 @@ Sortable options:
                                       specification
     -l, --load JSONFILE             load JSONFILE and update variables
     -I, --import MODULE             import MODULE to interpreter variables
-    --                              read next argument as input FILE (don't
+    -- FILE                         read next argument as input FILE (don't
                                       treats '-' as standard input)
 
 common options:
@@ -223,6 +223,8 @@ def __parse_argv(argv):
 
     next_args = collections.deque()
 
+    input_number = 0
+
     for i, arg in enumerate(argv[1:]):
 
         # read next arg
@@ -230,6 +232,10 @@ def __parse_argv(argv):
             next_arg = next_args.popleft()
             if next_arg[0] in ('input', 'import', 'lang', 'jsonfile'):
                 result.jobs.append((next_arg[0], arg))
+
+            elif next_arg[0] == 'input':
+                result.jobs.append(('input', arg))
+                input_number += 1
 
             elif next_arg[0] == 'define':
 
@@ -241,6 +247,8 @@ def __parse_argv(argv):
                             next_arg[1],
                         )
                     )
+                    print(__TRY.format(argv[0]))
+                    return 1
 
                 if not __fullmatch(_VARIABLE_NAME_RE, arg[0]):
                     __print_erro(
@@ -257,10 +265,10 @@ def __parse_argv(argv):
             elif next_arg[0] == 'undefine':
 
                 # --- parsing undefinition ---
-                if not __fullmatch(_VARIABLE_NAME_RE, arg[0]):
+                if not __fullmatch(_VARIABLE_NAME_RE, arg):
                     __print_erro(
                         "invalid variable name: {!r} for option: {!r}".format(
-                            arg[0],
+                            arg,
                             next_arg[1],
                         )
                     )
@@ -284,7 +292,7 @@ def __parse_argv(argv):
 
                 if arg[0] not in __setting_keys:
                     __print_erro(
-                        "unknown setting key: {} for option: {!r}".format(
+                        "invalid setting key: {!r} for option: {!r}".format(
                             arg[0],
                             next_arg[1],
                         )
@@ -310,6 +318,8 @@ def __parse_argv(argv):
 
             # append stdin as input
             if len(arg) == 1:
+                result.jobs.append(('input', sys.stdin))
+                input_number += 1
                 continue
 
             if arg[1] == '-':
@@ -412,6 +422,7 @@ def __parse_argv(argv):
 
         else: # if arg[0] == '-'
             result.jobs.append(('input', arg))
+            input_number += 1
 
     if next_args:
         __print_erro(
@@ -419,6 +430,8 @@ def __parse_argv(argv):
         print(__TRY.format(argv[0]))
         return 1
 
+    if input_number == 0:
+        result.jobs.append(('input', sys.stdin))
 
     result.inputs = \
             list(tup[1] for tup in result.jobs if tup[0] == 'input')
@@ -1284,6 +1297,10 @@ def main(argv):
     if isinstance(options, int):
         return options
 
+    if __debug__:
+        pprint(options)
+        return 0
+
     # first clear cache folder
     if 'clear' in options.switchs:
         # clear cache
@@ -1305,7 +1322,7 @@ def main(argv):
         for key, value in options.settings:
             __apply_settings(key.lower(), value, compiler_env)
 
-        # compile and cache input files
+        # compile and cache input files by threading
 
         # apply variable definitions, or undefinitions
 
@@ -1313,7 +1330,6 @@ def main(argv):
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))
-
 
 # --- temporary codes ---
 
