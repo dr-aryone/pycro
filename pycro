@@ -104,6 +104,9 @@ Operation modes:
     -h, --help                      display this help and exit
     -a, --arrange-process           perform OPTIONs and FILEs according to
                                       their orders
+    --list-settings                 list setting keys and exit
+    --list-languages                list predefined programming languages and
+                                      exit
 
 Sortable options:
     -D, --define NAME[=VAR]         define NAME variable as having VALUE, or
@@ -119,16 +122,6 @@ Sortable options:
 
 common options:
     -C, --clear-cache               first clear compiler cache
-
-Known language specification:
-    c, cpp, java, perl, python, html
-
-Setting Keys:
-    mp, macro_prefix                ms, macro_suffix,
-    sp, statement_prefix,           ss, statement_suffix,
-    cp, comment_prefix,             cs, comment_suffix,
-    vp, variable_prefix,            vs, variable_suffix,
-    ep, evaluation_prefix,          es, evaluation_suffix,
 """.format(
     default_variable_value = _DEFAULT_VARIABLE_VALUE
 )
@@ -189,7 +182,7 @@ elif sys.version_info[0] == 2:
 
 else:
     raise NotImplemented(
-            "implement _fdopen function for your python version: {}".format(
+            "implement __fdopen function for your python version: {}".format(
                 ','.join(n for n in sys.version_info[:3]),
             )
         )
@@ -340,6 +333,14 @@ def __parse_argv(argv):
                 # arrange performances
                 elif option == 'arrange-process':
                     result.switchs.add('arrange')
+
+                elif option == 'list-languages':
+                    # TODO: list languages
+                    return 0
+
+                elif option == 'list-settings':
+                    # TODO: list settings
+                    return 0
 
                 # clear cache
                 elif option == 'clear-cache':
