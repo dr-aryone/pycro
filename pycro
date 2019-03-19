@@ -1196,17 +1196,50 @@ def write_compiled_code(code_object, env, outfile):
 
     __write_code_object(outfile, code_object)
 
-def __compile_if_needed(code_path, cache_path):
+class FileStructError(Exception):
+    pass
+
+def read_compiled_code(infile):
+    if infile.read(len(_CACHE_FILE_MAGIC_NUMBER)) != _CACHE_FILE_MAGIC_NUMBER:
+        raise FileStructError('file magic number mismatch')
+
+    code_generators = set()
+    code_generators_len = __read_big_integer(infile)
+    while code_generators_len > 0:
+        code_generators.add(__read_string(infile))
+        code_generators_len -= 1
+
+    macro_prefix = __read_string(infile)
+    macro_suffix = __read_string(infile)
+
+    statement_prefix = __read_string(infile)
+    statement_suffix = __read_string(infile)
+
+    comment_prefix = __read_string(infile)
+    comment_suffix = __read_string(infile)
+
+    variable_prefix = __read_string(infile)
+    variable_suffix = __read_string(infile)
+
+    evaluation_prefix = __read_string(infile)
+    evaluation_suffix = __read_string(infile)
+
+    code_object = __read_code_object(infile)
+
+def __compile_if_needed(code_path, cache_path, compiler_env):
     code_stat = os.stat(code_path)
     try:
         cache_path = os.stat(cache_path)
-        if code_stat.st_mtime_ns >= cache_path.st_mtime_ns:
+        if code_stat.st_mtime_ns < cache_path.st_mtime_ns:
             return
+
+        with open(cache_path, 'rb') as cache_file:
+            pass
 
     except FileNotFoundError:
         pass
 
-    
+
 
 if sys.platform == 'win32':
     def __get_cache_file_path(cache_folder_path, file_real_path):
@@ -1350,7 +1383,6 @@ def main(argv):
                 __apply_language(lang, compiler_env)
 
         # compile and cache input files by threading
-
 
         # apply variable definitions, or undefinitions
 
