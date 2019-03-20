@@ -120,7 +120,7 @@ Sortable options:
     -- FILE                         read next argument as input FILE (don't
                                       treats '-' as standard input)
 
-common options:
+Common options:
     -C, --clear-cache               first clear compiler cache
 """.format(
     default_variable_value = _DEFAULT_VARIABLE_VALUE
@@ -1370,6 +1370,7 @@ def main(argv):
 
     if __debug__:
         pprint(options)
+        print_line()
         return 0
 
     # first clear cache folder
@@ -1381,7 +1382,7 @@ def main(argv):
     #       settings
 
     if 'arrange' in options.switchs:
-        # we must process '-S', FILEs according to their order.
+        # we must process '-S' & FILEs according to their order.
         pass
 
     else:
@@ -1401,7 +1402,6 @@ def main(argv):
         # compile and cache input files by threading
 
         # apply variable definitions, or undefinitions
-
         pass
 
 if __name__ == '__main__':
