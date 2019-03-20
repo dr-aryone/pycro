@@ -196,6 +196,13 @@ class dotdict(dict):
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
 
+
+class FileStructError(Exception):
+    pass
+
+# we have no code object type definition
+_code_object_type = type(compile('0', '', 'eval'))
+
 # --- argument parser ---
 
 def __print_help():
@@ -462,6 +469,9 @@ def __write_code_object(outfile, code_object):
     marshal.dump(outfile, code_object, _MARSHAL_VERSION)
 
 def __read_code_object(infile):
+    result = marshal.load(infile)
+    if not isinstance(result, _code_object_type):
+        raise FileStructError('invalid object type while reading code object')
     return marshal.load(infile)
 
 # --- integers ---
@@ -1171,13 +1181,9 @@ def execute_code_object(
 
 # --- main functions ---
 
-def write_compiled_code(code_object, env, outfile):
+def __write_compiled_code_env(code_object, env, outfile):
     # --- writing to file ---
     outfile.write(_CACHE_FILE_MAGIC_NUMBER)
-
-    __write_big_integer(outfile, len(env.code_generators))
-    for name in env.code_generators:
-        __write_string(outfile, name)
 
     __write_string(outfile, env.macro_prefix)
     __write_string(outfile, env.macro_suffix)
@@ -1196,50 +1202,50 @@ def write_compiled_code(code_object, env, outfile):
 
     __write_code_object(outfile, code_object)
 
-class FileStructError(Exception):
-    pass
-
-def read_compiled_code(infile):
+def __read_compiled_code(env, infile):
     if infile.read(len(_CACHE_FILE_MAGIC_NUMBER)) != _CACHE_FILE_MAGIC_NUMBER:
         raise FileStructError('file magic number mismatch')
 
-    code_generators = set()
-    code_generators_len = __read_big_integer(infile)
-    while code_generators_len > 0:
-        code_generators.add(__read_string(infile))
-        code_generators_len -= 1
+    if \
+            env.macro_prefix == __read_string(infile) and \
+            env.macro_suffix == __read_string(infile) and \
+            env.statement_prefix == __read_string(infile) and \
+            env.statement_suffix == __read_string(infile) and \
+            env.comment_prefix == __read_string(infile) and \
+            env.comment_suffix == __read_string(infile) and \
+            env.variable_prefix == __read_string(infile) and \
+            env.variable_suffix == __read_string(infile) and \
+            env.evaluation_prefix == __read_string(infile) and \
+            env.evaluation_suffix == __read_string(infile):
 
-    macro_prefix = __read_string(infile)
-    macro_suffix = __read_string(infile)
+        return __read_code_object(infile)
 
-    statement_prefix = __read_string(infile)
-    statement_suffix = __read_string(infile)
-
-    comment_prefix = __read_string(infile)
-    comment_suffix = __read_string(infile)
-
-    variable_prefix = __read_string(infile)
-    variable_suffix = __read_string(infile)
-
-    evaluation_prefix = __read_string(infile)
-    evaluation_suffix = __read_string(infile)
-
-    code_object = __read_code_object(infile)
+    return None
 
 def __compile_if_needed(code_path, cache_path, compiler_env):
     code_stat = os.stat(code_path)
     try:
-        cache_path = os.stat(cache_path)
-        if code_stat.st_mtime_ns < cache_path.st_mtime_ns:
-            return
+        # may raise FileNotFoundError
+        cache_stat = os.stat(cache_path)
 
-        with open(cache_path, 'rb') as cache_file:
-            pass
+        if code_stat.st_mtime_ns < cache_stat.st_mtime_ns:
+
+            # this also may raise FileNotFoundError
+            with open(cache_path, 'rb') as cache_file:
+                code_object = __read_compiled_code(cache_file)
+                if code_object is not None:
+                    return code_object
 
     except FileNotFoundError:
         pass
+    except EOFError:
+        pass
 
-
+    # compile the file
+    with open(code_path, 'rt') as code_file:
+        with open(cache_path, 'wb') as cache_file:
+            code_object = compile_file(code_file, compiler_env)
+            __write_compiled_code_env(code_object, compiler_env, cache_file)
 
 if sys.platform == 'win32':
     def __get_cache_file_path(cache_folder_path, file_real_path):
