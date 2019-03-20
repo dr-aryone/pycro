@@ -1202,7 +1202,7 @@ def __write_compiled_code_env(code_object, env, outfile):
 
     __write_code_object(outfile, code_object)
 
-def __read_compiled_code(env, infile):
+def __read_compiled_code(infile, env):
     if infile.read(len(_CACHE_FILE_MAGIC_NUMBER)) != _CACHE_FILE_MAGIC_NUMBER:
         raise FileStructError('file magic number mismatch')
 
@@ -1232,20 +1232,30 @@ def __compile_if_needed(code_path, cache_path, compiler_env):
 
             # this also may raise FileNotFoundError
             with open(cache_path, 'rb') as cache_file:
-                code_object = __read_compiled_code(cache_file)
+
+                # may reise FileStructError or EOFError
+                code_object = __read_compiled_code(cache_file, compiler_env)
+
+                # __read_code_object() return None if prefixes & suffixes
+                # mismatch
+
                 if code_object is not None:
                     return code_object
 
-    except FileNotFoundError:
-        pass
-    except EOFError:
+    except (FileNotFoundError, EOFError, FileStructError):
         pass
 
     # compile the file
     with open(code_path, 'rt') as code_file:
-        with open(cache_path, 'wb') as cache_file:
-            code_object = compile_file(code_file, compiler_env)
-            __write_compiled_code_env(code_object, compiler_env, cache_file)
+        code_object = compile_file(code_file, compiler_env)
+
+    # cache the compiled code_object
+    with open(cache_path, 'wb') as cache_file:
+        __write_compiled_code_env(code_object, compiler_env, cache_file)
+
+    # return the result !
+    return code_object
+
 
 if sys.platform == 'win32':
     def __get_cache_file_path(cache_folder_path, file_real_path):
