@@ -7,6 +7,8 @@ import re
 import collections
 import marshal
 import subprocess
+import configparser
+import queue
 
 if sys.version_info[0] == 3:
     import builtins
@@ -23,7 +25,6 @@ else:
 
 _CACHE_FOLDER_NAME = '.pycro_cache'
 
-# TODO: read _CONFIG_FILE_NAME as a `ini` or `json` and apply them to settings
 _CONFIG_FILE_NAME = '.pycro'
 
 if sys.platform.startswith('linux') or sys.platform.startswith('freebsd'):
@@ -104,30 +105,24 @@ Operation modes:
     -h, --help                      display this help and exit
     -a, --arrange-process           perform OPTIONs and FILEs according to
                                       their orders
+    --list-settings                 list setting keys and exit
+    --list-languages                list predefined programming languages and
+                                      exit
 
 Sortable options:
     -D, --define NAME[=VAR]         define NAME variable as having VALUE, or
                                       {default_variable_value}
     -U, --undefine NAME             undefine NAME variable
     -S, --set KEY=VALUE             set KEY setting to VALUE
-    -L, --lang LANG                 set prefix and suffix for LANG specification
+    -L, --lang LANGUAGE             set prefix and suffix for LANGUAGE
+                                      specification
     -l, --load JSONFILE             load JSONFILE and update variables
     -I, --import MODULE             import MODULE to interpreter variables
-    --                              read next argument as input FILE (don't
+    -- FILE                         read next argument as input FILE (don't
                                       treats '-' as standard input)
 
-common options:
+Common options:
     -C, --clear-cache               first clear compiler cache
-
-Known language specification:
-    c, cpp, java, perl, python, html
-
-Setting Keys:
-    mp, macro_prefix                ms, macro_suffix,
-    sp, statement_prefix,           ss, statement_suffix,
-    cp, comment_prefix,             cs, comment_suffix,
-    vp, variable_prefix,            vs, variable_suffix,
-    ep, evaluation_prefix,          es, evaluation_suffix,
 """.format(
     default_variable_value = _DEFAULT_VARIABLE_VALUE
 )
@@ -188,7 +183,7 @@ elif sys.version_info[0] == 2:
 
 else:
     raise NotImplemented(
-            "implement _fdopen function for your python version: {}".format(
+            "implement __fdopen function for your python version: {}".format(
                 ','.join(n for n in sys.version_info[:3]),
             )
         )
@@ -201,6 +196,13 @@ class dotdict(dict):
     __getattr__ = dict.get
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
+
+
+class FileStructError(Exception):
+    pass
+
+# we have no code object type definition
+_code_object_type = type(compile('0', '', 'eval'))
 
 # --- argument parser ---
 
@@ -217,18 +219,24 @@ def __parse_argv(argv):
 
             # NOTE: these fields will be filled on end
             inputs = None,
-            settings = None,
+            settings_langs = None,
             )
 
     next_args = collections.deque()
+
+    input_number = 0
 
     for i, arg in enumerate(argv[1:]):
 
         # read next arg
         if next_args:
             next_arg = next_args.popleft()
-            if next_arg[0] in ('input', 'import'):
+            if next_arg[0] in ('input', 'import', 'lang', 'jsonfile'):
                 result.jobs.append((next_arg[0], arg))
+
+            elif next_arg[0] == 'input':
+                result.jobs.append(('input', arg))
+                input_number += 1
 
             elif next_arg[0] == 'define':
 
@@ -240,6 +248,8 @@ def __parse_argv(argv):
                             next_arg[1],
                         )
                     )
+                    print(__TRY.format(argv[0]))
+                    return 1
 
                 if not __fullmatch(_VARIABLE_NAME_RE, arg[0]):
                     __print_erro(
@@ -256,10 +266,10 @@ def __parse_argv(argv):
             elif next_arg[0] == 'undefine':
 
                 # --- parsing undefinition ---
-                if not __fullmatch(_VARIABLE_NAME_RE, arg[0]):
+                if not __fullmatch(_VARIABLE_NAME_RE, arg):
                     __print_erro(
                         "invalid variable name: {!r} for option: {!r}".format(
-                            arg[0],
+                            arg,
                             next_arg[1],
                         )
                     )
@@ -283,7 +293,7 @@ def __parse_argv(argv):
 
                 if arg[0] not in __setting_keys:
                     __print_erro(
-                        "unknown setting key: {} for option: {!r}".format(
+                        "invalid setting key: {!r} for option: {!r}".format(
                             arg[0],
                             next_arg[1],
                         )
@@ -309,6 +319,8 @@ def __parse_argv(argv):
 
             # append stdin as input
             if len(arg) == 1:
+                result.jobs.append(('input', sys.stdin))
+                input_number += 1
                 continue
 
             if arg[1] == '-':
@@ -330,6 +342,14 @@ def __parse_argv(argv):
                 elif option == 'arrange-process':
                     result.switchs.add('arrange')
 
+                elif option == 'list-languages':
+                    # TODO: list languages
+                    return 0
+
+                elif option == 'list-settings':
+                    # TODO: list settings
+                    return 0
+
                 # clear cache
                 elif option == 'clear-cache':
                     result.switchs.add('clear')
@@ -345,6 +365,10 @@ def __parse_argv(argv):
                 # change settings
                 elif option == 'set':
                     next_args.append(('setting', '--set'))
+
+                # specify language
+                elif option == 'lang':
+                    next_args.append(('lang', '--lang'))
 
                 # load json files
                 elif option == 'load':
@@ -388,6 +412,10 @@ def __parse_argv(argv):
                     elif ch == 'S':
                         next_args.append(('setting', '-S'))
 
+                    # specify language
+                    elif ch == 'L':
+                        next_args.append(('lang', '-L'))
+
                     # load json files
                     elif ch == 'l':
                         next_args.append(('jsonfile', '-l'))
@@ -403,6 +431,7 @@ def __parse_argv(argv):
 
         else: # if arg[0] == '-'
             result.jobs.append(('input', arg))
+            input_number += 1
 
     if next_args:
         __print_erro(
@@ -410,12 +439,16 @@ def __parse_argv(argv):
         print(__TRY.format(argv[0]))
         return 1
 
+    if input_number == 0:
+        result.jobs.append(('input', sys.stdin))
 
     result.inputs = \
             list(tup[1] for tup in result.jobs if tup[0] == 'input')
 
-    result.settings = \
-            list(tup[1] for tup in result.jobs if tup[0] == 'setting')
+    result.settings_langs = \
+            list(
+                tup[1] for tup in result.jobs if tup[0] in ('setting', 'lang')
+            )
 
 
     result.jobs = list(result.jobs)
@@ -437,6 +470,9 @@ def __write_code_object(outfile, code_object):
     marshal.dump(outfile, code_object, _MARSHAL_VERSION)
 
 def __read_code_object(infile):
+    result = marshal.load(infile)
+    if not isinstance(result, _code_object_type):
+        raise FileStructError('invalid object type while reading code object')
     return marshal.load(infile)
 
 # --- integers ---
@@ -1146,13 +1182,9 @@ def execute_code_object(
 
 # --- main functions ---
 
-def write_compiled_code(code_object, env, outfile):
+def __write_compiled_code_env(code_object, env, outfile):
     # --- writing to file ---
     outfile.write(_CACHE_FILE_MAGIC_NUMBER)
-
-    __write_big_integer(outfile, len(env.code_generators))
-    for name in env.code_generators:
-        __write_string(outfile, name)
 
     __write_string(outfile, env.macro_prefix)
     __write_string(outfile, env.macro_suffix)
@@ -1163,12 +1195,81 @@ def write_compiled_code(code_object, env, outfile):
     __write_string(outfile, env.comment_prefix)
     __write_string(outfile, env.comment_suffix)
 
+    __write_string(outfile, env.variable_prefix)
+    __write_string(outfile, env.variable_suffix)
+
     __write_string(outfile, env.evaluation_prefix)
     __write_string(outfile, env.evaluation_suffix)
 
     __write_code_object(outfile, code_object)
 
-_default_language_specifications = {
+def __read_compiled_code(infile, env):
+    if infile.read(len(_CACHE_FILE_MAGIC_NUMBER)) != _CACHE_FILE_MAGIC_NUMBER:
+        raise FileStructError('file magic number mismatch')
+
+    if \
+            env.macro_prefix == __read_string(infile) and \
+            env.macro_suffix == __read_string(infile) and \
+            env.statement_prefix == __read_string(infile) and \
+            env.statement_suffix == __read_string(infile) and \
+            env.comment_prefix == __read_string(infile) and \
+            env.comment_suffix == __read_string(infile) and \
+            env.variable_prefix == __read_string(infile) and \
+            env.variable_suffix == __read_string(infile) and \
+            env.evaluation_prefix == __read_string(infile) and \
+            env.evaluation_suffix == __read_string(infile):
+
+        return __read_code_object(infile)
+
+    return None
+
+def __compile_if_needed(code_path, cache_path, compiler_env):
+    code_stat = os.stat(code_path)
+    try:
+        # may raise FileNotFoundError
+        cache_stat = os.stat(cache_path)
+
+        if code_stat.st_mtime_ns < cache_stat.st_mtime_ns:
+
+            # this also may raise FileNotFoundError
+            with open(cache_path, 'rb') as cache_file:
+
+                # may reise FileStructError or EOFError
+                code_object = __read_compiled_code(cache_file, compiler_env)
+
+                # __read_code_object() return None if prefixes & suffixes
+                # mismatch
+
+                if code_object is not None:
+                    return code_object
+
+    except (FileNotFoundError, EOFError, FileStructError):
+        pass
+
+    # compile the file
+    with open(code_path, 'rt') as code_file:
+        code_object = compile_file(code_file, compiler_env)
+
+    # cache the compiled code_object
+    with open(cache_path, 'wb') as cache_file:
+        __write_compiled_code_env(code_object, compiler_env, cache_file)
+
+    # return the result
+    return code_object
+
+
+if sys.platform == 'win32':
+    def __get_cache_file_path(cache_folder_path, file_real_path):
+        parts = file_real_path.split(os.sep)
+        return __joinpath(cache_folder_path, parts[0][0].lower(), *parts[1:])
+
+else:
+    raise NotImplemented(
+            'implement __get_cache_file_path() for your platform: {}'.format(
+                sys.platform))
+
+
+__language_specifications = {
     **dict.fromkeys(
         ['c', 'cpp', 'java', 'javascript'],
         dotdict(
@@ -1230,66 +1331,79 @@ _default_language_specifications = {
     )
 }
 
-if sys.platform == 'win32':
-    def __get_cache_file_path(cache_folder_path, file_real_path):
-        parts = file_real_path.split(os.sep)
-        return __joinpath(cache_folder_path, parts[0][0].lower(), *parts[1:])
 
-else:
-    raise NotImplemented(
-            'implement __get_cache_file_path() for your platform: {}'.format(
-                sys.platform))
+def __apply_language(lang, compiler_env):
+    for key, value in __language_specifications[lang]:
+        setattr(compiler_env, key, value)
 
-def temp_code():
-    print_line('run temporary code')
-    infile_name = 'temp.txt'
+def __apply_settings(key, value, compiler_env):
+    if key in ('mp', 'macro_prefix'):
+        compiler_env.macro_prefix = value
 
-    compiler_env = CompilerEnvironment()
+    elif key in ('ms', 'macro_suffix'):
+        compiler_env.macro_suffix = value
 
-    string_buffer = io.StringIO()
+    elif key in ('sp', 'statement_prefix'):
+        compiler_env.statement_prefix = value
 
-    with open(infile_name) as infile:
-        generate_code(infile, string_buffer, compiler_env)
+    elif key in ('ss', 'statement_suffix'):
+        compiler_env.statement_suffix = value
 
-    generated_code = string_buffer.getvalue()
+    elif key in ('vp', 'variable_prefix'):
+        compiler_env.variable_prefix = value
 
-    print(generated_code)
-    print_line()
+    elif key in ('vs', 'variable_suffix'):
+        compiler_env.variable_suffix = value
 
-    print('compiling ...')
+    elif key in ('ep', 'evaluation_prefix'):
+        compiler_env.evaluation_prefix = value
 
-    code_object = compile_generated_code(generated_code, infile_name)
+    elif key in ('es', 'evaluation_suffix'):
+        compiler_env.evaluation_suffix = value
 
-
-    execution_env = ExecutorEnvironment()
-
-    print('running ...')
-
-    print_line('result')
-    execute_code_object(code_object, sys.stdout, execution_env)
-    print_line('end of result')
+    else:
+        raise KeyError('unknown keyword: {!r}'.format(key))
 
 def main(argv):
     options = __parse_argv(sys.argv)
     if isinstance(options, int):
         return options
 
+    if __debug__:
+        pprint(options)
+        print_line()
+        return 0
+
     # first clear cache folder
     if 'clear' in options.switchs:
         # clear cache
         pass
 
+    # TODO: read _CONFIG_FILE_NAME as a `ini` or `json` and apply them to
+    #       settings
 
     if 'arrange' in options.switchs:
-        # we must process '-S', FILEs according to their order.
+        # we must process '-S' & FILEs according to their order.
         pass
 
     else:
-        # initialize compiler environment
+        # initialize environments
         compiler_env = CompilerEnvironment()
+        executor_env = ExecutorEnvironment()
 
-        # apply '-S' option
+        # apply settings & languages
+        for item in options.settings_langs:
+            if isinstance(item, tuple):
+                # item is a (Key, Value)
+                __apply_settings(item[0].lower(), item[1], compiler_env)
+            else:
+                # item is language specification
+                __apply_language(lang, compiler_env)
 
+        # compile and cache input files by threading
+        
+
+        # apply variable definitions, or undefinitions
         pass
 
 if __name__ == '__main__':
