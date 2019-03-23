@@ -93,49 +93,6 @@ _MARSHAL_VERSION = 4
 _BIG_INTEGER_SIZE = 4
 
 
-# TODO: some interesting options:
-#       -
-
-__USAGE = "usage: {} [OPTION]... [[--] FILE | -]..."
-__HELP = """\
-Pycro FILEs to standard output. if no FILE or if FILE is '-', standard input is
-read.
-
-Operation modes:
-    -h, --help                      display this help and exit
-    -a, --arrange-process           perform OPTIONs and FILEs according to
-                                      their orders
-    --list-settings                 list setting keys and exit
-    --list-languages                list predefined programming languages and
-                                      exit
-
-Sortable options:
-    -D, --define NAME[=VAR]         define NAME variable as having VALUE, or
-                                      {default_variable_value}
-    -U, --undefine NAME             undefine NAME variable
-    -S, --set KEY=VALUE             set KEY setting to VALUE
-    -L, --lang LANGUAGE             set prefix and suffix for LANGUAGE
-                                      specification
-    -l, --load JSONFILE             load JSONFILE and update variables
-    -I, --import MODULE             import MODULE to interpreter variables
-    -- FILE                         read next argument as input FILE (don't
-                                      treats '-' as standard input)
-
-Common options:
-    -C, --clear-cache               first clear compiler cache
-""".format(
-    default_variable_value = _DEFAULT_VARIABLE_VALUE
-)
-__TRY = "try '{} --help' for more information."
-
-__setting_keys = {
-    'mp', 'macro_prefix'                'ms', 'macro_suffix',
-    'sp', 'statement_prefix',           'ss', 'statement_suffix',
-    'cp', 'comment_prefix',             'cs', 'comment_suffix',
-    'vp', 'variable_prefix',            'vs', 'variable_suffix',
-    'ep', 'evaluation_prefix',          'es', 'evaluation_suffix',
-}
-
 # --- debuging code ---
 
 if __debug__:
@@ -204,7 +161,140 @@ class FileStructError(Exception):
 # we have no code object type definition
 _code_object_type = type(compile('0', '', 'eval'))
 
+__USAGE = "usage: {} [OPTION]... [[--] FILE | -]..."
+__HELP = """\
+Pycro FILEs to standard output. if no FILE or if FILE is '-', standard input is
+read.
+
+Operation modes:
+    -h, --help                      display this help and exit
+    -a, --arrange-process           perform OPTIONs and FILEs according to
+                                      their orders
+    --list-settings                 list setting keys and exit
+    --list-languages                list predefined language specifications 
+                                      an exit
+
+Sortable options:
+    -D, --define NAME[=VAR]         define NAME variable as having VALUE, or
+                                      {default_variable_value}
+    -U, --undefine NAME             undefine NAME variable
+    -S, --set KEY=VALUE             set KEY setting to VALUE
+    -L, --lang LANGUAGE             set prefix and suffix for LANGUAGE
+                                      specification
+    -l, --load JSONFILE             load JSONFILE and update variables
+    -I, --import MODULE             import MODULE to interpreter variables
+    -- FILE                         read next argument as input FILE (don't
+                                      treats '-' as standard input)
+
+Common options:
+    -C, --clear-cache               first clear compiler cache
+""".format(
+    default_variable_value = _DEFAULT_VARIABLE_VALUE
+)
+__TRY = "try '{} --help' for more information."
+
+__setting_keys = {
+    'mp', 'macro_prefix'                
+    'ms', 'macro_suffix',
+
+    'sp', 'statement_prefix',           
+    'ss', 'statement_suffix',
+    
+    'cp', 'comment_prefix',             
+    'cs', 'comment_suffix',
+    
+    'vp', 'variable_prefix',            
+    'vs', 'variable_suffix',
+    
+    'ep', 'evaluation_prefix',          
+    'es', 'evaluation_suffix',
+}
+
+__SETTING_KEYS_LIST = """\
+Setting keys:
+    mp, macro_prefix                macro line prefix
+    ms, macro_suffix                macro line suffix
+
+    sp, statement_prefix            statement line prefix
+    ss, statement_suffix            statement line suffix
+
+    cp, comment_prefix              comment line prefix
+    cs, comment_suffix              comment line suffix
+
+    vp, variable_prefix             variable substitution prefix
+    vs, variable_suffix             variable substitution suffix
+
+    ep, evaluation_prefix           evaluation substitution prefix
+    es, evaluation_suffix           evaluation substitution suffix
+"""
+
+__language_specifications = {
+    **dict.fromkeys(
+        ['c', 'cpp', 'java', 'javascript'],
+        dotdict(
+            macro_prefix =          '//@',
+            macro_suffix =          '',
+
+            statement_prefix =      '//#',
+            statement_suffix =      '',
+
+            comment_prefix =        '//%',
+            comment_suffix =        '',
+
+            variable_prefix =       '${',
+            variable_suffix =       '}',
+
+            evaluation_prefix =     '$${{',
+            evaluation_suffix =     '}}',
+        ),
+    ),
+
+    **dict.fromkeys(
+        ['perl', 'python'],
+        dotdict(
+            macro_prefix =          '#@',
+            macro_suffix =          '',
+
+            statement_prefix =      '##',
+            statement_suffix =      '',
+
+            comment_prefix =        '#%',
+            comment_suffix =        '',
+
+            variable_prefix =       '${',
+            variable_suffix =       '}',
+
+            evaluation_prefix =     '$${{',
+            evaluation_suffix =     '}}',
+        ),
+    ),
+
+    **dict.fromkeys(
+        ['html'],
+        dotdict(
+            macro_prefix =          '<!--@',
+            macro_suffix =          '-->',
+
+            statement_prefix =      '<!--#',
+            statement_suffix =      '-->',
+
+            comment_prefix =        '<!--%',
+            comment_suffix =        '-->',
+
+            variable_prefix =       '${',
+            variable_suffix =       '}',
+
+            evaluation_prefix =     '$${{',
+            evaluation_suffix =     '}}',
+        ),
+    )
+}
+
+
 # --- argument parser ---
+
+# HACK: some interesting options:
+#       -
 
 def __print_help():
     print(__HELP)
@@ -347,7 +437,7 @@ def __parse_argv(argv):
                     return 0
 
                 elif option == 'list-settings':
-                    # TODO: list settings
+                    print(__SETTING_KEYS_LIST)
                     return 0
 
                 # clear cache
@@ -1190,6 +1280,21 @@ def execute_code_object(
 
 # --- main functions ---
 
+if sys.platform.startswith('linux') or sys.platform.startswith('freebsd'):
+    def __get_cache_file_path(cache_folder_path, file_read_path):
+        parts = file_real_path.split(os.sep)
+        return __joinpath(cache_folder_path, *parts[1:])
+
+elif sys.platform == 'win32':
+    def __get_cache_file_path(cache_folder_path, file_real_path):
+        parts = file_real_path.split(os.sep)
+        return __joinpath(cache_folder_path, parts[0][0].lower(), *parts[1:])
+
+else:
+    raise NotImplemented(
+            'implement __get_cache_file_path() for your platform: {}'.format(
+                sys.platform))
+
 def __write_compiled_code_env(code_object, env, outfile):
     # --- writing to file ---
     outfile.write(_CACHE_FILE_MAGIC_NUMBER)
@@ -1265,84 +1370,6 @@ def __compile_if_needed(code_path, cache_path, compiler_env):
     # return the result
     return code_object
 
-if sys.platform.startswith('linux') or sys.platform.startswith('freebsd'):
-    def __get_cache_file_path(cache_folder_path, file_read_path):
-        parts = file_real_path.split(os.sep)
-        return __joinpath(cache_folder_path, *parts[1:])
-
-elif sys.platform == 'win32':
-    def __get_cache_file_path(cache_folder_path, file_real_path):
-        parts = file_real_path.split(os.sep)
-        return __joinpath(cache_folder_path, parts[0][0].lower(), *parts[1:])
-
-else:
-    raise NotImplemented(
-            'implement __get_cache_file_path() for your platform: {}'.format(
-                sys.platform))
-
-
-__language_specifications = {
-    **dict.fromkeys(
-        ['c', 'cpp', 'java', 'javascript'],
-        dotdict(
-            macro_prefix =          '//@',
-            macro_suffix =          '',
-
-            statement_prefix =      '//#',
-            statement_suffix =      '',
-
-            comment_prefix =        '//%',
-            comment_suffix =        '',
-
-            variable_prefix =       '${',
-            variable_suffix =       '}',
-
-            evaluation_prefix =     '$${{',
-            evaluation_suffix =     '}}',
-        ),
-    ),
-
-    **dict.fromkeys(
-        ['perl', 'python'],
-        dotdict(
-            macro_prefix =          '#@',
-            macro_suffix =          '',
-
-            statement_prefix =      '##',
-            statement_suffix =      '',
-
-            comment_prefix =        '#%',
-            comment_suffix =        '',
-
-            variable_prefix =       '${',
-            variable_suffix =       '}',
-
-            evaluation_prefix =     '$${{',
-            evaluation_suffix =     '}}',
-        ),
-    ),
-
-    **dict.fromkeys(
-        ['html'],
-        dotdict(
-            macro_prefix =          '<!--@',
-            macro_suffix =          '-->',
-
-            statement_prefix =      '<!--#',
-            statement_suffix =      '-->',
-
-            comment_prefix =        '<!--%',
-            comment_suffix =        '-->',
-
-            variable_prefix =       '${',
-            variable_suffix =       '}',
-
-            evaluation_prefix =     '$${{',
-            evaluation_suffix =     '}}',
-        ),
-    )
-}
-
 
 def __apply_language(lang, compiler_env):
     for key, value in __language_specifications[lang]:
@@ -1396,7 +1423,7 @@ def main(argv):
 
     if 'arrange' in options.switchs:
         # we must process '-S' & FILEs according to their order.
-        pass
+        raise BaseException('unimplemented section')
 
     else:
         # initialize environments
@@ -1405,14 +1432,17 @@ def main(argv):
 
         # apply settings & languages
         for item in options.settings_langs:
+
             if isinstance(item, tuple):
                 # item is a (Key, Value)
                 __apply_settings(item[0].lower(), item[1], compiler_env)
+
             else:
                 # item is language specification
                 __apply_language(lang, compiler_env)
 
         # compile and cache input files by threading
+
 
         # apply variable definitions, or undefinitions
 
