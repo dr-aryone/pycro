@@ -739,6 +739,8 @@ def _generate_place(args, outfile, env):
 
 # --- include macro ---
 
+# TODO: complete _generator_include()
+
 def _generate_include(args, outfile, env):
     if not args:
         raise CompilerError(_MACRO_REQUIRES, 'for', 'a filename')
@@ -751,7 +753,6 @@ def _generate_include(args, outfile, env):
         )
     )
 
-    # TODO: complete _generator_include
 
 # --- run macro ---
 
@@ -769,7 +770,7 @@ def _generate_run(args, outfile, env):
 
 # --- load macro ---
 
-# TODO: complete _generate_load
+# TODO: write _generate_load()
 
 def _generate_load(args, outfile, env):
     pass
@@ -795,8 +796,11 @@ _default_code_generators = {
         'undivert': _generate_undivert,
 
         'place': _generate_place,
+        # TODO: add 'include' when ready
 
         'run': _generate_run,
+
+        # TODO: add 'load' when ready
 }
 
 class CompilerEnvironment:
@@ -1175,6 +1179,10 @@ def execute_code_object(
 
     variables[env.run_function_name] = _run_function
 
+    # --- load function ---
+
+    # TODO: write load function
+
     # --- executing code_object ---
 
     return exec(code_object, variables)
@@ -1234,10 +1242,10 @@ def __compile_if_needed(code_path, cache_path, compiler_env):
             # this also may raise FileNotFoundError
             with open(cache_path, 'rb') as cache_file:
 
-                # may reise FileStructError or EOFError
+                # may raise FileStructError or EOFError
                 code_object = __read_compiled_code(cache_file, compiler_env)
 
-                # __read_code_object() return None if prefixes & suffixes
+                # __read_compiled_code() return None if prefixes & suffixes
                 # mismatch
 
                 if code_object is not None:
@@ -1257,8 +1265,12 @@ def __compile_if_needed(code_path, cache_path, compiler_env):
     # return the result
     return code_object
 
+if sys.platform.startswith('linux') or sys.platform.startswith('freebsd'):
+    def __get_cache_file_path(cache_folder_path, file_read_path):
+        parts = file_real_path.split(os.sep)
+        return __joinpath(cache_folder_path, *parts[1:])
 
-if sys.platform == 'win32':
+elif sys.platform == 'win32':
     def __get_cache_file_path(cache_folder_path, file_real_path):
         parts = file_real_path.split(os.sep)
         return __joinpath(cache_folder_path, parts[0][0].lower(), *parts[1:])
