@@ -188,6 +188,25 @@ Sortable options:
 
 Common options:
     -C, --clear-cache               first clear compiler cache
+
+Known language specifications:
+{language_specifications}
+
+Setting keys:
+    mp, macro_prefix                macro line prefix
+    ms, macro_suffix                macro line suffix
+
+    sp, statement_prefix            statement line prefix
+    ss, statement_suffix            statement line suffix
+
+    cp, comment_prefix              comment line prefix
+    cs, comment_suffix              comment line suffix
+
+    vp, variable_prefix             variable substitution prefix
+    vs, variable_suffix             variable substitution suffix
+
+    ep, evaluation_prefix           evaluation substitution prefix
+    es, evaluation_suffix           evaluation substitution suffix
 """.format(
     default_variable_value = _DEFAULT_VARIABLE_VALUE
 )
@@ -211,21 +230,6 @@ __setting_keys = {
 }
 
 __SETTING_KEYS_LIST = """\
-Setting keys:
-    mp, macro_prefix                macro line prefix
-    ms, macro_suffix                macro line suffix
-
-    sp, statement_prefix            statement line prefix
-    ss, statement_suffix            statement line suffix
-
-    cp, comment_prefix              comment line prefix
-    cs, comment_suffix              comment line suffix
-
-    vp, variable_prefix             variable substitution prefix
-    vs, variable_suffix             variable substitution suffix
-
-    ep, evaluation_prefix           evaluation substitution prefix
-    es, evaluation_suffix           evaluation substitution suffix
 """
 
 __language_specifications = {
@@ -289,6 +293,9 @@ __language_specifications = {
         ),
     )
 }
+
+__LANGUAGE_SPECIFICATION_LIST = """\
+"""
 
 
 # --- argument parser ---
