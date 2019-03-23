@@ -117,6 +117,7 @@ if __debug__:
                 file.write(repr(obj))
         file.write(end)
 
+
 # --- utilities ---
 
 __joinpath = os.path.join
@@ -161,6 +162,25 @@ class FileStructError(Exception):
 # we have no code object type definition
 _code_object_type = type(compile('0', '', 'eval'))
 
+def __prettify_items(items, indent = '    ', width = 80):
+    if not items:
+        return ''
+
+    lines = collections.deque([indent + items[0]])
+
+    for item in items[1:]:
+        if len(lines[-1]) + len(item) + 1 >= 80:
+            lines[-1] += ','
+            lines.append(indent + item)
+
+        else:
+            lines[-1] += ', ' + item
+
+    return '\n'.join(lines)
+
+
+# --- command line help & options ---
+
 __USAGE = "usage: {} [OPTION]... [[--] FILE | -]..."
 __HELP = """\
 Pycro FILEs to standard output. if no FILE or if FILE is '-', standard input is
@@ -188,27 +208,8 @@ Sortable options:
 
 Common options:
     -C, --clear-cache               first clear compiler cache
-
-Known language specifications:
-{language_specifications}
-
-Setting keys:
-    mp, macro_prefix                macro line prefix
-    ms, macro_suffix                macro line suffix
-
-    sp, statement_prefix            statement line prefix
-    ss, statement_suffix            statement line suffix
-
-    cp, comment_prefix              comment line prefix
-    cs, comment_suffix              comment line suffix
-
-    vp, variable_prefix             variable substitution prefix
-    vs, variable_suffix             variable substitution suffix
-
-    ep, evaluation_prefix           evaluation substitution prefix
-    es, evaluation_suffix           evaluation substitution suffix
 """.format(
-    default_variable_value = _DEFAULT_VARIABLE_VALUE
+    default_variable_value = _DEFAULT_VARIABLE_VALUE,
 )
 __TRY = "try '{} --help' for more information."
 
@@ -230,6 +231,21 @@ __setting_keys = {
 }
 
 __SETTING_KEYS_LIST = """\
+Setting keys:
+    mp, macro_prefix                macro line prefix
+    ms, macro_suffix                macro line suffix
+
+    sp, statement_prefix            statement line prefix
+    ss, statement_suffix            statement line suffix
+
+    cp, comment_prefix              comment line prefix
+    cs, comment_suffix              comment line suffix
+
+    vp, variable_prefix             variable substitution prefix
+    vs, variable_suffix             variable substitution suffix
+
+    ep, evaluation_prefix           evaluation substitution prefix
+    es, evaluation_suffix           evaluation substitution suffix
 """
 
 __language_specifications = {
@@ -295,8 +311,11 @@ __language_specifications = {
 }
 
 __LANGUAGE_SPECIFICATION_LIST = """\
-"""
-
+Known language specifications:
+{}
+""".format(
+    __prettify_items(sorted( __language_specifications.keys()))
+)
 
 # --- argument parser ---
 
@@ -440,7 +459,7 @@ def __parse_argv(argv):
                     result.switchs.add('arrange')
 
                 elif option == 'list-languages':
-                    # TODO: list languages
+                    print(__LANGUAGE_SPECIFICATION_LIST)
                     return 0
 
                 elif option == 'list-settings':
