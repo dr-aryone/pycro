@@ -192,7 +192,7 @@ Operation modes:
                                       their orders
     --list-settings                 list setting keys and exit
     --list-languages                list predefined language specifications 
-                                      an exit
+                                      and exit
 
 Sortable options:
     -D, --define NAME[=VAR]         define NAME variable as having VALUE, or
@@ -208,10 +208,14 @@ Sortable options:
 
 Common options:
     -C, --clear-cache               first clear compiler cache
+    -o, --outfile OUTFILE           set output file to OUTFILE
+    -O, --outfolder OUTFOLDER       set output folder outfolder
 """.format(
     default_variable_value = _DEFAULT_VARIABLE_VALUE,
 )
 __TRY = "try '{} --help' for more information."
+
+# TODO: write '--outfile', '--outfolder' functionality
 
 __setting_keys = {
     'mp', 'macro_prefix'                
@@ -1377,8 +1381,7 @@ def __compile_if_needed(code_path, cache_path, compiler_env):
                 code_object = __read_compiled_code(cache_file, compiler_env)
 
                 # __read_compiled_code() return None if prefixes & suffixes
-                # mismatch
-
+                # mismatch.
                 if code_object is not None:
                     return code_object
 
@@ -1476,3 +1479,4 @@ def main(argv):
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))
+
