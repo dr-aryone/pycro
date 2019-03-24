@@ -223,13 +223,13 @@ __setting_keys = {
 
     'sp', 'statement_prefix',           
     'ss', 'statement_suffix',
-    
+
     'cp', 'comment_prefix',             
     'cs', 'comment_suffix',
-    
+
     'vp', 'variable_prefix',            
     'vs', 'variable_suffix',
-    
+
     'ep', 'evaluation_prefix',          
     'es', 'evaluation_suffix',
 }
