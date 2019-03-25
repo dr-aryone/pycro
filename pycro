@@ -24,6 +24,7 @@ import subprocess
 import configparser
 import queue
 
+
 if sys.version_info[0] == 3:
     import builtins
 
@@ -192,8 +193,10 @@ def __prettify_items(items, indent = '    ', width = 80):
 
     return '\n'.join(lines)
 
-
 # --- command line help & options ---
+
+VERSION = collections.namedtuple('VersionType', ['major', 'minor', 'micro']) \
+    (0, 0, 0)
 
 __USAGE = "usage: {} [OPTION]... [[--] FILE | -]..."
 __HELP = """\
@@ -202,6 +205,7 @@ read.
 
 Operation modes:
     -h, --help                      display this help and exit
+    --version                       display version and exit
     -a, --arrange-process           perform OPTIONs and FILEs according to
                                       their orders
 
@@ -241,18 +245,22 @@ Setting keys:
     ep, evaluation_prefix           evaluation substitution prefix
     es, evaluation_suffix           evaluation substitution suffix
 """
+
+def __print_help():
+    print(__HELP.format(
+            default_variable_value = _DEFAULT_VARIABLE_VALUE,
+            language_specifications = 
+                __prettify_items(sorted(__language_specifications.keys())),
+        ))
+
 __TRY = "try '{} --help' for more information."
+__VERSION = "pycro v{}.{}.{}"
+
+def __print_version():
+    print(__VERSION.format(*VERSION))
 
 # TODO: write '--outfile', '--outfolder' functionality
 
-def __print_help():
-    print(
-            __HELP.format(
-                default_variable_value = _DEFAULT_VARIABLE_VALUE,
-                language_specifications = 
-                    __prettify_items(sorted(__language_specifications.keys())),
-            )
-        )
 
 __setting_keys = {
     'mp', 'macro_prefix'                
@@ -360,7 +368,7 @@ def __parse_argv(argv):
         # read next arg
         if next_args:
             next_arg = next_args.popleft()
-            if next_arg[0] in ('input', 'import', 'lang', 'jsonfile'):
+            if next_arg[0] in ('import', 'lang', 'jsonfile'):
                 result.jobs.append((next_arg[0], arg))
 
             elif next_arg[0] == 'input':
@@ -465,6 +473,11 @@ def __parse_argv(argv):
                 if option == 'help':
                     print(__USAGE.format(argv[0]))
                     __print_help()
+                    return 0
+                
+                # show version
+                elif option == 'version':
+                    __print_version()
                     return 0
 
                 # arrange performances
@@ -1472,7 +1485,7 @@ def main(argv):
                 __apply_language(lang, compiler_env)
 
         # compile and cache input files by threading
-
+        
 
         # apply variable definitions, or undefinitions
 
