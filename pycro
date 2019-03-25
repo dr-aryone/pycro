@@ -208,8 +208,8 @@ read.
 Operation modes:
     -h, --help                      display this help and exit
     --version                       display version and exit
-    -a, --arrange-process           perform OPTIONs and FILEs according to
-                                      their orders
+    -a, --arrange-process           perform Sortable OPTIONs and FILEs 
+                                      according to their orders
 
 Sortable options:
     -D, --define NAME[=VAR]         define NAME variable as having VALUE, or
@@ -226,7 +226,7 @@ Sortable options:
 Common options:
     -C, --clear-cache               first clear compiler cache
     -o, --outfile OUTFILE           set output file to OUTFILE
-    -O, --outfolder OUTFOLDER       set output folder outfolder
+    -O, --outfolder OUTFOLDER       set output folder to OUTFOLDER
 
 Known language specifications:
 {language_specifications}
