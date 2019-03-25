@@ -138,7 +138,9 @@ if __debug__:
 # --- utilities ---
 
 __joinpath = os.path.join
+
 __abspath = os.path.abspath
+__normpath = os.path.normpath
 __realpath = os.path.realpath
 
 if sys.version_info >= (3, 4):
@@ -357,10 +359,6 @@ def __parse_argv(argv):
     result = dotdict(
             jobs = collections.deque(),
             switchs = set(),
-
-            # NOTE: these fields will be filled on end
-            inputs = None,
-            settings_langs = None,
             )
 
     next_args = collections.deque()
@@ -378,7 +376,7 @@ def __parse_argv(argv):
                 result.jobs.append((next_arg[0], arg))
 
             elif next_arg[0] == 'input':
-                result.jobs.append(('input', arg))
+                result.jobs.append( ['input', __normpath(arg)] )
                 input_number += 1
 
             elif next_arg[0] == 'define':
@@ -462,7 +460,7 @@ def __parse_argv(argv):
 
             # append stdin as input
             if len(arg) == 1:
-                result.jobs.append(('input', sys.stdin))
+                result.jobs.append( ['input', sys.stdin] )
                 input_number += 1
                 continue
 
@@ -581,7 +579,7 @@ def __parse_argv(argv):
                         return 1
 
         else: # if arg[0] == '-'
-            result.jobs.append(('input', arg))
+            result.jobs.append( ['input', __normpath(arg)] )
             input_number += 1
 
     if next_args:
@@ -591,16 +589,7 @@ def __parse_argv(argv):
         return 1
 
     if input_number == 0:
-        result.jobs.append(('input', sys.stdin))
-
-    result.inputs = \
-            list(tup[1] for tup in result.jobs if tup[0] == 'input')
-
-    result.settings_langs = \
-            list(
-                tup[1] for tup in result.jobs if tup[0] in ('setting', 'lang')
-            )
-
+        result.jobs.append( ['input', sys.stdin] )
 
     result.jobs = list(result.jobs)
     return result
@@ -1473,10 +1462,11 @@ def main(argv):
         print_line()
         return 0
 
+    cache_folder = __joinpath(_HOME_DIRECTORY, _CACHE_FOLDER_NAME)
+
     # first clear cache folder
     if 'clear' in options.switchs:
-        # clear cache
-        pass
+        shutil.rmtree(cache_folder_path)
 
     # TODO: read _CONFIG_FILE_NAME as a `ini` or `json` and apply them to
     #       settings
@@ -1486,12 +1476,18 @@ def main(argv):
         raise BaseException('unimplemented section')
 
     else:
+
+        # if '--outfile' or '--outfolder' specified, find the place of input 
+        # files
+
+
         # initialize environments
         compiler_env = CompilerEnvironment()
         executor_env = ExecutorEnvironment()
 
         # apply settings & languages
-        for item in options.settings_langs:
+        for item in ( tup[1] for tup in result.jobs if tup[0] in \
+                ('setting', 'lang') ):
 
             if isinstance(item, tuple):
                 # item is a (Key, Value)
@@ -1507,6 +1503,7 @@ def main(argv):
         # apply variable definitions, or undefinitions
 
         pass
+
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))
