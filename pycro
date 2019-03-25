@@ -190,9 +190,6 @@ Operation modes:
     -h, --help                      display this help and exit
     -a, --arrange-process           perform OPTIONs and FILEs according to
                                       their orders
-    --list-settings                 list setting keys and exit
-    --list-languages                list predefined language specifications 
-                                      and exit
 
 Sortable options:
     -D, --define NAME[=VAR]         define NAME variable as having VALUE, or
@@ -210,12 +207,38 @@ Common options:
     -C, --clear-cache               first clear compiler cache
     -o, --outfile OUTFILE           set output file to OUTFILE
     -O, --outfolder OUTFOLDER       set output folder outfolder
-""".format(
-    default_variable_value = _DEFAULT_VARIABLE_VALUE,
-)
+
+Known language specifications:
+{language_specifications}
+
+Setting keys:
+    mp, macro_prefix                macro line prefix
+    ms, macro_suffix                macro line suffix
+
+    sp, statement_prefix            statement line prefix
+    ss, statement_suffix            statement line suffix
+
+    cp, comment_prefix              comment line prefix
+    cs, comment_suffix              comment line suffix
+
+    vp, variable_prefix             variable substitution prefix
+    vs, variable_suffix             variable substitution suffix
+
+    ep, evaluation_prefix           evaluation substitution prefix
+    es, evaluation_suffix           evaluation substitution suffix
+"""
 __TRY = "try '{} --help' for more information."
 
 # TODO: write '--outfile', '--outfolder' functionality
+
+def __print_help():
+    print(
+            __HELP.format(
+                default_variable_value = _DEFAULT_VARIABLE_VALUE,
+                language_specifications = 
+                    __prettify_items(sorted(__language_specifications.keys())),
+            )
+        )
 
 __setting_keys = {
     'mp', 'macro_prefix'                
@@ -233,24 +256,6 @@ __setting_keys = {
     'ep', 'evaluation_prefix',          
     'es', 'evaluation_suffix',
 }
-
-__SETTING_KEYS_LIST = """\
-Setting keys:
-    mp, macro_prefix                macro line prefix
-    ms, macro_suffix                macro line suffix
-
-    sp, statement_prefix            statement line prefix
-    ss, statement_suffix            statement line suffix
-
-    cp, comment_prefix              comment line prefix
-    cs, comment_suffix              comment line suffix
-
-    vp, variable_prefix             variable substitution prefix
-    vs, variable_suffix             variable substitution suffix
-
-    ep, evaluation_prefix           evaluation substitution prefix
-    es, evaluation_suffix           evaluation substitution suffix
-"""
 
 __language_specifications = {
     **dict.fromkeys(
@@ -314,20 +319,10 @@ __language_specifications = {
     )
 }
 
-__LANGUAGE_SPECIFICATION_LIST = """\
-Known language specifications:
-{}
-""".format(
-    __prettify_items(sorted( __language_specifications.keys()))
-)
-
 # --- argument parser ---
 
 # HACK: some interesting options:
 #       -
-
-def __print_help():
-    print(__HELP)
 
 def __print_erro(line):
     print('pycro: error:', line)
@@ -461,14 +456,6 @@ def __parse_argv(argv):
                 # arrange performances
                 elif option == 'arrange-process':
                     result.switchs.add('arrange')
-
-                elif option == 'list-languages':
-                    print(__LANGUAGE_SPECIFICATION_LIST)
-                    return 0
-
-                elif option == 'list-settings':
-                    print(__SETTING_KEYS_LIST)
-                    return 0
 
                 # clear cache
                 elif option == 'clear-cache':
@@ -1277,9 +1264,9 @@ def execute_code_object(
             ):
 
         if stdin is None:
-            input = ''
+            _input = ''
         elif isinstance(stdin, (str, int)):
-            input = pipes[stdin].getvalue()
+            _input = pipes[stdin].getvalue()
         else:
             raise TypeError("run stdin argument must be type of str or int")
 
@@ -1295,7 +1282,7 @@ def execute_code_object(
             raise TypeError(
                     "run stderr argument must be type of str or int or None")
 
-        subprocess.run(command, input=input, stdout=stdout, stderr=stderr)
+        subprocess.run(command, input=_input, stdout=stdout, stderr=stderr)
 
     variables[env.run_function_name] = _run_function
 
