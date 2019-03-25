@@ -224,6 +224,7 @@ Sortable options:
                                       treats '-' as standard input)
 
 Common options:
+    -r, --recursive                 Pycro directories recursively
     -C, --clear-cache               first clear compiler cache
     -o, --outfile OUTFILE           set output file to OUTFILE
     -O, --outfolder OUTFOLDER       set output folder to OUTFOLDER
@@ -253,7 +254,8 @@ def __print_help():
             default_variable_value = _DEFAULT_VARIABLE_VALUE,
             language_specifications = 
                 __prettify_items(sorted(__language_specifications.keys())),
-        ))
+        ),
+        end = '')
 
 __TRY = "try '{} --help' for more information."
 __VERSION = "pycro v{}.{}.{}"
@@ -367,7 +369,9 @@ def __parse_argv(argv):
 
     for i, arg in enumerate(argv[1:]):
 
-        # read next arg
+        # --- read next arg ---
+        # ---------------------
+
         if next_args:
             next_arg = next_args.popleft()
             if next_arg[0] in ('import', 'lang', 'jsonfile'):
@@ -471,12 +475,15 @@ def __parse_argv(argv):
 
                 option = arg[2:]
 
+                # --- check long options ---
+                # --------------------------
+
                 # show help
                 if option == 'help':
                     print(__USAGE.format(argv[0]))
                     __print_help()
                     return 0
-                
+
                 # show version
                 elif option == 'version':
                     __print_version()
@@ -485,6 +492,10 @@ def __parse_argv(argv):
                 # arrange performances
                 elif option == 'arrange-process':
                     result.switchs.add('arrange')
+
+                # read directories recursively
+                elif option == 'recursive':
+                    result.switchs.add('recursive')
 
                 # clear cache
                 elif option == 'clear-cache':
@@ -531,6 +542,10 @@ def __parse_argv(argv):
                     # arrange performances
                     elif ch == 'a':
                         result.switchs.add('arrange')
+
+                    # read directories recursively
+                    elif ch == 'r':
+                        result.switchs.add('recursive')
 
                     # clear cache
                     elif ch == 'C':
