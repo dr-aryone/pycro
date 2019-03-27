@@ -344,6 +344,15 @@ __language_specifications = {
     )
 }
 
+# --- switchs ---
+
+# NOTE: cross-python-version switchs
+_ARRANGE_PROCESS_FLAG = 0x01
+_RECURSIVE_FLAG = 0x02
+_CLEAR_CACHE_FLAG = 0x04
+
+
+
 # --- argument parser ---
 
 # HACK: some interesting options:
@@ -355,7 +364,7 @@ def __print_erro(line):
 def __parse_argv(argv):
     result = dotdict(
             jobs = collections.deque(),
-            switchs = set(),
+            switchs = 0,
             )
 
     next_args = collections.deque()
@@ -486,15 +495,15 @@ def __parse_argv(argv):
 
                 # arrange performances
                 elif option == 'arrange-process':
-                    result.switchs.add('arrange')
+                    result.switchs |= _ARRANGE_PROCESS_FLAG
 
                 # read directories recursively
                 elif option == 'recursive':
-                    result.switchs.add('recursive')
+                    result.switchs |= _RECURSIVE_FLAG
 
                 # clear cache
                 elif option == 'clear-cache':
-                    result.switchs.add('clear')
+                    result.switchs |= _CLEAR_CACHE_FLAG
 
                 # define variable
                 elif option == 'define':
@@ -536,15 +545,15 @@ def __parse_argv(argv):
 
                     # arrange performances
                     elif ch == 'a':
-                        result.switchs.add('arrange')
+                        result.switchs |= _ARRANGE_PROCESS_FLAG
 
                     # read directories recursively
                     elif ch == 'r':
-                        result.switchs.add('recursive')
+                        result.switchs |= _RECURSIVE_FLAG
 
                     # clear cache
                     elif ch == 'C':
-                        result.switchs.add('clear')
+                        result.switchs |= _CLEAR_CACHE_FLAG
 
                     # define variable
                     elif ch == 'D':
@@ -1514,7 +1523,7 @@ def main(argv):
     cache_folder = __joinpath(_HOME_DIRECTORY, _CACHE_FOLDER_NAME)
 
     # --- remove cache folder ---
-    if 'clear' in options.switchs:
+    if _CLEAR_CACHE_FLAG & options.switchs:
         shutil.rmtree(cache_folder_path)
 
     # --- read config file ---
@@ -1527,15 +1536,18 @@ def main(argv):
     except FileNotFoundError:
         config = None
 
-    if 'arrange' in options.switchs:
+    if _ARRANGE_PROCESS_FLAG & options.switchs:
+
         # we must process '-S' & FILEs according to their order.
         raise BaseException('unimplemented section')
 
     else:
 
+        # --- apply config ---
         if config is not None:
             __apply_config(config, compiler_env)
 
+        inputs = list(tup[1] for tup in options.jobs if tup[0] == 'input')
         # if '--outfile' or '--outfolder' specified, find the place of input 
         # files
 
@@ -1545,7 +1557,7 @@ def main(argv):
         executor_env = ExecutorEnvironment()
 
         # apply settings & languages
-        for item in ( tup[1] for tup in result.jobs if tup[0] in \
+        for item in ( tup[1] for tup in options.jobs if tup[0] in \
                 ('setting', 'lang') ):
 
             if isinstance(item, tuple):
