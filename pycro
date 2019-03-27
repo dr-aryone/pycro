@@ -1613,7 +1613,7 @@ def main(argv):
     except FileNotFoundError:
         config = None
 
-    # --- append real path of input paths ---
+    # --- append real path of input paths except sys.stdin ---
     for item in options.jobs:
         if item[0] == _INPUT_FLAG and isinstance(item[1], str):
             item.append( __realpath(__jsonpath(item[1])) )
@@ -1630,30 +1630,14 @@ def main(argv):
             __apply_config(config, compiler_env)
 
         # --- list of inputs ---
-        inputs = list(tup[1] for tup in options.jobs if tup[0] == 'input')
+        inputs = list(
+                tup[1:] for tup in options.jobs if tup[0] == _INPUT_FLAG)
+
+        # tup[1] can be type of str or sys.stdin
 
         # --- find output file ---
         if options.output is not None:
-
-            # --- for outfolder ---
-            if options.output[0] == 'outfolder':
-
-                if _RECURSIVE_FLAG & options.switchs:
-                    i = 0
-                    while i < len(inputs):
-                        path = inputs[i]
-
-                else:
-                    i = 0
-                    while i < len(inputs):
-                        path = inputs[i]
-
-                        if os.isdir(path):
-                            print("pycro: -r not specified; omitting "
-                                    "directory {!r}".format(path))
-
-            else: # options.output[0] == 'outfile'
-                pass
+            pass
 
         # initialize environments
         compiler_env = CompilerEnvironment()
