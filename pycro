@@ -40,8 +40,6 @@ else:
 
 _CACHE_FOLDER_NAME = '.pycro_cache'
 
-_CONFIG_FILE_NAME = '.pycro'
-
 if sys.platform.startswith('linux') or sys.platform.startswith('freebsd'):
     _HOME_DIRECTORY = os.environ['HOME']
 
@@ -53,6 +51,9 @@ else:
             'implement _HOME_DIRECTORY for your platform: {}'.format(
                 sys.platform))
 
+_CONFIG_FILE_NAME = '.pycro'
+
+_DEFAULT_STDIN_FILENAME = '<stdin>'
 
 # NOTE: '(?=(...))\1' works like atomic groups in other languages,
 #       e.g: in perl: '(?>...)'.
@@ -79,7 +80,6 @@ _VARIABLE_PATTERN = r'{prefix}(?P<name>{pattern}){suffix}'
 _EVALUATION_PATTERN = r'{prefix}\s*(?P<eval>.*?)\s*{suffix}'
 
 
-
 _DEFAULT_VARIABLE_VALUE = None
 _SPACE_CHARS = ' \t\n'
 
@@ -104,6 +104,8 @@ _CACHE_FILE_MAGIC_NUMBER = b'.pycroche'
 _COMPILE_FLAGS = 0
 _OPTIMIZE_FLAG = -1
 _MARSHAL_VERSION = 4
+
+_MAX_THREAD_NUMBER = 4
 
 _BIG_INTEGER_SIZE = 4
 
@@ -1471,6 +1473,10 @@ def __read_compiled_code(infile, env):
 
     return None
 
+# __compile_if_needed() will call the following functions:
+#   os.stat
+#   open
+
 def __compile_if_needed(code_path, cache_path, compiler_env):
     code_stat = os.stat(code_path)
     try:
@@ -1503,7 +1509,6 @@ def __compile_if_needed(code_path, cache_path, compiler_env):
 
     # return the result
     return code_object
-
 
 def __apply_language(lang, compiler_env):
     for key, value in __language_specifications[lang]:
@@ -1584,10 +1589,16 @@ def __apply_config(config, compiler_env):
             setattr(
                     compiler_env, 
                     name, 
-                    settings.get(name, getattr(compiler_env, name)),
+                    settings.get(name, fallback=getattr(compiler_env, name)),
                     )
     except KeyError:
         pass
+
+def __compiler_worker(file_real_path, cache_folder_path, compiler_env):
+    cache_file_path = __get_cache_file_path(cache_folder_path, file_real_path)
+    code_object = \
+        __compile_if_needed(file_real_path, cache_file_path, compiler_env)
+
 
 def main(argv):
     options = __parse_argv(sys.argv)
@@ -1628,10 +1639,10 @@ def main(argv):
     except FileNotFoundError:
         config = None
 
-    # --- append real path of input paths except sys.stdin ---
+    # --- append real path ---
     for item in options.jobs:
         if item[0] == _INPUT_FLAG and isinstance(item[1], str):
-            item.append( __realpath(__jsonpath(item[1])) )
+            item.append( __realpath(__joinpath(item[1])) )
 
     if _ARRANGE_PROCESS_FLAG & options.switchs:
 
@@ -1648,19 +1659,12 @@ def main(argv):
         inputs = list(
                 tup[1:] for tup in options.jobs if tup[0] == _INPUT_FLAG)
 
-        # tup[1] can be type of str or sys.stdin
-
-        # --- find output file ---
-        if options.output is not None:
-            pass
-
-        # initialize environments
+        # --- initialize environments ---
         compiler_env = CompilerEnvironment()
-        executor_env = ExecutorEnvironment()
 
-        # apply settings & languages
+        # --- apply settings & languages ---
         for item in ( tup[1] for tup in options.jobs if tup[0] in \
-                ('setting', 'lang') ):
+                (_SETTING_FLAG, _LANG_FLAG) ):
 
             if isinstance(item, tuple):
                 # item is a (Key, Value)
