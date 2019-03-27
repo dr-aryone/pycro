@@ -363,10 +363,12 @@ def __parse_argv(argv):
     result = dotdict(
             jobs = collections.deque(),
             switchs = 0,
+            output = None,
             )
 
     next_args = collections.deque()
 
+    has_output = False
     input_number = 0
 
     for i, arg in enumerate(argv[1:]):
@@ -383,6 +385,16 @@ def __parse_argv(argv):
                 result.jobs.append( ['input', __normpath(arg)] )
                 input_number += 1
 
+            elif next_arg[0] == 'outfile':
+                # previously (duplicate '-o, --outfile' or '-O, --outfolder')
+                # checked
+                result.output = arg
+
+            elif next_arg[0] == 'outfolder':
+                # previously (duplicate '-o, --outfile' or '-O, --outfolder')
+                # checked
+                result.output = arg
+
             elif next_arg[0] == 'define':
 
                 # --- parsing definition ---
@@ -396,6 +408,7 @@ def __parse_argv(argv):
                     print(__TRY.format(argv[0]))
                     return 1
 
+                # --- checking variable name pattern ---
                 if not __fullmatch(_VARIABLE_NAME_RE, arg[0]):
                     __print_error(
                         "invalid variable name: {!r} for option: {!r}".format(
@@ -503,6 +516,24 @@ def __parse_argv(argv):
                 elif option == 'clear-cache':
                     result.switchs |= _CLEAR_CACHE_FLAG
 
+                # set output file
+                elif option == 'outfile':
+                    if has_output:
+                        __print_error("more than one output specified by "
+                                "option: {!r}".format(arg))
+                        return 1
+                    next_args.append(('outfile', '--outfile'))
+                    has_output = True
+
+                # set output folder
+                elif option == 'outfolder':
+                    if has_output:
+                        __print_error("more than one output specified by "
+                                "option: {!r}".format(arg))
+                        return 1
+                    next_args.append(('outfolder', '--outfolder'))
+                    has_output = True
+
                 # define variable
                 elif option == 'define':
                     next_args.append(('define', '--define'))
@@ -552,6 +583,24 @@ def __parse_argv(argv):
                     # clear cache
                     elif ch == 'C':
                         result.switchs |= _CLEAR_CACHE_FLAG
+
+                    # set output file
+                    elif ch == 'o':
+                        if has_output:
+                            __print_error("more than one output specified by "
+                                    "option: {!r}".format('-o'))
+                            return 1
+                        next_args.append(('outfile', '-o'))
+                        has_output = True
+
+                    # set output folder
+                    elif ch == 'O':
+                        if has_output:
+                            __print_error("more than one output specified by "
+                                    "option: {!r}".format('-O'))
+                            return 1
+                        next_args.append(('outfolder', '-O'))
+                        has_output = True
 
                     # define variable
                     elif ch == 'D':
@@ -1514,6 +1563,17 @@ def main(argv):
     if isinstance(options, int):
         return options
 
+    # dir(options) = 'jobs', 'switchs'
+
+    # possible values that can be found in (tup[0] for tup in options.jobs):
+    #   lang, import, jsonfile, input, 
+    #   define, undefine, setting
+
+    # options.switchs ORed values:
+    #   _ARRANGE_PROCESS_FLAG
+    #   _RECURSIVE_FLAG
+    #   _CLEAR_CACHE_FLAG
+
     if __debug__:
         pprint(options)
         print_line()
@@ -1545,10 +1605,10 @@ def main(argv):
         if config is not None:
             __apply_config(config, compiler_env)
 
+        # --- list of inputs ---
         inputs = list(tup[1] for tup in options.jobs if tup[0] == 'input')
-        # if '--outfile' or '--outfolder' specified, find the place of input 
-        # files
 
+        # --- find output folder ---
 
         # initialize environments
         compiler_env = CompilerEnvironment()
