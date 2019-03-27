@@ -356,7 +356,7 @@ _CLEAR_CACHE_FLAG = 0x04
 # HACK: some interesting options:
 #       -i, --isolate                   isolate preprocessing each input file
 
-def __print_erro(line):
+def __print_error(line):
     print('pycro: error:', line)
 
 def __parse_argv(argv):
@@ -388,7 +388,7 @@ def __parse_argv(argv):
                 # --- parsing definition ---
                 arg = arg.split('=', maxsplit=1)
                 if len(arg) != 2:
-                    __print_erro(
+                    __print_error(
                         "{!r} option requires a 'NAME=VALUE' pair.".format(
                             next_arg[1],
                         )
@@ -397,7 +397,7 @@ def __parse_argv(argv):
                     return 1
 
                 if not __fullmatch(_VARIABLE_NAME_RE, arg[0]):
-                    __print_erro(
+                    __print_error(
                         "invalid variable name: {!r} for option: {!r}".format(
                             arg[0],
                             next_arg[1],
@@ -412,7 +412,7 @@ def __parse_argv(argv):
 
                 # --- parsing undefinition ---
                 if not __fullmatch(_VARIABLE_NAME_RE, arg):
-                    __print_erro(
+                    __print_error(
                         "invalid variable name: {!r} for option: {!r}".format(
                             arg,
                             next_arg[1],
@@ -428,7 +428,7 @@ def __parse_argv(argv):
                 # --- parsing setting ---
                 arg = arg.split('=', maxsplit=1)
                 if len(arg) != 2:
-                    __print_erro(
+                    __print_error(
                         "{!r} option requires a 'KEY=VALUE' pair.".format(
                             next_arg[1],
                         )
@@ -437,7 +437,7 @@ def __parse_argv(argv):
                     return 1
 
                 if arg[0] not in __setting_keys:
-                    __print_erro(
+                    __print_error(
                         "invalid setting key: {!r} for option: {!r}".format(
                             arg[0],
                             next_arg[1],
@@ -456,7 +456,7 @@ def __parse_argv(argv):
 
         # empty argument
         if not arg:
-            __print_erro("empty argument: #{} argument".format(i + 1))
+            __print_error("empty argument: #{} argument".format(i + 1))
             print(__TRY.format(argv[0]))
             return 1
 
@@ -528,7 +528,7 @@ def __parse_argv(argv):
                     next_args.append(('import', '--import'))
 
                 else:
-                    __print_erro("unknown option: '{}'".format(arg))
+                    __print_error("unknown option: '{}'".format(arg))
                     print(__TRY.format(argv[0]))
                     return 1
 
@@ -578,7 +578,7 @@ def __parse_argv(argv):
                         next_args.append(('import', '-I'))
 
                     else:
-                        __print_erro("invalid option: '{}'".format('-' + ch))
+                        __print_error("invalid option: '{}'".format('-' + ch))
                         print(__TRY.format(argv[0]))
                         return 1
 
@@ -587,7 +587,7 @@ def __parse_argv(argv):
             input_number += 1
 
     if next_args:
-        __print_erro(
+        __print_error(
                 "{!r} option requires an argument".format(next_args[0][1]))
         print(__TRY.format(argv[0]))
         return 1
