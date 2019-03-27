@@ -353,9 +353,10 @@ _CLEAR_CACHE_FLAG = 0x04
 
 # --- jobs unique flags ---
 
-# NOTE: cross-python-version jobs
-
-# TODO: implement here
+# NOTE: cross-python-version flags
+_IMPORT_FLAG =              0x01
+_LANG_FLAG =                0x02
+_JSONFILE_FLAG =            0x03
 
 # *** argument parser ***
 
@@ -384,7 +385,7 @@ def __parse_argv(argv):
 
         if next_args:
             next_arg = next_args.popleft()
-            if next_arg[0] in ('import', 'lang', 'jsonfile'):
+            if next_arg[0] in (_IMPORT_FLAG, _LANG_FLAG, _JSONFILE_FLAG):
                 result.jobs.append((next_arg[0], arg))
 
             elif next_arg[0] == 'input':
@@ -554,15 +555,15 @@ def __parse_argv(argv):
 
                 # specify language
                 elif option == 'lang':
-                    next_args.append(('lang', '--lang'))
+                    next_args.append((_LANG_FLAG, '--lang'))
 
                 # load json files
                 elif option == 'load':
-                    next_args.append(('jsonfile', '--load'))
+                    next_args.append((_JSONFILE_FLAG, '--load'))
 
                 # import module
                 elif option == 'import':
-                    next_args.append(('import', '--import'))
+                    next_args.append((_IMPORT_FLAG, '--import'))
 
                 else:
                     __print_error("unknown option: '{}'".format(arg))
@@ -622,15 +623,15 @@ def __parse_argv(argv):
 
                     # specify language
                     elif ch == 'L':
-                        next_args.append(('lang', '-L'))
+                        next_args.append((_LANG_FLAG, '-L'))
 
                     # load json files
                     elif ch == 'l':
-                        next_args.append(('jsonfile', '-l'))
+                        next_args.append((_JSONFILE_FLAG, '-l'))
 
                     # import module
                     elif ch == 'i':
-                        next_args.append(('import', '-I'))
+                        next_args.append((_IMPORT_FLAG, '-I'))
 
                     else:
                         __print_error("invalid option: '{}'".format('-' + ch))
@@ -1572,7 +1573,8 @@ def main(argv):
     # dir(options) = 'jobs', 'switchs', 'output'
 
     # possible values that can be found in (tup[0] for tup in options.jobs):
-    #   lang, import, jsonfile, input, 
+    #   _LANG_FLAG, _IMPORT_FLAG, _JSONFILE_FLAG, 
+    #   input, 
     #   define, undefine, setting
 
     # options.switchs ORed values:
