@@ -15,7 +15,6 @@
 #  
 #     0. You just DO WHAT THE FUCK YOU WANT TO.
 
-
 import sys
 import os
 import io
@@ -25,7 +24,6 @@ import marshal
 import subprocess
 import configparser
 import queue
-
 
 if sys.version_info[0] == 3:
     import builtins
@@ -267,7 +265,6 @@ def __print_version():
 
 # TODO: write '--outfile', '--outfolder' functionality
 
-
 __setting_keys = {
     'mp', 'macro_prefix'                
     'ms', 'macro_suffix',
@@ -350,7 +347,7 @@ __language_specifications = {
 # --- argument parser ---
 
 # HACK: some interesting options:
-#       -
+#       -i, --isolate                   isolate preprocessing each input file
 
 def __print_erro(line):
     print('pycro: error:', line)
@@ -1330,6 +1327,7 @@ def execute_code_object(
 
 # --- main functions ---
 
+
 if sys.platform.startswith('linux') or sys.platform.startswith('freebsd'):
     def __get_cache_file_path(cache_folder_path, file_read_path):
         parts = file_real_path.split(os.sep)
@@ -1437,6 +1435,12 @@ def __apply_settings(key, value, compiler_env):
     elif key in ('ss', 'statement_suffix'):
         compiler_env.statement_suffix = value
 
+    elif key in ('cp', 'comment_prefix'):
+        compiler_env.comment_prefix = value
+
+    elif key in ('cs', 'comment_suffix'):
+        compiler_env.comment_suffix = value
+
     elif key in ('vp', 'variable_prefix'):
         compiler_env.variable_prefix = value
 
@@ -1452,6 +1456,52 @@ def __apply_settings(key, value, compiler_env):
     else:
         raise KeyError('unknown keyword: {!r}'.format(key))
 
+def __create_config_parser():
+    return configparser.ConfigParser(
+            defaults = None,
+
+            dict_type = dict,
+            allow_no_value = False,
+
+            delimiters = ('=', ),
+
+            comment_prefixes = ('#', ),
+            inline_comment_prefixes = None,
+            
+            strict = True,
+
+            empty_lines_in_values = False,
+
+            default_section = "DEFAULT",
+
+            interpolation = None,
+
+            converters = {},
+            )
+
+def __apply_config(config, compiler_env):
+    try:
+        settings = config['settings']
+        for name in (
+                'macro_prefix', 
+                'macro_suffix',
+                'statement_prefix', 
+                'statement_suffix',
+                'comment_prefix', 
+                'comment_suffix',
+                'variable_prefix', 
+                'variable_suffix',
+                'evaluation_prefix',
+                'evaluation_suffix',
+                ):
+            setattr(
+                    compiler_env, 
+                    name, 
+                    settings.get(name, getattr(compiler_env, name)),
+                    )
+    except KeyError:
+        pass
+
 def main(argv):
     options = __parse_argv(sys.argv)
     if isinstance(options, int):
@@ -1460,22 +1510,31 @@ def main(argv):
     if __debug__:
         pprint(options)
         print_line()
-        return 0
 
     cache_folder = __joinpath(_HOME_DIRECTORY, _CACHE_FOLDER_NAME)
 
-    # first clear cache folder
+    # --- remove cache folder ---
     if 'clear' in options.switchs:
         shutil.rmtree(cache_folder_path)
 
-    # TODO: read _CONFIG_FILE_NAME as a `ini` or `json` and apply them to
-    #       settings
+    # --- read config file ---
+    config_file_path = __abspath(_CONFIG_FILE_NAME)
+    try:
+        with open(config_file_path) as config_file:
+            config = __create_config_parser()
+            config.read_file(config_file)
+
+    except FileNotFoundError:
+        config = None
 
     if 'arrange' in options.switchs:
         # we must process '-S' & FILEs according to their order.
         raise BaseException('unimplemented section')
 
     else:
+
+        if config is not None:
+            __apply_config(config, compiler_env)
 
         # if '--outfile' or '--outfolder' specified, find the place of input 
         # files
@@ -1501,9 +1560,6 @@ def main(argv):
         
 
         # apply variable definitions, or undefinitions
-
-        pass
-
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))
