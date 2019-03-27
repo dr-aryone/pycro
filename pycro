@@ -351,8 +351,6 @@ _ARRANGE_PROCESS_FLAG = 0x01
 _RECURSIVE_FLAG = 0x02
 _CLEAR_CACHE_FLAG = 0x04
 
-
-
 # --- argument parser ---
 
 # HACK: some interesting options:
@@ -590,7 +588,7 @@ def __parse_argv(argv):
 
     if next_args:
         __print_erro(
-                "'{}' option requires an argument".format(next_args[0][1]))
+                "{!r} option requires an argument".format(next_args[0][1]))
         print(__TRY.format(argv[0]))
         return 1
 
