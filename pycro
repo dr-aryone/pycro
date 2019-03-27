@@ -1610,16 +1610,20 @@ def main(argv):
         with open(config_file_path) as config_file:
             config = __create_config_parser()
             config.read_file(config_file)
-
     except FileNotFoundError:
         config = None
+
+    # --- append real path of input paths ---
+    for item in options.jobs:
+        if item[0] == _INPUT_FLAG and isinstance(item[1], str):
+            item.append( __realpath(__jsonpath(item[1])) )
 
     if _ARRANGE_PROCESS_FLAG & options.switchs:
 
         # --- arranged performace ---
         raise BaseException('unimplemented section')
 
-    else:
+    else: # not (_ARRANGE_PROCESS_FLAG & options.switchs)
 
         # --- apply config ---
         if config is not None:
