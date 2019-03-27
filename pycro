@@ -1601,7 +1601,8 @@ def __compiler_worker(file_real_path, cache_folder_path, compiler_env):
 
 
 def main(argv):
-    options = __parse_argv(sys.argv)
+
+    options = __parse_argv(argv)
     if isinstance(options, int):
         return options
 
@@ -1619,6 +1620,21 @@ def main(argv):
 
     # (tup[0] for tup in options.output) possible values:
     #   _OUTFILE_FLAG, _OUTFOLDER_FLAG
+
+    
+    # other notes:
+
+    # compile-time jobs:
+    #   _LANG_FLAG
+    #   _SETTING_FLAG
+
+    # execution-time jobs:
+    #   _IMPORT_FLAG
+    #   _JSONFILE_FLAG
+    #
+    #   _DEFINE_FLAG
+    #   _UNDEFINE_FLAG
+
 
     if __debug__:
         pprint(options)
