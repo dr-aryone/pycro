@@ -389,7 +389,7 @@ def __parse_argv(argv):
                 result.jobs.append((next_arg[0], arg))
 
             elif next_arg[0] == 'input':
-                result.jobs.append( ['input', __normpath(arg)] )
+                result.jobs.append( ['input', arg] )
                 input_number += 1
 
             elif next_arg[0] == 'outfile':
@@ -639,7 +639,7 @@ def __parse_argv(argv):
                         return 1
 
         else: # if arg[0] == '-'
-            result.jobs.append( ['input', __normpath(arg)] )
+            result.jobs.append( ['input', arg] )
             input_number += 1
 
     if next_args:
