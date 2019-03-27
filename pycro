@@ -344,14 +344,20 @@ __language_specifications = {
     )
 }
 
-# --- switchs ---
+# --- switchs flags ---
 
 # NOTE: cross-python-version switchs
 _ARRANGE_PROCESS_FLAG = 0x01
 _RECURSIVE_FLAG = 0x02
 _CLEAR_CACHE_FLAG = 0x04
 
-# --- argument parser ---
+# --- jobs flags ---
+
+# NOTE: cross-python-version jobs
+
+# TODO: implement here
+
+# *** argument parser ***
 
 # HACK: some interesting options:
 #       -i, --isolate                   isolate preprocessing each input file
@@ -388,12 +394,12 @@ def __parse_argv(argv):
             elif next_arg[0] == 'outfile':
                 # previously (duplicate '-o, --outfile' or '-O, --outfolder')
                 # checked
-                result.output = arg
+                result.output = ('outfile', arg)
 
             elif next_arg[0] == 'outfolder':
                 # previously (duplicate '-o, --outfile' or '-O, --outfolder')
                 # checked
-                result.output = arg
+                result.output = ('outfolder', arg)
 
             elif next_arg[0] == 'define':
 
@@ -1563,7 +1569,7 @@ def main(argv):
     if isinstance(options, int):
         return options
 
-    # dir(options) = 'jobs', 'switchs'
+    # dir(options) = 'jobs', 'switchs', 'output'
 
     # possible values that can be found in (tup[0] for tup in options.jobs):
     #   lang, import, jsonfile, input, 
@@ -1573,6 +1579,9 @@ def main(argv):
     #   _ARRANGE_PROCESS_FLAG
     #   _RECURSIVE_FLAG
     #   _CLEAR_CACHE_FLAG
+
+    # (tup[0] for tup in options.output) possible values:
+    #   'outfile', 'outfolder'
 
     if __debug__:
         pprint(options)
@@ -1608,7 +1617,28 @@ def main(argv):
         # --- list of inputs ---
         inputs = list(tup[1] for tup in options.jobs if tup[0] == 'input')
 
-        # --- find output folder ---
+        # --- find output file ---
+        if options.output is not None:
+
+            # --- for outfolder ---
+            if options.output[0] == 'outfolder':
+
+                if _RECURSIVE_FLAG & options.switchs:
+                    i = 0
+                    while i < len(inputs):
+                        path = inputs[i]
+
+                else:
+                    i = 0
+                    while i < len(inputs):
+                        path = inputs[i]
+
+                        if os.isdir(path):
+                            print("pycro: -r not specified; omitting "
+                                    "directory {!r}".format(path))
+
+            else: # options.output[0] == 'outfile'
+                pass
 
         # initialize environments
         compiler_env = CompilerEnvironment()
@@ -1627,7 +1657,7 @@ def main(argv):
                 __apply_language(lang, compiler_env)
 
         # compile and cache input files by threading
-        
+
 
         # apply variable definitions, or undefinitions
 
