@@ -1663,7 +1663,7 @@ def main(argv):
     if _ARRANGE_PROCESS_FLAG & options.switchs:
 
         # --- arranged performace ---
-        raise BaseException('unimplemented section')
+        raise BaseException('unimplemented code')
 
     else: # not (_ARRANGE_PROCESS_FLAG & options.switchs)
 
