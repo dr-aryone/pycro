@@ -224,6 +224,7 @@ Sortable options:
                                       treats '-' as standard input)
 
 Common options:
+    -f, --force                     overwrite existing files
     -r, --recursive                 Pycro directories recursively
     -C, --clear-cache               first clear compiler cache
     -o, --outfile OUTFILE           set output file to OUTFILE
@@ -350,6 +351,7 @@ __language_specifications = {
 _ARRANGE_PROCESS_FLAG =     0x01
 _RECURSIVE_FLAG =           0x02
 _CLEAR_CACHE_FLAG =         0x04
+_FORCE_FLAG =               0x08
 
 # --- jobs unique flags ---
 
@@ -465,6 +467,7 @@ def __parse_argv(argv):
                     print(__TRY.format(argv[0]))
                     return 1
 
+                # --- checking valid keys ---
                 if arg[0] not in __setting_keys:
                     __print_error(
                         "invalid setting key: {!r} for option: {!r}".format(
@@ -524,6 +527,10 @@ def __parse_argv(argv):
                 elif option == 'arrange-process':
                     result.switchs |= _ARRANGE_PROCESS_FLAG
 
+                # force overwrite
+                elif option == 'force':
+                    result.switchs |= _FORCE_FLAG
+
                 # read directories recursively
                 elif option == 'recursive':
                     result.switchs |= _RECURSIVE_FLAG
@@ -582,6 +589,9 @@ def __parse_argv(argv):
             else: # if arg[1] == '-'
                 for ch in arg[1:]:
 
+                    # --- check short options ---
+                    # ---------------------------
+
                     # show help
                     if ch == 'h':
                         print(__USAGE.format(sys.argv[0]))
@@ -591,6 +601,11 @@ def __parse_argv(argv):
                     # arrange performances
                     elif ch == 'a':
                         result.switchs |= _ARRANGE_PROCESS_FLAG
+
+
+                    # force overwrite
+                    elif ch == 'f':
+                        result.switchs |= _FORCE_FLAG
 
                     # read directories recursively
                     elif ch == 'r':
@@ -647,7 +662,7 @@ def __parse_argv(argv):
                         print(__TRY.format(argv[0]))
                         return 1
 
-        else: # if arg[0] == '-'
+        else: # (arg[0] != '-')
             result.jobs.append( [_INPUT_FLAG, arg] )
             input_number += 1
 
