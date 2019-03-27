@@ -1579,12 +1579,12 @@ def main(argv):
     if isinstance(options, int):
         return options
 
-    # dir(options) = 'jobs', 'switchs', 'output'
+    # ['jobs', 'switchs', 'output'] is in dir(options) 
 
     # possible values that can be found in (tup[0] for tup in options.jobs):
     #   _LANG_FLAG, _IMPORT_FLAG, _JSONFILE_FLAG, 
     #   _INPUT_FLAG, 
-    #   define, undefine, setting
+    #   _DEFINE_FLAG, _UNDEFINE_FLAG, _SETTING_FLAG
 
     # options.switchs ORed values:
     #   _ARRANGE_PROCESS_FLAG
@@ -1592,7 +1592,7 @@ def main(argv):
     #   _CLEAR_CACHE_FLAG
 
     # (tup[0] for tup in options.output) possible values:
-    #   'outfile', 'outfolder'
+    #   _OUTFILE_FLAG, _OUTFOLDER_FLAG
 
     if __debug__:
         pprint(options)
@@ -1616,7 +1616,7 @@ def main(argv):
 
     if _ARRANGE_PROCESS_FLAG & options.switchs:
 
-        # we must process '-S' & FILEs according to their order.
+        # --- arranged performace ---
         raise BaseException('unimplemented section')
 
     else:
@@ -1668,7 +1668,6 @@ def main(argv):
                 __apply_language(lang, compiler_env)
 
         # compile and cache input files by threading
-
 
         # apply variable definitions, or undefinitions
 
