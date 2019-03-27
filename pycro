@@ -344,14 +344,14 @@ __language_specifications = {
     )
 }
 
-# --- switchs flags ---
+# --- switchs bit flags ---
 
 # NOTE: cross-python-version switchs
 _ARRANGE_PROCESS_FLAG = 0x01
 _RECURSIVE_FLAG = 0x02
 _CLEAR_CACHE_FLAG = 0x04
 
-# --- jobs flags ---
+# --- jobs unique flags ---
 
 # NOTE: cross-python-version jobs
 
