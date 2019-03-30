@@ -99,7 +99,7 @@ _DEFAULT_RUN_FUNCTION_NAME = '__run__'
 _DEFAULT_INCLUDE_FUNCTION_NAME = '__include__'
 _DEFAULT_PLACE_FUNCTION_NAME = '__place__'
 
-
+_DEFAULT_VERSION_VARIABLE_NAME = '__version__'
 
 _CACHE_FILE_MAGIC_NUMBER = b'.pycroche'
 
@@ -1293,6 +1293,8 @@ class ExecutorEnvironment:
 
             include_function_name = _DEFAULT_INCLUDE_FUNCTION_NAME,
             place_function_name = _DEFAULT_PLACE_FUNCTION_NAME,
+
+            version_variable_name = _DEFAULT_VERSION_VARIABLE_NAME,
             ):
 
         if variables is None:
@@ -1320,6 +1322,8 @@ class ExecutorEnvironment:
         self.include_function_name = include_function_name
         self.place_function_name = place_function_name
 
+        self.version_variable_name = version_variable_name
+
 def execute_code_object(
         code_object,
         outfile,
@@ -1341,6 +1345,10 @@ def execute_code_object(
     # --- pipes variable ---
 
     variables[env.pipes_varaible_name] = pipes
+
+    # --- version variable ---
+
+    variables[env.version_variable_name] = VERSION
 
     # --- divert function ---
 
@@ -1600,7 +1608,6 @@ def __compiler_worker(file_real_path, cache_folder_path, compiler_env):
     cache_file_path = __get_cache_file_path(cache_folder_path, file_real_path)
     code_object = \
         __compile_if_needed(file_real_path, cache_file_path, compiler_env)
-
 
 def main(argv):
 
