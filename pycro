@@ -57,8 +57,6 @@ else:
 
 _CACHE_FOLDER_NAME = '.pycro_cache'
 
-_CACHE_FOLDER_PATH = os.path.join(_HOME_DIRECTORY, _CACHE_FOLDER_NAME)
-
 
 _CONFIG_FILE_NAME = '.pycro'
 
@@ -1426,9 +1424,8 @@ def execute_code_object(
 
 # --- main functions ---
 
-
 if sys.platform.startswith('linux') or sys.platform.startswith('freebsd'):
-    def __get_cache_file_path(cache_folder_path, file_read_path):
+    def __get_cache_file_path(cache_folder_path, file_real_path):
         parts = file_real_path.split(os.sep)
         return __joinpath(cache_folder_path, *parts[1:])
 
@@ -1649,7 +1646,7 @@ def main(argv):
         pprint(options)
         print_line()
 
-    cache_folder = __joinpath(_HOME_DIRECTORY, _CACHE_FOLDER_NAME)
+    cache_folder_path = __joinpath(_HOME_DIRECTORY, _CACHE_FOLDER_NAME)
 
     # --- remove cache folder ---
     if _CLEAR_CACHE_FLAG & options.switchs:
