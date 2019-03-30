@@ -2,3 +2,20 @@
 interests:
 	may be need to add ('--help-all' or '--full-help') option.
 
+
+```python
+# NOTE: '(?=(...))\1' works like atomic groups in other languages,
+#       e.g: in perl: '(?>...)'.
+
+# TODO: using re for matching for macros, statement, ... is slow, may be we
+#       can do something like this:
+#
+#   line = line.strip(_SPACE_CHARS)
+#   if line.startswith(prefix) and line.endswith(suffix):
+#       ...
+#
+# WARNING: if we use the above mechanism, evey line that startswith(prefix) and
+#          endswith(suffix) will treated as macros, statement, ...
+#
+# TODO: test speed of both ways.
+```

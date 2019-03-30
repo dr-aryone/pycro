@@ -17,6 +17,8 @@
 #     0. You just DO WHAT THE FUCK YOU WANT TO.
 
 
+# --- modules ---
+
 import sys
 import os
 import io
@@ -40,7 +42,8 @@ else:
             )
         )
 
-_CACHE_FOLDER_NAME = '.pycro_cache'
+
+# --- home directory & cache folder ---
 
 if sys.platform.startswith('linux') or sys.platform.startswith('freebsd'):
     _HOME_DIRECTORY = os.environ['HOME']
@@ -49,29 +52,20 @@ elif sys.platform == 'win32':
     _HOME_DIRECTORY = os.environ['USERPROFILE']
 
 else:
-    raise NotImplemented(
-            'implement _HOME_DIRECTORY for your platform: {}'.format(
-                sys.platform))
+    raise NotImplemented('implement _HOME_DIRECTORY '
+            'for your platform: {}'.format(sys.platform))
+
+_CACHE_FOLDER_NAME = '.pycro_cache'
+
+_CACHE_FOLDER_PATH = os.path.join(_HOME_DIRECTORY, _CACHE_FOLDER_NAME)
+
 
 _CONFIG_FILE_NAME = '.pycro'
 
 _DEFAULT_STDIN_FILENAME = '<stdin>'
 
-# NOTE: '(?=(...))\1' works like atomic groups in other languages,
-#       e.g: in perl: '(?>...)'.
 
-# TODO: using re for matching for macros, statement, ... is slow, may be we
-#       can do something like this:
-#
-#   line = line.strip(_SPACE_CHARS)
-#   if line.startswith(prefix) and line.endswith(suffix):
-#       ...
-#
-# WARNING: if we use the above mechanism, evey line that startswith(prefix) and
-#          endswith(suffix) will treated as macros, statement, ...
-#
-# TODO: test speed of both ways.
-
+# --- patterns ---
 
 _MACRO_PATTERN = r'\s*(?P<macro>{macros})\s*(?P<args>.*?)\s*'
 
@@ -82,11 +76,14 @@ _VARIABLE_PATTERN = r'{prefix}(?P<name>{pattern}){suffix}'
 _EVALUATION_PATTERN = r'{prefix}\s*(?P<eval>.*?)\s*{suffix}'
 
 
+
+# --- default variable value & space chars ---
+
 _DEFAULT_VARIABLE_VALUE = None
 _SPACE_CHARS = ' \t\n'
 
 
-# NOTE: pycro reversed variable names
+# --- pycro default variable & function names
 
 _DEFAULT_OUTFILE_VARIABLE_NAME = '__outfile__'
 
@@ -100,6 +97,9 @@ _DEFAULT_INCLUDE_FUNCTION_NAME = '__include__'
 _DEFAULT_PLACE_FUNCTION_NAME = '__place__'
 
 _DEFAULT_VERSION_VARIABLE_NAME = '__version__'
+
+
+# --- other settings ---
 
 _CACHE_FILE_MAGIC_NUMBER = b'.pycroche'
 
