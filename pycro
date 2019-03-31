@@ -190,9 +190,6 @@ class dotdict(dict):
 class FileStructError(Exception):
     pass
 
-# we have no code object type definition
-_code_object_type = type(compile('0', '', 'eval'))
-
 def __prettify_items(items, indent = '    ', width = 80):
     if not items:
         return ''
@@ -208,6 +205,9 @@ def __prettify_items(items, indent = '    ', width = 80):
             lines[-1] += ', ' + item
 
     return '\n'.join(lines)
+
+# we have no code object type definition
+_code_object_type = type(compile('0', '', 'eval'))
 
 # --- command line help & options ---
 
