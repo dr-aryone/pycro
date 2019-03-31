@@ -4,16 +4,16 @@
 
 #              DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE
 #                      Version 2, December 2004
-#  
+#
 #   Copyright (C) 2019 Mohammad Amin Khakzadan <mak12776@gmail.com>
-#  
+#
 #   Everyone is permitted to copy and distribute verbatim or modified
 #   copies of this license document, and changing it is allowed as long
 #   as the name is changed.
-#  
+#
 #              DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE
 #     TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
-#  
+#
 #     0. You just DO WHAT THE FUCK YOU WANT TO.
 
 
@@ -222,7 +222,7 @@ read.
 Operation modes:
     -h, --help                      display this help and exit
     --version                       display version and exit
-    -a, --arrange-process           perform Sortable OPTIONs and FILEs 
+    -a, --arrange-process           perform Sortable OPTIONs and FILEs
                                       according to their orders
 
 Sortable options:
@@ -234,7 +234,7 @@ Sortable options:
                                       specification
     -l, --load JSONFILE             load JSONFILE and update variables
     -I, --import MODULE             import MODULE to interpreter environment
-    -- FILE                         read input FILE (don't treats '-' as 
+    -- FILE                         read input FILE (don't treats '-' as
                                       standard input)
 
 Common options:
@@ -268,7 +268,7 @@ Setting keys:
 def __print_help():
     print(__HELP.format(
             default_variable_value = _DEFAULT_VARIABLE_VALUE,
-            language_specifications = 
+            language_specifications =
                 __prettify_items(sorted(__language_specifications.keys())),
         ),
         end = '')
@@ -282,19 +282,19 @@ def __print_version():
 # TODO: write '--outfile', '--outfolder' functionality
 
 __setting_keys = {
-    'mp', 'macro_prefix'                
+    'mp', 'macro_prefix'
     'ms', 'macro_suffix',
 
-    'sp', 'statement_prefix',           
+    'sp', 'statement_prefix',
     'ss', 'statement_suffix',
 
-    'cp', 'comment_prefix',             
+    'cp', 'comment_prefix',
     'cs', 'comment_suffix',
 
-    'vp', 'variable_prefix',            
+    'vp', 'variable_prefix',
     'vs', 'variable_suffix',
 
-    'ep', 'evaluation_prefix',          
+    'ep', 'evaluation_prefix',
     'es', 'evaluation_suffix',
 }
 
@@ -1295,9 +1295,9 @@ def generate_code(infile, outfile, env):
         raise CompilerError(_UNTERMINATED_BLOCK, env.macro_stack[-1])
 
 def compile_generated_code(
-        code, 
+        code,
         infile_name,
-        flags = _COMPILE_FLAGS, 
+        flags = _COMPILE_FLAGS,
         optimize = _OPTIMIZE_LEVEL,
         ):
 
@@ -1607,7 +1607,7 @@ def __create_config_parser():
 
             comment_prefixes = ('#', ),
             inline_comment_prefixes = None,
-            
+
             strict = True,
 
             empty_lines_in_values = False,
@@ -1623,20 +1623,20 @@ def __apply_config(config, compiler_env):
     try:
         settings = config['settings']
         for name in (
-                'macro_prefix', 
+                'macro_prefix',
                 'macro_suffix',
-                'statement_prefix', 
+                'statement_prefix',
                 'statement_suffix',
-                'comment_prefix', 
+                'comment_prefix',
                 'comment_suffix',
-                'variable_prefix', 
+                'variable_prefix',
                 'variable_suffix',
                 'evaluation_prefix',
                 'evaluation_suffix',
                 ):
             setattr(
-                    compiler_env, 
-                    name, 
+                    compiler_env,
+                    name,
                     settings.get(name, fallback=getattr(compiler_env, name)),
                     )
     except KeyError:
@@ -1674,7 +1674,7 @@ def __compiler_worker(
 
         except queue.Empty:
             return
-        
+
 
 def main(argv):
 
@@ -1682,11 +1682,11 @@ def main(argv):
     if isinstance(options, int):
         return options
 
-    # ['jobs', 'switchs', 'output'] is in dir(options) 
+    # ['jobs', 'switchs', 'output'] is in dir(options)
 
     # possible values that can be found in (tup[0] for tup in options.jobs):
-    #   _LANG_FLAG, _IMPORT_FLAG, _JSONFILE_FLAG, 
-    #   _INPUT_FLAG, 
+    #   _LANG_FLAG, _IMPORT_FLAG, _JSONFILE_FLAG,
+    #   _INPUT_FLAG,
     #   _DEFINE_FLAG, _UNDEFINE_FLAG, _SETTING_FLAG
 
     # options.switchs ORed values:
@@ -1697,7 +1697,7 @@ def main(argv):
     # (tup[0] for tup in options.output) possible values:
     #   _OUTFILE_FLAG, _OUTFOLDER_FLAG
 
-    
+
     # other notes:
 
     # compile-time jobs:
@@ -1797,7 +1797,7 @@ def main(argv):
                     initial_job = inputs_queue.get()
                 except threading.Empty:
                     break
-                
+
                 if len(workers) == _MAX_THREAD_NUMBER:
                     break
 
