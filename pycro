@@ -82,7 +82,7 @@ _DEFAULT_VARIABLE_VALUE = None
 _SPACE_CHARS = ' \t\n'
 
 
-# --- pycro default variable & function names
+# --- pycro default variable & function names ---
 
 _DEFAULT_OUTFILE_VARIABLE_NAME = '__outfile__'
 
@@ -1616,6 +1616,7 @@ def __apply_config(config, compiler_env):
 
 @thread
 def __compiler_worker(
+        initial_job,
         jobs_queue,
 
         cache_folder_path,
@@ -1624,7 +1625,28 @@ def __compiler_worker(
         exit_event,
         ):
 
-    print('thread {} started'.format(threading.current_thread().name))
+    job = initial_job
+
+    while True:
+
+        if exit_event.is_set():
+            return
+
+        # job is:   [_INPUT_FLAG, 'path', 'real_path']
+
+        # --- append cache file path ---
+        job.append( __get_cache_file_path(cache_folder_path, job[2]) )
+
+        # job is:   [_INPUT_FLAG, 'path', 'real_path', 'cache_path']
+
+        # --- compile the file ---
+
+        try:
+            job = inputs_queue.get()
+
+        except queue.Empty:
+            return
+        
 
 def main(argv):
 
@@ -1666,6 +1688,7 @@ def main(argv):
         pprint(options)
         print_line()
 
+    # --- join cache folder path ---
     cache_folder_path = __joinpath(_HOME_DIRECTORY, _CACHE_FOLDER_NAME)
 
     # --- remove cache folder ---
@@ -1730,17 +1753,28 @@ def main(argv):
             if item[0] == _INPUT_FLAG and isinstance(item[1], str):
                 inputs_queue.put(item, False)
 
+        # a deque of workers
+        workers = collections.deque()
+
         # in inputs_queue:
         #   [_INPUT_FLAG, 'path', 'real_path']
 
-        # start workers
+        # start compiler workers
         if inputs_queue:
-            threads_num = 0
-            exit_event = threading.Event()
-            workers = collections.deque()
 
-            while inputs_queue and len(workers) < _MAX_THREAD_NUMBER:
+            exit_event = threading.Event()
+
+            while True:
+                try:
+                    initial_job = inputs_queue.get()
+                except threading.Empty:
+                    break
+                
+                if len(workers) == _MAX_THREAD_NUMBER:
+                    break
+
                 worker = __compiler_worker(
+                        initial_job,
                         inputs_queue,
 
                         cache_folder_path,
@@ -1752,6 +1786,8 @@ def main(argv):
                 workers.append(worker)
 
                 worker.start()
+
+        # read from stdin or wait for workers
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))
