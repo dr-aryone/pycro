@@ -238,6 +238,7 @@ Sortable options:
                                       standard input)
 
 Common options:
+    -N, --filter-name PATTERN       filter input FILE names by shell PATTERN
     -f, --force                     overwrite existing files
     -r, --recursive                 pycro directories recursively
     -C, --clear-cache               first clear compiler cache
@@ -383,6 +384,8 @@ _SETTING_FLAG =             0x07
 _OUTFILE_FLAG =             0x08
 _OUTFOLDER_FLAG =           0x09
 
+_FILTER_NAME_FLAG =         0x0a
+
 # *** argument parser ***
 
 # HACK: some interesting options:
@@ -394,6 +397,7 @@ def __print_error(line):
 def __parse_argv(argv):
     result = dotdict(
             jobs = collections.deque(),
+            file_name_filters = collections.deque(),
             switchs = 0,
             output = None,
             )
@@ -418,11 +422,13 @@ def __parse_argv(argv):
                 input_number += 1
 
             elif next_arg[0] == _OUTFILE_FLAG:
+
                 # previously (duplicate '-o, --outfile' or '-O, --outfolder')
                 # checked
                 result.output = (_OUTFILE_FLAG, arg)
 
             elif next_arg[0] == _OUTFOLDER_FLAG:
+
                 # previously (duplicate '-o, --outfile' or '-O, --outfolder')
                 # checked
                 result.output = (_OUTFOLDER_FLAG, arg)
@@ -494,6 +500,11 @@ def __parse_argv(argv):
 
                 result.jobs.append((_SETTING_FLAG, arg))
 
+            elif next_arg[0] == _FILTER_NAME_FLAG:
+
+                # --- append file name filter ---
+                result.file_name_filters.append(arg)
+
             else:
                 raise BaseException("unknown argument name pushed to "
                         "next_args: {}".format(next_arg))
@@ -540,6 +551,10 @@ def __parse_argv(argv):
                 # arrange performances
                 elif option == 'arrange-process':
                     result.switchs |= _ARRANGE_PROCESS_FLAG
+
+                # filter file names
+                elif option == 'filter-name':
+                    next_args.append((_FILTER_NAME_FLAG, '--filter-name'))
 
                 # force overwrite
                 elif option == 'force':
@@ -616,6 +631,9 @@ def __parse_argv(argv):
                     elif ch == 'a':
                         result.switchs |= _ARRANGE_PROCESS_FLAG
 
+                    # filter file names
+                    elif ch = 'N':
+                        next_args.append((_FILTER_NAME_FLAG, '-N'))
 
                     # force overwrite
                     elif ch == 'f':
