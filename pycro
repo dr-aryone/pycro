@@ -230,16 +230,16 @@ Sortable options:
                                       {default_variable_value}
     -U, --undefine NAME             undefine NAME variable
     -S, --set KEY=VALUE             set KEY setting to VALUE
-    -L, --lang LANGUAGE             set prefix and suffix for LANGUAGE
+    -L, --lang LANGUAGE             set prefixes and suffixes for LANGUAGE
                                       specification
     -l, --load JSONFILE             load JSONFILE and update variables
-    -I, --import MODULE             import MODULE to interpreter variables
-    -- FILE                         read next argument as input FILE (don't
-                                      treats '-' as standard input)
+    -I, --import MODULE             import MODULE to interpreter environment
+    -- FILE                         read input FILE (don't treats '-' as 
+                                      standard input)
 
 Common options:
     -f, --force                     overwrite existing files
-    -r, --recursive                 Pycro directories recursively
+    -r, --recursive                 pycro directories recursively
     -C, --clear-cache               first clear compiler cache
     -o, --outfile OUTFILE           set output file to OUTFILE
     -O, --outfolder OUTFOLDER       set output folder to OUTFOLDER
@@ -1612,7 +1612,6 @@ def __apply_config(config, compiler_env):
                     )
     except KeyError:
         pass
-
 
 @thread
 def __compiler_worker(
