@@ -103,7 +103,7 @@ _DEFAULT_VERSION_VARIABLE_NAME = '__version__'
 _CACHE_FILE_MAGIC_NUMBER = b'.pycroche'
 
 _COMPILE_FLAGS = 0
-_OPTIMIZE_FLAG = -1
+_OPTIMIZE_LEVEL = -1
 _MARSHAL_VERSION = 4
 
 _MAX_THREAD_NUMBER = 4
@@ -1093,6 +1093,9 @@ class CompilerEnvironment:
 
             include_function_name = _DEFAULT_INCLUDE_FUNCTION_NAME,
             place_function_name = _DEFAULT_PLACE_FUNCTION_NAME,
+
+            compile_flags = _COMPILE_FLAGS,
+            optimize_level = _OPTIMIZE_LEVEL,
             ):
         """intialize code generator environment"""
 
@@ -1159,6 +1162,11 @@ class CompilerEnvironment:
 
         self.indent = indent
         self.tab = tab
+
+        # --- optimize level & compile flag ---
+
+        self.compile_flags = compile_flags
+        self.optimize_level = optimize_level
 
     def tabs(self):
         return self.tab * self.indent
@@ -1286,20 +1294,23 @@ def generate_code(infile, outfile, env):
     if env.macro_stack:
         raise CompilerError(_UNTERMINATED_BLOCK, env.macro_stack[-1])
 
-def compile_generated_code(code, infile_name,
-        compile_flags = _COMPILE_FLAGS, optimize = _OPTIMIZE_FLAG):
+def compile_generated_code(
+        code, 
+        infile_name,
+        flags = _COMPILE_FLAGS, 
+        optimize = _OPTIMIZE_LEVEL,
+        ):
 
     return compile(code, infile_name, 'exec', compile_flags, True, optimize)
 
-def compile_file(infile, env,
-        compile_flags = _COMPILE_FLAGS, optimize = _OPTIMIZE_FLAG):
+def compile_file(infile, env):
 
     string_buffer = io.StringIO()
     with string_buffer:
         generate_code(infile, string_buffer, env)
 
     return compile(string_buffer.getvalue(), infile.name, 'exec',
-            compile_flags, True, optimize)
+            env.compile_flags, True, env.optimize_level)
 
 _default_builtins = builtins
 
