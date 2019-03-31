@@ -28,6 +28,7 @@ import marshal
 import subprocess
 import configparser
 import queue
+import threading
 
 if sys.version_info[0] == 3:
     import builtins
@@ -163,6 +164,17 @@ else:
             "implement __fdopen function for your python version: {}".format(
                 ','.join(n for n in sys.version_info[:3]),
             )
+        )
+
+def thread(func):
+    return (lambda *args, **kwargs: \
+            threading.Thread(
+                target = func,
+                name = func.__name__ + ' thread',
+
+                args = args,
+                kwargs = kwargs,
+                )
         )
 
 def _create_pipe(read_mode = 'rt', write_mode = 'wt'):
@@ -1601,10 +1613,17 @@ def __apply_config(config, compiler_env):
     except KeyError:
         pass
 
-def __compiler_worker(file_real_path, cache_folder_path, compiler_env):
-    cache_file_path = __get_cache_file_path(cache_folder_path, file_real_path)
-    code_object = \
-        __compile_if_needed(file_real_path, cache_file_path, compiler_env)
+
+@thread
+def __compiler_worker(
+        jobs_queue,
+
+        cache_folder_path,
+        compiler_env,
+
+        exit_event,
+        ):
+    print('thread {} started'.format(threading.current_thread().name))
 
 def main(argv):
 
