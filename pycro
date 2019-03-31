@@ -1623,6 +1623,7 @@ def __compiler_worker(
 
         exit_event,
         ):
+
     print('thread {} started'.format(threading.current_thread().name))
 
 def main(argv):
@@ -1680,10 +1681,18 @@ def main(argv):
     except FileNotFoundError:
         config = None
 
+    # options.jobs contains:
+    #   [_INPUT_FLAG, 'path']
+    #   [_INPUT_FLAG, sys.stdin]
+
     # --- append real path ---
     for item in options.jobs:
         if item[0] == _INPUT_FLAG and isinstance(item[1], str):
             item.append( __realpath(__joinpath(item[1])) )
+
+    # options.jobs contains:
+    #   [_INPUT_FLAG, 'path', 'real_path']
+    #   [_INPUT_FLAG, sys.stdin]
 
     if _ARRANGE_PROCESS_FLAG & options.switchs:
 
@@ -1695,10 +1704,6 @@ def main(argv):
         # --- apply config ---
         if config is not None:
             __apply_config(config, compiler_env)
-
-        # --- list of inputs ---
-        inputs = list(
-                tup[1:] for tup in options.jobs if tup[0] == _INPUT_FLAG)
 
         # --- initialize environments ---
         compiler_env = CompilerEnvironment()
@@ -1715,9 +1720,38 @@ def main(argv):
                 # item is language specification
                 __apply_language(lang, compiler_env)
 
-        # compile and cache input files by threading
+        # options.jobs contains:
+        #   [_INPUT_FLAG, 'path', 'real_path']
+        #   [_INPUT_FLAG, sys.stdin]
 
-        # apply variable definitions, or undefinitions
+        # compile and cache input files by threading
+        inputs_queue = queue.Queue()
+        for item in options.jobs:
+            if item[0] == _INPUT_FLAG and isinstance(item[1], str):
+                inputs_queue.put(item, False)
+
+        # in inputs_queue:
+        #   [_INPUT_FLAG, 'path', 'real_path']
+
+        # start workers
+        if inputs_queue:
+            threads_num = 0
+            exit_event = threading.Event()
+            workers = collections.deque()
+
+            while inputs_queue and len(workers) < _MAX_THREAD_NUMBER:
+                worker = __compiler_worker(
+                        inputs_queue,
+
+                        cache_folder_path,
+                        compiler_env,
+
+                        exit_event,
+                        )
+
+                workers.append(worker)
+
+                worker.start()
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))
