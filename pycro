@@ -27,8 +27,9 @@ import collections
 import marshal
 import subprocess
 import configparser
-import queue
-import threading
+
+import multiprocessing
+import signal
 
 if sys.version_info[0] == 3:
     import builtins
@@ -106,7 +107,11 @@ _COMPILE_FLAGS = 0
 _OPTIMIZE_LEVEL = -1
 _MARSHAL_VERSION = 4
 
-_MAX_THREAD_NUMBER = 4
+_MAX_PROCESS_NUMBER = len(os.sched_getaffinity(0))
+
+if _MAX_PROCESS_NUMBER <= 0:
+    raise BaseException('invalid _MAX_PROCESS_NUMBER value: {}'.format(
+        _MAX_PROCESS_NUMBER))
 
 _BIG_INTEGER_SIZE = 4
 
@@ -166,16 +171,16 @@ else:
             )
         )
 
-def thread(func):
-    return (lambda *args, **kwargs: \
-            threading.Thread(
+def process(func):
+    def process_init(*args, **kwargs):
+        return multiprocessing.Process(
                 target = func,
-                name = func.__name__ + ' thread',
+                name = func.__name__ + ' process',
 
                 args = args,
                 kwargs = kwargs,
                 )
-        )
+    return process_init
 
 def _create_pipe(read_mode = 'rt', write_mode = 'wt'):
     read_fd, write_fd = os.pipe()
@@ -1648,23 +1653,18 @@ def __apply_config_filters(config, filters):
     except KeyError:
         pass
 
-@thread
+@process
 def __compiler_worker(
         initial_job,
         jobs_queue,
 
         cache_folder_path,
         compiler_env,
-
-        exit_event,
         ):
 
     job = initial_job
 
     while True:
-
-        if exit_event.is_set():
-            return
 
         # job is:   [_INPUT_FLAG, 'path', 'real_path']
 
@@ -1680,7 +1680,6 @@ def __compiler_worker(
 
         except queue.Empty:
             return
-
 
 def main(argv):
 
@@ -1781,8 +1780,8 @@ def main(argv):
         #   [_INPUT_FLAG, 'path', 'real_path']
         #   [_INPUT_FLAG, sys.stdin]
 
-        # compile and cache input files by threading
-        inputs_queue = queue.Queue()
+        # compile and cache input files by multiprocessing
+        inputs_queue = multiprocessing.queue()
         for item in options.jobs:
             if item[0] == _INPUT_FLAG and isinstance(item[1], str):
                 inputs_queue.put(item, False)
@@ -1790,36 +1789,8 @@ def main(argv):
         # a deque of workers
         workers = collections.deque()
 
-        # in inputs_queue:
-        #   [_INPUT_FLAG, 'path', 'real_path']
-
-        # start compiler workers
         if inputs_queue:
-
-            exit_event = threading.Event()
-
-            while True:
-                try:
-                    initial_job = inputs_queue.get()
-                except threading.Empty:
-                    break
-
-                if len(workers) == _MAX_THREAD_NUMBER:
-                    break
-
-                worker = __compiler_worker(
-                        initial_job,
-                        inputs_queue,
-
-                        cache_folder_path,
-                        compiler_env,
-
-                        exit_event,
-                        )
-
-                workers.append(worker)
-
-                worker.start()
+            pass
 
         # read from stdin or wait for workers
 
