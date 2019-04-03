@@ -28,6 +28,7 @@ import marshal
 import subprocess
 import configparser
 
+import queue
 import multiprocessing
 import signal
 
@@ -216,7 +217,7 @@ _code_object_type = type(compile('0', '', 'eval'))
 # --- command line help & options ---
 
 VERSION = collections.namedtuple('VersionType', ['major', 'minor', 'micro']) \
-    (0, 0, 0)
+        (0, 0, 0)
 
 __USAGE = "usage: {} [OPTION]... [[--] FILE | -]..."
 __HELP = """\
@@ -1665,12 +1666,8 @@ def __compiler_worker(
 
     while True:
 
-        # job is:   [_INPUT_FLAG, 'path', 'real_path']
-
         # --- append cache file path ---
         job.append( __get_cache_file_path(cache_folder_path, job[2]) )
-
-        # job is:   [_INPUT_FLAG, 'path', 'real_path', 'cache_path']
 
         # --- compile the file ---
 
@@ -1781,15 +1778,34 @@ def main(argv):
 
         # compile and cache input files by multiprocessing
         inputs_queue = multiprocessing.queue()
-        for item in options.jobs:
+
+        for i, item in enumerate(options.jobs):
             if item[0] == _INPUT_FLAG and isinstance(item[1], str):
-                inputs_queue.put(item, False)
+                inputs_queue.put( (i, item[2]), False)
+
+        # in inputs_queue:
+        #   (i, 'real_path')
+
+        outputs_queue
 
         # a deque of workers
         workers = collections.deque()
 
-        if inputs_queue:
-            pass
+        while len(workers) < _MAX_PROCESS_NUMBER:
+
+            try:
+                job = inputs_queue.get()
+
+            except queue.Empty:
+                break
+
+            worker = __compiler_worker(
+                    job,
+                    inputs_queue,
+
+                    cache_folder_path,
+                    compiler_env,
+                    )
 
         # read from stdin or wait for workers
 
