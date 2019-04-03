@@ -396,8 +396,8 @@ _FILTER_NAME_FLAG =         0x0a
 # HACK: some interesting options:
 #       -i, --isolate                   isolate preprocessing each input file
 
-def __print_error(line):
-    print('pycro: error:', line)
+def __print_error(line, file = sys.stdout):
+    print('pycro: error:', line, file=file)
 
 def __parse_argv(argv):
     result = dotdict(
@@ -1694,6 +1694,7 @@ def main(argv):
     #   _ARRANGE_PROCESS_FLAG
     #   _RECURSIVE_FLAG
     #   _CLEAR_CACHE_FLAG
+    #   _FORCE_FLAG
 
     # (tup[0] for tup in options.output) possible values:
     #   _OUTFILE_FLAG, _OUTFOLDER_FLAG
