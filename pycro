@@ -183,8 +183,7 @@ def process(func):
     return process_init
 
 def _create_pipe(read_mode = 'rt', write_mode = 'wt'):
-    read_fd, write_fd = os.pipe()
-    return __fdopen(read_fd, read_mode), __fdopen(write_fd, write_mode)
+    return map(__fdopen, zip(os.pipe(), (read_mode, write_mode)))
 
 class dotdict(dict):
     __getattr__ = dict.get
