@@ -1,44 +1,27 @@
 #!/usr/bin/python3
 
-import threading
 import random
 import time
+import multiprocessing
 
-def sleep(t):
-    log("sleep for {:.2f}s".format(t) if isinstance(t, float) \
-            else "sleep for {}s".format(t))
-    time.sleep(t)
-
-def f(name, t):
-    log("started")
-    sleep(t)
-    log("name is: {}".format(name))
-
-_names = ['foo', 'bar', 'car', 'gate']
-
-def rand_name():
-    return random.choice(_names)
-
-def log(message):
-    print('[{:<12}]: {}'.format(threading.current_thread().name, message))
+def process(func):
+    def process_init(*args, **kwargs):
+        return multiprocessing.Process(
+                target = func,
+                name = func.__name__ + ' process',
+                args = args,
+                kwargs = kwargs,
+                )
+    return process_init
 
 def main():
-    thread = threading.Thread(
-            target = f,
-            name = 'thread-1',
-            args = (
-                rand_name(), 
-                random.uniform(1, 3),
-                ),
-            )
+    conn1, conn2 = multiprocessing.Pipe()
+    
+    conn1.send( (1, 2) )
+    conn1.close()
 
-    thread.start()
-
-    log("wait for {}".format(thread.name))
-
-    thread.join()
-
-    log("{} joined".format(thread.name))
+    print(conn2.recv())
+    print(conn2.recv())
 
 if __name__ == '__main__':
     main()
