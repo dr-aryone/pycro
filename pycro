@@ -28,7 +28,6 @@ import marshal
 import subprocess
 import configparser
 
-import queue
 import multiprocessing
 import signal
 
@@ -177,7 +176,6 @@ def process(func):
         return multiprocessing.Process(
                 target = func,
                 name = func.__name__ + ' process',
-
                 args = args,
                 kwargs = kwargs,
                 )
@@ -190,7 +188,6 @@ class dotdict(dict):
     __getattr__ = dict.get
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
-
 
 class FileStructError(Exception):
     pass
@@ -1656,26 +1653,30 @@ def __apply_config_filters(config, filters):
 @process
 def __compiler_worker(
         initial_job,
-        jobs_queue,
+        inputs_conn,
 
         cache_folder_path,
         compiler_env,
         ):
 
-    job = initial_job
+    try:
+        job = initial_job
 
-    while True:
+        while True:
 
-        # --- append cache file path ---
-        job.append( __get_cache_file_path(cache_folder_path, job[2]) )
+            # --- append cache file path ---
+            job.append( __get_cache_file_path(cache_folder_path, job[2]) )
 
-        # --- compile the file ---
+            # --- compile the file ---
 
-        try:
-            job = inputs_queue.get()
+            try:
+                job = inputs_conn.recv()
 
-        except queue.Empty:
-            return
+            except EOFError:
+                return
+
+    except KeyboardInterrupt:
+        pass
 
 def main(argv):
 
@@ -1778,16 +1779,16 @@ def main(argv):
         #   [_INPUT_FLAG, sys.stdin]
 
         # compile and cache input files by multiprocessing
-        inputs_queue = multiprocessing.queue()
+        inputs_conn1, inputs_conn2 = multiprocessing.Pipe()
 
         for i, item in enumerate(options.jobs):
             if item[0] == _INPUT_FLAG and isinstance(item[1], str):
-                inputs_queue.put( (i, item[2]), False)
+                inputs_conn1.send((i, item[2]))
 
-        # in inputs_queue:
+        inputs_conn1.close()
+
+        # in inputs_pipe:
         #   (i, 'real_path')
-
-        outputs_queue
 
         # a deque of workers
         workers = collections.deque()
@@ -1795,18 +1796,21 @@ def main(argv):
         while len(workers) < _MAX_PROCESS_NUMBER:
 
             try:
-                job = inputs_queue.get()
+                job = inputs_conn2.recv()
 
-            except queue.Empty:
+            except EOFError:
                 break
 
             worker = __compiler_worker(
                     job,
-                    inputs_queue,
-
+                    inputs_conn2,
                     cache_folder_path,
                     compiler_env,
                     )
+
+            workers.append(worker)
+
+            worker.start()
 
         # read from stdin or wait for workers
 
