@@ -1,7 +1,16 @@
 
-interests:
-	may be need to add ('--help-all' or '--full-help') option.
+todos:
+- add __check_version__ function
 
+
+dons:
+- nothing
+
+
+interests:
+- may be need to add ( '--help-all' or '--full-help' ) option.
+
+--- some temporary codes
 
 ```python
 # NOTE: '(?=(...))\1' works like atomic groups in other languages,

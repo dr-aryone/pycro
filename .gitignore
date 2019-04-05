@@ -1,3 +1,7 @@
-temp*
-
 *.swp
+
+__pycache__/
+
+misc/pycro
+misc/preprocessor
+
