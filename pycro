@@ -634,7 +634,7 @@ def __parse_argv(argv):
                         result.switchs |= _ARRANGE_PROCESS_FLAG
 
                     # filter file names
-                    elif ch = 'N':
+                    elif ch == 'N':
                         next_args.append((_FILTER_NAME_FLAG, '-N'))
 
                     # force overwrite
