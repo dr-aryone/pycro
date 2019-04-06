@@ -9,6 +9,7 @@ import hashlib
 import io
 import sys
 import os
+import queue
 
 _MAX_PROCESS_NUMBER = 4
 
@@ -50,24 +51,20 @@ class Workers:
         self._inputs = inputs
         self._workers = collections.deque()
         self._max_workers = _MAX_PROCESS_NUMBER
-        self._outputs_conn = None
+        self._outputs_queue = None
 
     def start_workers(self, initial_args = ()):
-        inputs_conn1, inputs_conn2 = multiprocessing.Pipe(False)
-        outputs_conn1, outputs_conn2 = multiprocessing.Pipe(False)
-        self._outputs_conn = outputs_conn1, outputs_conn2
+        inputs_queue = multiprocessing.Queue()
+        outpus_queue = multiprocessing.Queue()
 
         for item in self._inputs:
-            inputs_conn2.send(item)
-
-        inputs_conn2.close()
-
+            inputs_queue.put(item, False)
 
         while len(self._workers) < self._max_workers:
 
             try:
-                initial_job = inputs_conn1.recv()
-            except EOFError:
+                initial_job = inputs_conn1.get(False)
+            except queue.Empty:
                 break
 
             worker = self._worker_function(
