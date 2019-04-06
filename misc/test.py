@@ -12,6 +12,14 @@ import queue
 import itertools
 import marshal
 import threading
+import ctypes
+
+stdout_lock = multiprocessing.Lock()
+def log(*objects, sep = ' '):
+    print('[{:<20}]: {}'.format(
+        multiprocessing.current_process().name,
+        sep.join(str(obj) for obj in objects)
+        ))
 
 _fdopen = open
 _SIZE_LEN = 4
@@ -30,14 +38,14 @@ def _read_buffer(infile, size):
     if len(_buffer) != size:
         raise EOFError("End of file while reading buffer")
     return _buffer
-    
-def _write_object(obj, outfile):
+
+def _write_object(outfile, obj):
     _buffer = marshal.dumps(obj, 4)
-    _write_size(len(_outfile, _buffer))
-    _outfile.write(_buffer)
+    _write_size(outfile, len(_buffer))
+    outfile.write(_buffer)
 
 def _read_object(infile):
-    return marshal.loads(_read_buffer(infile, _read_size(infile)), 4)
+    return marshal.loads(_read_buffer(infile, _read_size(infile)))
 
 def process(func):
     def process_init(*args, **kwargs):
@@ -49,31 +57,6 @@ def process(func):
                 )
     return process_init
 
-class _WriterThread(threading.Thread):
-    def __init__(self, obj, outfile):
-        super().__init__(self)
-        self._obj = obj
-        self._outfile = outfile
-
-    def run(self):
-        _buffer = marshal.dumps(self._obj, 4)
-        _write_size(len(self._outfile, _buffer))
-        self._outfile.write(_buffer)
-
-class _ReaderThread(threading.Thread):
-    def __init__(self, obj, infile):
-        super().__init__(self)
-        self._obj = obj
-        self._infile = infile
-
-    def run(self):
-        return marshal.loads(
-                    _read_buffer(
-                        self._infile, 
-                        _read_size(infile)
-                        )
-                )
-
 class Queue:
     def __init__(self, maxsize = 0):
         if not isinstance(maxsize, int):
@@ -81,25 +64,29 @@ class Queue:
         if maxsize < 0:
             raise ValueError('maxsize must be greater than equal to 0')
 
-        self._pipe_r, self._pipe_w = itertools.starmap(
-                _fdopen, zip(os.pipe(), ('rb', 'wb')))
-
         self._maxsize = maxsize
-        self._size = 0
         self._rlock = multiprocessing.RLock()
+
+        self._size = multiprocessing.Value(ctypes.c_ulong, 0, 
+                lock = self._rlock)
+
+        self._pipe_r, self._pipe_w = \
+                itertools.starmap(
+                        _fdopen, 
+                        zip(os.pipe(), ('rb', 'wb'), (0, 0)),
+                        )
 
     def put(self, obj):
         with self._rlock:
-            if self._maxsize and self._size >= self._maxsize:
+            if self._maxsize and self._size.value >= self._maxsize:
                 raise queue.Full()
-            self._size += 1
+            self._size.value += 1
             _write_object(self._pipe_w, obj)
 
     def get(self):
         with self._rlock:
-            if self._size:
-                print('self._size:', self._size)
-                self._size -= 1
+            if self._size.value:
+                self._size.value -= 1
                 return _read_object(self._pipe_r)
             else:
                 raise queue.Empty()
@@ -157,12 +144,7 @@ class Workers:
     def start_workers(self):
         while True:
             if len(self._workers) >= self._max_workers:
-                i = 0
-                while i < len(self._workers):
-                    if worker.is_alive():
-                        self._workers.pop(i)
-                    else:
-                        i += 1
+                break
 
             try:
                 initial_item = self._inputs_queue.get()
@@ -181,9 +163,19 @@ class Workers:
 
             worker.start()
 
+    def _free_workers(self):
+        i = 0
+        while i < len(self._workers):
+            if worker.is_alive():
+                i += 1
+            else:
+                self._workers.pop(i)
+
     def apply_inputs(self, inputs):
         for item in inputs:
             self._inputs_queue.put(item)
+
+        self._free_workers()
 
         self.start_workers()
 
@@ -210,20 +202,30 @@ class Workers:
             outputs.append(item)
 
 def hash_worker(path):
-    hasher = hashlib.sha256()
+    _num_of_line = 0
     with open(path, 'rb', 0) as infile:
         _buffer = infile.read(io.DEFAULT_BUFFER_SIZE)
         while _buffer:
-            hasher.update(_buffer)
+            _num_of_line += _buffer.count(b'\n')
             _buffer = infile.read(io.DEFAULT_BUFFER_SIZE)
-    return (path, hasher.digest())
+    return (path, _num_of_line)
 
 def main():
     if len(sys.argv) != 3:
         print('usage: {} PATH p|s'.format(sys.argv[0]))
         sys.exit(0)
 
-    inputs = filter(os.path.isfile, glob.glob(sys.argv[1], recursive = True))
+    filter_func = \
+            lambda path: os.path.isfile(path) and \
+            path.find('__pycache__') == -1
+
+    inputs = list(
+            filter(
+                filter_func,
+                glob.glob(sys.argv[1], recursive = True))
+            )
+    
+    print('{} item'.format(len(inputs)))
 
     if sys.argv[2] == 'p':
         print('[ parallel hashing ]')
@@ -256,7 +258,10 @@ def main():
     # print result
     print('-' * 80)
     for item in outputs:
-        print('{:<30}: {}'.format(item[0] + ':', item[1].hex()))
+        print('{:<50}{}'.format(
+            item[0].split(os.sep)[-1] + ':', 
+            item[1],
+            ))
 
 if __name__ == '__main__':
     main()
