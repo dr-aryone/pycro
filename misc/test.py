@@ -11,8 +11,6 @@ import sys
 import os
 import queue
 
-_MAX_PROCESS_NUMBER = 4
-
 def process(func):
     def process_init(*args, **kwargs):
         return multiprocessing.Process(
@@ -23,75 +21,148 @@ def process(func):
                 )
     return process_init
 
+class Queue:
+    def __init__(self, maxsize = 0):
+        if not isinstance(maxsize, int):
+            raise TypeError('maxsize must be type of int')
+        if maxsize < 0:
+            raise ValueError('maxsize must be greater than equal to 0')
+
+        self._pipe_r, self._pipe_w = map(
+                __fdopen, zip(os.pipe(), ('rb', 'wb')))
+
+        self._maxsize = maxsize
+        self._size = 0
+        self._rlock = multiprocessing.RLock()
+
+    def put(self, obj):
+        with self._rlock:
+            if self._maxsize and self._size >= self._maxsize:
+                raise queue.Full()
+            self._size += 1
+            marshal.dump(obj, self._pipe_w, 4)
+
+    def get(self):
+        with self._rlock:
+            if self._size:
+                self._size -= 1
+                return marshal.load(obj)
+            else:
+                raise queue.Empty()
+
 class Workers:
     def __init__(
-            self,
-            target,
-            inputs,
-            max_workers = _MAX_PROCESS_NUMBER,
+            self, 
+            function,
+
+            args = (), 
+            kwargs = {},
+
+            inputs = None, 
+            max_workers = None,
             ):
 
-        def worker_function(initial_job, inputs_conn, outputs_conn, *args):
-            try:
-                job = initial_job
+        def process_init(
+                initial_item, inputs_queue, outputs_queue, *args, **kwargs):
+            item = initial_item
+            while True:
+                outputs_queue.put(function(item, *args, **kwargs))
+                try:
+                    item = inputs_queue.get()
+                except queue.Empty:
+                    break
 
-                while True:
+        self._process_init = process(process_init)
+        self._args = args
+        self._kwargs = kwargs
 
-                    outputs_conn.send(target(job, *args))
+        if max_workers is None:
+            self._max_workers = os.sched_getaffinity(0)
 
-                    try:
-                        job = inputs_conn.recv()
-                    except EOFError:
-                        return
+        else:
+            if not isinstance(max_workers, (int, None)):
+                raise TypeError(
+                    'max_workers argument must be type of int or None')
+            if max_workers <= 0:
+                raise ValueError(
+                    'max_workers argument must be greater than equal to zero')
+            self._max_workers = max_workers
 
-            except KeyboardInterrupt:
-                pass
-
-        self._worker_function = process(worker_function)
-        self._inputs = inputs
         self._workers = collections.deque()
-        self._max_workers = _MAX_PROCESS_NUMBER
-        self._outputs_queue = None
 
-    def start_workers(self, initial_args = ()):
-        inputs_queue = multiprocessing.Queue()
-        outpus_queue = multiprocessing.Queue()
+        self._inputs_queue = Queue()
+        if inputs is not None:
+            for item in inputs:
+                self._inputs_queue.append(item)
 
-        for item in self._inputs:
-            inputs_queue.put(item, False)
+        self._outputs_queue = Queue()
 
-        while len(self._workers) < self._max_workers:
+    def start_workers(self):
+        while True:
+            if len(self._workers) >= self._max_workers:
+                i = 0
+                while i < len(self._workers):
+                    if worker.is_alive():
+                        self._workers.pop(i)
+                    else:
+                        i += 1
 
             try:
-                initial_job = inputs_conn1.get(False)
+                initial_item = self._inputs_queue.get()
             except queue.Empty:
                 break
 
-            worker = self._worker_function(
-                    initial_job,
-                    inputs_conn1,
-                    outputs_conn2,
-                    *initial_args)
+            worker = self._process_init(
+                    initial_item, 
+                    self._inputs_queue, 
+                    self._outputs_queue,
+                    *self._args,
+                    **self._kwargs,
+                    )
 
             self._workers.append(worker)
 
             worker.start()
 
-    def join(self):
-        for worker in self._workers:
-            worker.join()
-        self._outputs_conn[1].close()
+    def apply_inputs(self, inputs):
+        for item in inputs:
+            self._inputs_queue.put(item)
 
-    @property
-    def outputs(self):
-        result = []
         while True:
+            if len(self._workers) >= self._max_workers:
+                i = 0
+                while i < len(self._workers):
+                    if worker.is_alive():
+                        self._workers.pop(i)
+                    else:
+                        i += 1
+
             try:
-                item = self._outputs_conn[0].recv()
-            except EOFError:
+                initial_item = self._inputs_queue.get()
+            except queue.Empty:
                 break
-            result.append(item)
-        return result
+
+            worker = self._process_init(
+                    initial_item, 
+                    self._inputs_queue, 
+                    self._outputs_queue,
+                    )
+
+            self._workers.append(worker)
+
+            worker.start()
+
+    def join(self, timeout=None):
+        if timeout is None:
+            for worker in self._workers:
+                worker.join()
+        else:
+            deadline = time.time() + timeout
+            for worker in self._workers:
+                worker.join(timeout)
+                if time.time() >= deadline:
+                    return
+                timeout = time.time() - deadline
 
 def hash_worker(path):
     hasher = hashlib.sha256()
@@ -110,11 +181,10 @@ def main():
     inputs = filter(os.path.isfile, glob.glob(sys.argv[1], recursive = True))
 
     if sys.argv[2] == 'p':
+        print('[ parallel hashing ]')
 
         workers = Workers(
-                hash_worker,
-                inputs,
-                )
+                hash_worker)
 
         workers.start_workers()
         print('workers started')
@@ -126,7 +196,7 @@ def main():
 
     elif sys.argv[2] == 's':
 
-        print('hash in sequence')
+        print('[ sequence hashing ]')
 
         outputs = []
         for _input in inputs:
