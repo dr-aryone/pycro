@@ -159,14 +159,14 @@ else:
             return m
 
 if sys.version_info[0] == 3:
-    __fdopen = open
+    _fdopen = open
 
 elif sys.version_info[0] == 2:
-    __fdopen = os.fdopen
+    _fdopen = os.fdopen
 
 else:
     raise NotImplemented(
-            "implement __fdopen function for your python version: {}".format(
+            "implement _fdopen function for your python version: {}".format(
                 ','.join(n for n in sys.version_info[:3]),
             )
         )
@@ -182,7 +182,7 @@ def process(func):
     return process_init
 
 def _create_pipe(read_mode = 'rt', write_mode = 'wt'):
-    return map(__fdopen, zip(os.pipe(), (read_mode, write_mode)))
+    return map(_fdopen, zip(os.pipe(), (read_mode, write_mode)))
 
 class dotdict(dict):
     __getattr__ = dict.get
