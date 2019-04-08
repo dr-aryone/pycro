@@ -1,6 +1,7 @@
 
 todos:
-- add __check_version__ function
+- add __check_version__ function & version macro
+- add __argv__ variable if interpreted in pycro environment
 
 
 dons:
