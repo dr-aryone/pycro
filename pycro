@@ -28,6 +28,7 @@ import marshal
 import subprocess
 import configparser
 
+import queue
 import multiprocessing
 import signal
 
@@ -715,18 +716,18 @@ def __parse_argv(argv):
 
 # --- objects ---
 
-def __write_object(outfile, _set):
+def _write_object(outfile, _set):
     marshal.dump(outfile, code_object, _MARSHAL_VERSION)
 
-def __read_object(infile):
+def _read_object(infile):
     return marshal.load(infile)
 
 # --- code objects ---
 
-def __write_code_object(outfile, code_object):
+def _write_code_object(outfile, code_object):
     marshal.dump(outfile, code_object, _MARSHAL_VERSION)
 
-def __read_code_object(infile):
+def _read_code_object(infile):
     result = marshal.load(infile)
     if not isinstance(result, _code_object_type):
         raise FileStructError('invalid object type while reading code object')
@@ -734,20 +735,20 @@ def __read_code_object(infile):
 
 # --- integers ---
 
-def __write_int(outfile, integer, size = 1):
+def _write_int(outfile, integer, size = 1):
     outfile.write(integer.to_bytes(size, 'big', signed = True))
 
-def __write_uint(outfile, integer, size = 1):
+def _write_uint(outfile, integer, size = 1):
     outfile.write(integer.to_bytes(size, 'big', signed = False))
 
-def __read_int(infile, size = 1):
+def _read_int(infile, size = 1):
     _buffer = infile.read(size)
     if len(_buffer) != size:
         raise EOFError(
                 "End of file while reading {} byte integer".format(size))
     return int.from_bytes(_buffer, 'big', signed = True)
 
-def __read_uint(infile, size = 1):
+def _read_uint(infile, size = 1):
     _buffer = infile.read(size)
     if len(_buffer) != size:
         raise EOFError(
@@ -756,10 +757,10 @@ def __read_uint(infile, size = 1):
 
 # --- size type ---
 
-def __write_size(outfile, size):
+def _write_size(outfile, size):
     outfile.write(size.to_bytes(_SIZE_LEN, 'big', signed=False))
 
-def __read_size(infile):
+def _read_size(infile):
     _buffer = infile.read(_SIZE_LEN)
     if len(_buffer) != _SIZE_LEN:
         raise EOFError("End of file while reading size")
@@ -767,7 +768,7 @@ def __read_size(infile):
 
 # --- strings ---
 
-def __write_string(outfile, string):
+def _write_string(outfile, string):
     _buffer = string.encode('utf-8')
 
     while len(_buffer) >= 0xFFFF:
@@ -779,7 +780,7 @@ def __write_string(outfile, string):
     outfile.write(len(_buffer).to_bytes(2, 'big', signed = False))
     outfile.write(_buffer)
 
-def __read_string(infile):
+def _read_string(infile):
     _buffer = infile.read(2)
     if len(_buffer) != 2:
         raise EOFError("End of file while reading string")
@@ -1485,40 +1486,40 @@ def __write_compiled_code_env(code_object, env, outfile):
     # --- writing to file ---
     outfile.write(_CACHE_FILE_MAGIC_NUMBER)
 
-    __write_string(outfile, env.macro_prefix)
-    __write_string(outfile, env.macro_suffix)
+    _write_string(outfile, env.macro_prefix)
+    _write_string(outfile, env.macro_suffix)
 
-    __write_string(outfile, env.statement_prefix)
-    __write_string(outfile, env.statement_suffix)
+    _write_string(outfile, env.statement_prefix)
+    _write_string(outfile, env.statement_suffix)
 
-    __write_string(outfile, env.comment_prefix)
-    __write_string(outfile, env.comment_suffix)
+    _write_string(outfile, env.comment_prefix)
+    _write_string(outfile, env.comment_suffix)
 
-    __write_string(outfile, env.variable_prefix)
-    __write_string(outfile, env.variable_suffix)
+    _write_string(outfile, env.variable_prefix)
+    _write_string(outfile, env.variable_suffix)
 
-    __write_string(outfile, env.evaluation_prefix)
-    __write_string(outfile, env.evaluation_suffix)
+    _write_string(outfile, env.evaluation_prefix)
+    _write_string(outfile, env.evaluation_suffix)
 
-    __write_code_object(outfile, code_object)
+    _write_code_object(outfile, code_object)
 
 def __read_compiled_code(infile, env):
     if infile.read(len(_CACHE_FILE_MAGIC_NUMBER)) != _CACHE_FILE_MAGIC_NUMBER:
         raise FileStructError('file magic number mismatch')
 
     if \
-            env.macro_prefix == __read_string(infile) and \
-            env.macro_suffix == __read_string(infile) and \
-            env.statement_prefix == __read_string(infile) and \
-            env.statement_suffix == __read_string(infile) and \
-            env.comment_prefix == __read_string(infile) and \
-            env.comment_suffix == __read_string(infile) and \
-            env.variable_prefix == __read_string(infile) and \
-            env.variable_suffix == __read_string(infile) and \
-            env.evaluation_prefix == __read_string(infile) and \
-            env.evaluation_suffix == __read_string(infile):
+            env.macro_prefix == _read_string(infile) and \
+            env.macro_suffix == _read_string(infile) and \
+            env.statement_prefix == _read_string(infile) and \
+            env.statement_suffix == _read_string(infile) and \
+            env.comment_prefix == _read_string(infile) and \
+            env.comment_suffix == _read_string(infile) and \
+            env.variable_prefix == _read_string(infile) and \
+            env.variable_suffix == _read_string(infile) and \
+            env.evaluation_prefix == _read_string(infile) and \
+            env.evaluation_suffix == _read_string(infile):
 
-        return __read_code_object(infile)
+        return _read_code_object(infile)
 
     return None
 
@@ -1656,6 +1657,8 @@ def __compiler_worker(
 
         cache_folder_path,
         compiler_env,
+
+        outputs_conn,
         ):
 
     try:
@@ -1664,7 +1667,8 @@ def __compiler_worker(
         while True:
 
             # --- append cache file path ---
-            job.append( __get_cache_file_path(cache_folder_path, job[2]) )
+            cache_file_path = \
+                    __get_cache_file_path(cache_folder_path, job[2])
 
             # --- compile the file ---
 
