@@ -27,6 +27,7 @@ import collections
 import marshal
 import subprocess
 import configparser
+import types
 
 import queue
 import multiprocessing
@@ -207,9 +208,6 @@ def __prettify_items(items, indent = '    ', width = 80):
             lines[-1] += ', ' + item
 
     return '\n'.join(lines)
-
-# we have no code object type definition
-_code_object_type = type(compile('0', '', 'eval'))
 
 # --- command line help & options ---
 
@@ -716,21 +714,27 @@ def __parse_argv(argv):
 
 # --- objects ---
 
-def _write_object(outfile, _set):
-    marshal.dump(outfile, code_object, _MARSHAL_VERSION)
+def _write_object(outfile, obj):
+    _buffer = marshal.dumps(obj, _MARSHAL_VERSION)
+    _write_size(outfile, len(_buffer))
+    outfile.write(_buffer)
 
 def _read_object(infile):
-    return marshal.load(infile)
+    _buffer_size = _read_size(infile)
+    _buffer = infile.read(_buffer_size)
+    if len(_buffer) != _buffer_size:
+        rais EOFError("End of file while reading object")
+    return marshal.loads(_buffer)
 
 # --- code objects ---
 
-def _write_code_object(outfile, code_object):
-    marshal.dump(outfile, code_object, _MARSHAL_VERSION)
+_write_code_object = _write_object
 
 def _read_code_object(infile):
-    result = marshal.load(infile)
-    if not isinstance(result, _code_object_type):
-        raise FileStructError('invalid object type while reading code object')
+    code_object = _read_object(infile)
+    if not isinstance(result, types.CodeType):
+        raise FileStructError("invalid object type returned by marshal "
+                "while reading code object")
     return marshal.load(infile)
 
 # --- integers ---
