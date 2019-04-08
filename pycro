@@ -25,6 +25,7 @@ import io
 import re
 import collections
 import marshal
+import pickle
 import subprocess
 import configparser
 import types
@@ -108,6 +109,7 @@ _CACHE_FILE_MAGIC_NUMBER = b'.pycroche'
 _COMPILE_FLAGS = 0
 _OPTIMIZE_LEVEL = -1
 _MARSHAL_VERSION = 4
+_PICKLE_VERSION = pickle.HIGHEST_PROTOCOL
 
 _MAX_PROCESS_NUMBER = len(os.sched_getaffinity(0))
 
@@ -713,13 +715,24 @@ def __parse_argv(argv):
 # *** binary file operations ***
 
 # --- objects ---
+def _write_pickle_object(outfile, obj):
+    _buffer = pickle.dumps(obj, _PICKLE_VERSION, fix_imports=False)
+    _write_size(outfile, len(_buffer))
+    outfile.write(_buffer)
 
-def _write_object(outfile, obj):
+def _read_pickle_object(outfile, obj):
+    _buffer_size = _read_size(infile)
+    _buffer = infile.read(_buffer_size)
+    if len(_buffer) != _buffer_size:
+        raise EOFError("End of file while reading pickle object")
+    return pickle.loads(_buffer, fix_imports=False)
+
+def _write_marshal_object(outfile, obj):
     _buffer = marshal.dumps(obj, _MARSHAL_VERSION)
     _write_size(outfile, len(_buffer))
     outfile.write(_buffer)
 
-def _read_object(infile):
+def _read_marshal_object(infile):
     _buffer_size = _read_size(infile)
     _buffer = infile.read(_buffer_size)
     if len(_buffer) != _buffer_size:
@@ -728,14 +741,14 @@ def _read_object(infile):
 
 # --- code objects ---
 
-_write_code_object = _write_object
+_write_code_object = _write_marshal_object
 
 def _read_code_object(infile):
-    code_object = _read_object(infile)
-    if not isinstance(result, types.CodeType):
+    code_object = _read_marshal_object(infile)
+    if not isinstance(code_object, types.CodeType):
         raise FileStructError("invalid object type returned by marshal "
                 "while reading code object")
-    return marshal.load(infile)
+    return code_object
 
 # --- integers ---
 
