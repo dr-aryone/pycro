@@ -211,6 +211,116 @@ def __prettify_items(items, indent = '    ', width = 80):
 
     return '\n'.join(lines)
 
+# *** binary file operations ***
+
+# --- objects ---
+def _write_pickle_object(outfile, obj):
+    _buffer = pickle.dumps(obj, _PICKLE_VERSION, fix_imports=False)
+    _write_size(outfile, len(_buffer))
+    outfile.write(_buffer)
+
+def _read_pickle_object(outfile, obj):
+    _buffer_size = _read_size(infile)
+    _buffer = infile.read(_buffer_size)
+    if len(_buffer) != _buffer_size:
+        raise EOFError("End of file while reading pickle object")
+    return pickle.loads(_buffer, fix_imports=False)
+
+def _write_marshal_object(outfile, obj):
+    _buffer = marshal.dumps(obj, _MARSHAL_VERSION)
+    _write_size(outfile, len(_buffer))
+    outfile.write(_buffer)
+
+def _read_marshal_object(infile):
+    _buffer_size = _read_size(infile)
+    _buffer = infile.read(_buffer_size)
+    if len(_buffer) != _buffer_size:
+        raise EOFError("End of file while reading object")
+    return marshal.loads(_buffer)
+
+# --- code objects ---
+
+_write_code_object = _write_marshal_object
+
+def _read_code_object(infile):
+    code_object = _read_marshal_object(infile)
+    if not isinstance(code_object, types.CodeType):
+        raise FileStructError("invalid object type returned by marshal "
+                "while reading code object")
+    return code_object
+
+# --- integers ---
+
+def _write_int(outfile, integer, size = 1):
+    outfile.write(integer.to_bytes(size, 'big', signed = True))
+
+def _write_uint(outfile, integer, size = 1):
+    outfile.write(integer.to_bytes(size, 'big', signed = False))
+
+def _read_int(infile, size = 1):
+    _buffer = infile.read(size)
+    if len(_buffer) != size:
+        raise EOFError(
+                "End of file while reading {} byte integer".format(size))
+    return int.from_bytes(_buffer, 'big', signed = True)
+
+def _read_uint(infile, size = 1):
+    _buffer = infile.read(size)
+    if len(_buffer) != size:
+        raise EOFError(
+                "End of file while reading {} byte integer".format(size))
+    return int.from_bytes(_buffer, 'big', signed = False)
+
+# --- size type ---
+
+def _write_size(outfile, size):
+    outfile.write(size.to_bytes(_SIZE_LEN, 'big', signed=False))
+
+def _read_size(infile):
+    _buffer = infile.read(_SIZE_LEN)
+    if len(_buffer) != _SIZE_LEN:
+        raise EOFError("End of file while reading size")
+    return int.from_bytes(_buffer, 'big', signed = False)
+
+# --- strings ---
+
+def _write_string(outfile, string):
+    _buffer = string.encode('utf-8')
+
+    while len(_buffer) >= 0xFFFF:
+
+        outfile.write(b'\xFF\xFF')
+        outfile.write(_buffer[:0xFFFF])
+        _buffer = _buffer[0xFFFF:]
+
+    outfile.write(len(_buffer).to_bytes(2, 'big', signed = False))
+    outfile.write(_buffer)
+
+def _read_string(infile):
+    _buffer = infile.read(2)
+    if len(_buffer) != 2:
+        raise EOFError("End of file while reading string")
+    _buffer_size = int.from_bytes(_buffer, 'big', signed = False)
+
+    _buffer = infile.read(_buffer_size)
+    if len(_buffer) != _buffer_size:
+        raise EOFError("End of file while reading string")
+    _result = bytearray(_buffer)
+
+    while _buffer_size == 0xFFFF:
+        _buffer = infile.read(2)
+        if len(_buffer) != 2:
+            raise EOFError("End of file while reading string")
+        _buffer_size = int.from_bytes(_buffer, 'big', signed = False)
+
+        _buffer = infile.read(_buffer_size)
+        if len(_buffer) != _buffer_size:
+            raise EOFError("End of file while reading string")
+
+        _result += _buffer
+
+    return _result.decode('utf-8')
+
 # --- Queue & Workers classes ---
 
 def __queue_maker(write_object, read_object):
@@ -844,116 +954,6 @@ def __parse_argv(argv):
 
     result.jobs = list(result.jobs)
     return result
-
-# *** binary file operations ***
-
-# --- objects ---
-def _write_pickle_object(outfile, obj):
-    _buffer = pickle.dumps(obj, _PICKLE_VERSION, fix_imports=False)
-    _write_size(outfile, len(_buffer))
-    outfile.write(_buffer)
-
-def _read_pickle_object(outfile, obj):
-    _buffer_size = _read_size(infile)
-    _buffer = infile.read(_buffer_size)
-    if len(_buffer) != _buffer_size:
-        raise EOFError("End of file while reading pickle object")
-    return pickle.loads(_buffer, fix_imports=False)
-
-def _write_marshal_object(outfile, obj):
-    _buffer = marshal.dumps(obj, _MARSHAL_VERSION)
-    _write_size(outfile, len(_buffer))
-    outfile.write(_buffer)
-
-def _read_marshal_object(infile):
-    _buffer_size = _read_size(infile)
-    _buffer = infile.read(_buffer_size)
-    if len(_buffer) != _buffer_size:
-        raise EOFError("End of file while reading object")
-    return marshal.loads(_buffer)
-
-# --- code objects ---
-
-_write_code_object = _write_marshal_object
-
-def _read_code_object(infile):
-    code_object = _read_marshal_object(infile)
-    if not isinstance(code_object, types.CodeType):
-        raise FileStructError("invalid object type returned by marshal "
-                "while reading code object")
-    return code_object
-
-# --- integers ---
-
-def _write_int(outfile, integer, size = 1):
-    outfile.write(integer.to_bytes(size, 'big', signed = True))
-
-def _write_uint(outfile, integer, size = 1):
-    outfile.write(integer.to_bytes(size, 'big', signed = False))
-
-def _read_int(infile, size = 1):
-    _buffer = infile.read(size)
-    if len(_buffer) != size:
-        raise EOFError(
-                "End of file while reading {} byte integer".format(size))
-    return int.from_bytes(_buffer, 'big', signed = True)
-
-def _read_uint(infile, size = 1):
-    _buffer = infile.read(size)
-    if len(_buffer) != size:
-        raise EOFError(
-                "End of file while reading {} byte integer".format(size))
-    return int.from_bytes(_buffer, 'big', signed = False)
-
-# --- size type ---
-
-def _write_size(outfile, size):
-    outfile.write(size.to_bytes(_SIZE_LEN, 'big', signed=False))
-
-def _read_size(infile):
-    _buffer = infile.read(_SIZE_LEN)
-    if len(_buffer) != _SIZE_LEN:
-        raise EOFError("End of file while reading size")
-    return int.from_bytes(_buffer, 'big', signed = False)
-
-# --- strings ---
-
-def _write_string(outfile, string):
-    _buffer = string.encode('utf-8')
-
-    while len(_buffer) >= 0xFFFF:
-
-        outfile.write(b'\xFF\xFF')
-        outfile.write(_buffer[:0xFFFF])
-        _buffer = _buffer[0xFFFF:]
-
-    outfile.write(len(_buffer).to_bytes(2, 'big', signed = False))
-    outfile.write(_buffer)
-
-def _read_string(infile):
-    _buffer = infile.read(2)
-    if len(_buffer) != 2:
-        raise EOFError("End of file while reading string")
-    _buffer_size = int.from_bytes(_buffer, 'big', signed = False)
-
-    _buffer = infile.read(_buffer_size)
-    if len(_buffer) != _buffer_size:
-        raise EOFError("End of file while reading string")
-    _result = bytearray(_buffer)
-
-    while _buffer_size == 0xFFFF:
-        _buffer = infile.read(2)
-        if len(_buffer) != 2:
-            raise EOFError("End of file while reading string")
-        _buffer_size = int.from_bytes(_buffer, 'big', signed = False)
-
-        _buffer = infile.read(_buffer_size)
-        if len(_buffer) != _buffer_size:
-            raise EOFError("End of file while reading string")
-
-        _result += _buffer
-
-    return _result.decode('utf-8')
 
 # *** errors ***
 
