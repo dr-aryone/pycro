@@ -174,14 +174,11 @@ else:
             )
         )
 
-def process(func, name):
-    if name is None:
-        name = func.__name__ + ' process'
-
+def process(func):
     def process_init(*args, **kwargs):
         return multiprocessing.Process(
                 target = func,
-                name = name,
+                name = func.__name__ + ' process',
                 args = args,
                 kwargs = kwargs,
                 )
