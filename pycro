@@ -25,8 +25,10 @@ import io
 import re
 import collections
 import marshal
+import pickle
 import subprocess
 import configparser
+import types
 
 import queue
 import multiprocessing
@@ -107,6 +109,7 @@ _CACHE_FILE_MAGIC_NUMBER = b'.pycroche'
 _COMPILE_FLAGS = 0
 _OPTIMIZE_LEVEL = -1
 _MARSHAL_VERSION = 4
+_PICKLE_VERSION = pickle.HIGHEST_PROTOCOL
 
 _MAX_PROCESS_NUMBER = len(os.sched_getaffinity(0))
 
@@ -114,8 +117,7 @@ if _MAX_PROCESS_NUMBER <= 0:
     raise BaseException('invalid _MAX_PROCESS_NUMBER value: {}'.format(
         _MAX_PROCESS_NUMBER))
 
-_BIG_INTEGER_SIZE = 4
-
+_SIZE_LEN = 4
 
 # --- debuging code ---
 
@@ -160,14 +162,14 @@ else:
             return m
 
 if sys.version_info[0] == 3:
-    __fdopen = open
+    _fdopen = open
 
 elif sys.version_info[0] == 2:
-    __fdopen = os.fdopen
+    _fdopen = os.fdopen
 
 else:
     raise NotImplemented(
-            "implement __fdopen function for your python version: {}".format(
+            "implement _fdopen function for your python version: {}".format(
                 ','.join(n for n in sys.version_info[:3]),
             )
         )
@@ -177,20 +179,18 @@ def process(func):
         return multiprocessing.Process(
                 target = func,
                 name = func.__name__ + ' process',
-
                 args = args,
                 kwargs = kwargs,
                 )
     return process_init
 
 def _create_pipe(read_mode = 'rt', write_mode = 'wt'):
-    return map(__fdopen, zip(os.pipe(), (read_mode, write_mode)))
+    return map(_fdopen, zip(os.pipe(), (read_mode, write_mode)))
 
 class dotdict(dict):
     __getattr__ = dict.get
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
-
 
 class FileStructError(Exception):
     pass
@@ -211,8 +211,248 @@ def __prettify_items(items, indent = '    ', width = 80):
 
     return '\n'.join(lines)
 
-# we have no code object type definition
-_code_object_type = type(compile('0', '', 'eval'))
+# *** binary file operations ***
+
+# --- objects ---
+def _write_pickle_object(outfile, obj):
+    _buffer = pickle.dumps(obj, _PICKLE_VERSION, fix_imports=False)
+    _write_size(outfile, len(_buffer))
+    outfile.write(_buffer)
+
+def _read_pickle_object(outfile, obj):
+    _buffer_size = _read_size(infile)
+    _buffer = infile.read(_buffer_size)
+    if len(_buffer) != _buffer_size:
+        raise EOFError("End of file while reading pickle object")
+    return pickle.loads(_buffer, fix_imports=False)
+
+def _write_marshal_object(outfile, obj):
+    _buffer = marshal.dumps(obj, _MARSHAL_VERSION)
+    _write_size(outfile, len(_buffer))
+    outfile.write(_buffer)
+
+def _read_marshal_object(infile):
+    _buffer_size = _read_size(infile)
+    _buffer = infile.read(_buffer_size)
+    if len(_buffer) != _buffer_size:
+        raise EOFError("End of file while reading object")
+    return marshal.loads(_buffer)
+
+# --- code objects ---
+
+_write_code_object = _write_marshal_object
+
+def _read_code_object(infile):
+    code_object = _read_marshal_object(infile)
+    if not isinstance(code_object, types.CodeType):
+        raise FileStructError("invalid object type returned by marshal "
+                "while reading code object")
+    return code_object
+
+# --- integers ---
+
+def _write_int(outfile, integer, size = 1):
+    outfile.write(integer.to_bytes(size, 'big', signed = True))
+
+def _write_uint(outfile, integer, size = 1):
+    outfile.write(integer.to_bytes(size, 'big', signed = False))
+
+def _read_int(infile, size = 1):
+    _buffer = infile.read(size)
+    if len(_buffer) != size:
+        raise EOFError(
+                "End of file while reading {} byte integer".format(size))
+    return int.from_bytes(_buffer, 'big', signed = True)
+
+def _read_uint(infile, size = 1):
+    _buffer = infile.read(size)
+    if len(_buffer) != size:
+        raise EOFError(
+                "End of file while reading {} byte integer".format(size))
+    return int.from_bytes(_buffer, 'big', signed = False)
+
+# --- size type ---
+
+def _write_size(outfile, size):
+    outfile.write(size.to_bytes(_SIZE_LEN, 'big', signed=False))
+
+def _read_size(infile):
+    _buffer = infile.read(_SIZE_LEN)
+    if len(_buffer) != _SIZE_LEN:
+        raise EOFError("End of file while reading size")
+    return int.from_bytes(_buffer, 'big', signed = False)
+
+# --- strings ---
+
+def _write_string(outfile, string):
+    _buffer = string.encode('utf-8')
+
+    while len(_buffer) >= 0xFFFF:
+
+        outfile.write(b'\xFF\xFF')
+        outfile.write(_buffer[:0xFFFF])
+        _buffer = _buffer[0xFFFF:]
+
+    outfile.write(len(_buffer).to_bytes(2, 'big', signed = False))
+    outfile.write(_buffer)
+
+def _read_string(infile):
+    _buffer = infile.read(2)
+    if len(_buffer) != 2:
+        raise EOFError("End of file while reading string")
+    _buffer_size = int.from_bytes(_buffer, 'big', signed = False)
+
+    _buffer = infile.read(_buffer_size)
+    if len(_buffer) != _buffer_size:
+        raise EOFError("End of file while reading string")
+    _result = bytearray(_buffer)
+
+    while _buffer_size == 0xFFFF:
+        _buffer = infile.read(2)
+        if len(_buffer) != 2:
+            raise EOFError("End of file while reading string")
+        _buffer_size = int.from_bytes(_buffer, 'big', signed = False)
+
+        _buffer = infile.read(_buffer_size)
+        if len(_buffer) != _buffer_size:
+            raise EOFError("End of file while reading string")
+
+        _result += _buffer
+
+    return _result.decode('utf-8')
+
+# --- Queue & Workers classes ---
+
+def __queue_maker(write_object, read_object):
+    class Queue:
+        def __init__(self):
+            self._lock = multiprocessing.RLock()
+            self._size = multiprocessing.Value(ctypes.c_ulong, 0, lock=False)
+            self._pipe_r, self_pipe_w = itertools.starmap(
+                _fdopen, 
+                zip(os.pipe(), ('rb', 'wb'), (0, 0))
+            )
+
+        def qsize():
+            return self._size.value
+
+        def put(self, obj):
+            with self._lock:
+                self._size.value += 1
+                write_object(self._pipe_w, obj)
+
+        def get(self):
+            with self._lock:
+                if self._size.value:
+                    self._size.value -= 1
+                    return read_object(self,_pipe_r)
+                else:
+                    raise queue.Empty()
+    return Queue
+
+MarshalQueue = __queue_maker(_write_marshal_object, _read_marshal_object)
+
+PickleQueue = __queue_maker(_write_pickle_object, _read_pickle_object)
+
+class Workers:
+    def __init__(self, func, workers_number=None):
+
+        if args is None:
+            args = ()
+
+        if kwargs is None:
+            kwargs = kwargs
+
+        if workers_number is None:
+            workers_number = os.sched_getaffinity(0)
+
+        def process_init(
+                inputs_queue, 
+                outputs_queue, 
+                errors_queue, 
+                workers_pid,
+                *args, 
+                **kwargs
+                ):
+            try:
+
+                while True:
+                    try:
+                        inputs_queue.get()
+                    except queue.Empty:
+                        break
+
+                    try:
+                        result = func(item, *args, **kwargs)
+                    except BaseException as e:
+                        errors_queue.put(e)
+                        # TODO: close python interrupter
+
+                    outputs_queue.put(result)
+            except KeyboardInterrupt:
+                pass
+
+        self._workers_number = workers_number
+        self._workers = [None] * workers_number
+        workers_pid = [None] * (workers_number + 1)
+
+        workers_pid[0] = multiprocessing.current_process().pid
+
+        # --- create Process and save its pid ---
+        for i in range(workers_number):
+            worker = multiprocessing.Process(
+                    target = process_init,
+                    name = '{} worker-{}'.format(func.__name__, i),
+                    )
+
+            workers_pid[i] = worker.pid
+
+            workers[i] = worker
+
+        self._outputs_queues = [None] * workers_number
+        self._errors_queue = None
+
+        # --- now set args, kwargs of each process ---
+        for i in range(workers_number):
+            self._outputs_queues[i] = MarshalQueue()
+
+            self._workers[i]._args = (
+                    self._inputs_queues[i],
+                    self._outputs_queues[i],
+                    errors_queue,
+                    workers_pid,
+                    ) + args
+
+            self._workers[i]._kwargs = {kwargs}
+
+    def start(self, inputs):
+
+        inputs_len = len(inputs) // self._max_workers
+        remaining = (inputs_len * self._max_workers) - inputs_len
+
+        start_i = 0
+        if remaining:
+            end_i = inputs_len + 1
+            remaining -= 1
+        else:
+            end_i = inputs_len
+
+        for i in range(self._max_workers):
+            worker = process_init(
+                    inputs[start_i:end_i],
+                    self._outputs_queue,
+                    *args, **kwargs)
+
+
+            self._workers.append(worker)
+
+            worker.start()
+
+    def free_workers(self):
+        i = 0
+        while i < len(self._workers):
+            if not self._workers.is_alive():
+                del self._workers[i]
 
 # --- command line help & options ---
 
@@ -637,7 +877,7 @@ def __parse_argv(argv):
                         result.switchs |= _ARRANGE_PROCESS_FLAG
 
                     # filter file names
-                    elif ch = 'N':
+                    elif ch == 'N':
                         next_args.append((_FILTER_NAME_FLAG, '-N'))
 
                     # force overwrite
@@ -714,99 +954,6 @@ def __parse_argv(argv):
 
     result.jobs = list(result.jobs)
     return result
-
-# *** binary file operations ***
-
-# --- objects ---
-
-def __write_object(outfile, _set):
-    marshal.dump(outfile, code_object, _MARSHAL_VERSION)
-
-def __read_object(infile):
-    return marshal.load(infile)
-
-# --- code objects ---
-
-def __write_code_object(outfile, code_object):
-    marshal.dump(outfile, code_object, _MARSHAL_VERSION)
-
-def __read_code_object(infile):
-    result = marshal.load(infile)
-    if not isinstance(result, _code_object_type):
-        raise FileStructError('invalid object type while reading code object')
-    return marshal.load(infile)
-
-# --- integers ---
-
-def __write_int(outfile, integer, size = 1):
-    outfile.write(integer.to_bytes(size, 'big', signed = True))
-
-def __write_uint(outfile, integer, size = 1):
-    outfile.write(integer.to_bytes(size, 'big', signed = False))
-
-def __read_int(infile, size = 1):
-    _buffer = infile.read(size)
-    if len(_buffer) != size:
-        raise EOFError(
-                "End of file while reading {} byte integer".format(size))
-    return int.from_bytes(_buffer, 'big', signed = True)
-
-def __read_uint(infile, size = 1):
-    _buffer = infile.read(size)
-    if len(_buffer) != size:
-        raise EOFError(
-                "End of file while reading {} byte integer".format(size))
-    return int.from_bytes(_buffer, 'big', signed = False)
-
-# --- big integer ---
-
-def __write_big_integer(outfile, size):
-    outfile.write(size.to_bytes(__BIG_INTEGER_SIZE, 'big', signed = False))
-
-def __read_big_integer(infile):
-    _buffer = infile.read(__BIG_INTEGER_SIZE)
-    if len(_buffer) != __BIG_INTEGER_SIZE:
-        raise EOFError("End of file while reading size")
-    return int.from_bytes(_buffer, 'big', signed = False)
-
-# --- strings ---
-
-def __write_string(outfile, string):
-    _buffer = string.encode('utf-8')
-
-    while len(_buffer) >= 0xFFFF:
-
-        outfile.write(b'\xFF\xFF')
-        outfile.write(_buffer[:0xFFFF])
-        _buffer = _buffer[0xFFFF:]
-
-    outfile.write(len(_buffer).to_bytes(2, 'big', signed = False))
-    outfile.write(_buffer)
-
-def __read_string(infile):
-    _buffer = infile.read(2)
-    if len(_buffer) != 2:
-        raise EOFError("End of file while reading string")
-    _buffer_size = int.from_bytes(_buffer, 'big', signed = False)
-
-    _buffer = infile.read(_buffer_size)
-    if len(_buffer) != _buffer_size:
-        raise EOFError("End of file while reading string")
-    _result = bytearray(_buffer)
-
-    while _buffer_size == 0xFFFF:
-        _buffer = infile.read(2)
-        if len(_buffer) != 2:
-            raise EOFError("End of file while reading string")
-        _buffer_size = int.from_bytes(_buffer, 'big', signed = False)
-
-        _buffer = infile.read(_buffer_size)
-        if len(_buffer) != _buffer_size:
-            raise EOFError("End of file while reading string")
-
-        _result += _buffer
-
-    return _result.decode('utf-8')
 
 # *** errors ***
 
@@ -1489,40 +1636,40 @@ def __write_compiled_code_env(code_object, env, outfile):
     # --- writing to file ---
     outfile.write(_CACHE_FILE_MAGIC_NUMBER)
 
-    __write_string(outfile, env.macro_prefix)
-    __write_string(outfile, env.macro_suffix)
+    _write_string(outfile, env.macro_prefix)
+    _write_string(outfile, env.macro_suffix)
 
-    __write_string(outfile, env.statement_prefix)
-    __write_string(outfile, env.statement_suffix)
+    _write_string(outfile, env.statement_prefix)
+    _write_string(outfile, env.statement_suffix)
 
-    __write_string(outfile, env.comment_prefix)
-    __write_string(outfile, env.comment_suffix)
+    _write_string(outfile, env.comment_prefix)
+    _write_string(outfile, env.comment_suffix)
 
-    __write_string(outfile, env.variable_prefix)
-    __write_string(outfile, env.variable_suffix)
+    _write_string(outfile, env.variable_prefix)
+    _write_string(outfile, env.variable_suffix)
 
-    __write_string(outfile, env.evaluation_prefix)
-    __write_string(outfile, env.evaluation_suffix)
+    _write_string(outfile, env.evaluation_prefix)
+    _write_string(outfile, env.evaluation_suffix)
 
-    __write_code_object(outfile, code_object)
+    _write_code_object(outfile, code_object)
 
 def __read_compiled_code(infile, env):
     if infile.read(len(_CACHE_FILE_MAGIC_NUMBER)) != _CACHE_FILE_MAGIC_NUMBER:
         raise FileStructError('file magic number mismatch')
 
     if \
-            env.macro_prefix == __read_string(infile) and \
-            env.macro_suffix == __read_string(infile) and \
-            env.statement_prefix == __read_string(infile) and \
-            env.statement_suffix == __read_string(infile) and \
-            env.comment_prefix == __read_string(infile) and \
-            env.comment_suffix == __read_string(infile) and \
-            env.variable_prefix == __read_string(infile) and \
-            env.variable_suffix == __read_string(infile) and \
-            env.evaluation_prefix == __read_string(infile) and \
-            env.evaluation_suffix == __read_string(infile):
+            env.macro_prefix == _read_string(infile) and \
+            env.macro_suffix == _read_string(infile) and \
+            env.statement_prefix == _read_string(infile) and \
+            env.statement_suffix == _read_string(infile) and \
+            env.comment_prefix == _read_string(infile) and \
+            env.comment_suffix == _read_string(infile) and \
+            env.variable_prefix == _read_string(infile) and \
+            env.variable_suffix == _read_string(infile) and \
+            env.evaluation_prefix == _read_string(infile) and \
+            env.evaluation_suffix == _read_string(infile):
 
-        return __read_code_object(infile)
+        return _read_code_object(infile)
 
     return None
 
@@ -1656,26 +1803,33 @@ def __apply_config_filters(config, filters):
 @process
 def __compiler_worker(
         initial_job,
-        jobs_queue,
+        inputs_conn,
 
         cache_folder_path,
         compiler_env,
+
+        outputs_conn,
         ):
 
-    job = initial_job
+    try:
+        job = initial_job
 
-    while True:
+        while True:
 
-        # --- append cache file path ---
-        job.append( __get_cache_file_path(cache_folder_path, job[2]) )
+            # --- append cache file path ---
+            cache_file_path = \
+                    __get_cache_file_path(cache_folder_path, job[2])
 
-        # --- compile the file ---
+            # --- compile the file ---
 
-        try:
-            job = inputs_queue.get()
+            try:
+                job = inputs_conn.recv()
 
-        except queue.Empty:
-            return
+            except EOFError:
+                return
+
+    except KeyboardInterrupt:
+        pass
 
 def main(argv):
 
@@ -1777,38 +1931,9 @@ def main(argv):
         #   [_INPUT_FLAG, 'path', 'real_path']
         #   [_INPUT_FLAG, sys.stdin]
 
-        # compile and cache input files by multiprocessing
-        inputs_queue = multiprocessing.queue()
-
         for i, item in enumerate(options.jobs):
             if item[0] == _INPUT_FLAG and isinstance(item[1], str):
-                inputs_queue.put( (i, item[2]), False)
-
-        # in inputs_queue:
-        #   (i, 'real_path')
-
-        outputs_queue
-
-        # a deque of workers
-        workers = collections.deque()
-
-        while len(workers) < _MAX_PROCESS_NUMBER:
-
-            try:
-                job = inputs_queue.get()
-
-            except queue.Empty:
-                break
-
-            worker = __compiler_worker(
-                    job,
-                    inputs_queue,
-
-                    cache_folder_path,
-                    compiler_env,
-                    )
-
-        # read from stdin or wait for workers
+                inputs_conn1.send((i, item[2]))
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))
