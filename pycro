@@ -113,8 +113,7 @@ if _MAX_PROCESS_NUMBER <= 0:
     raise BaseException('invalid _MAX_PROCESS_NUMBER value: {}'.format(
         _MAX_PROCESS_NUMBER))
 
-_BIG_INTEGER_SIZE = 4
-
+_SIZE_LEN = 4
 
 # --- debuging code ---
 
@@ -755,14 +754,14 @@ def __read_uint(infile, size = 1):
                 "End of file while reading {} byte integer".format(size))
     return int.from_bytes(_buffer, 'big', signed = False)
 
-# --- big integer ---
+# --- size type ---
 
-def __write_big_integer(outfile, size):
-    outfile.write(size.to_bytes(__BIG_INTEGER_SIZE, 'big', signed = False))
+def __write_size(outfile, size):
+    outfile.write(size.to_bytes(_SIZE_LEN, 'big', signed=False))
 
-def __read_big_integer(infile):
-    _buffer = infile.read(__BIG_INTEGER_SIZE)
-    if len(_buffer) != __BIG_INTEGER_SIZE:
+def __read_size(infile):
+    _buffer = infile.read(_SIZE_LEN)
+    if len(_buffer) != _SIZE_LEN:
         raise EOFError("End of file while reading size")
     return int.from_bytes(_buffer, 'big', signed = False)
 
@@ -1804,8 +1803,10 @@ def main(argv):
             worker = __compiler_worker(
                     job,
                     inputs_conn2,
+
                     cache_folder_path,
                     compiler_env,
+
                     )
 
             workers.append(worker)
