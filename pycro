@@ -869,7 +869,7 @@ def _read_marshal_object(infile):
     _buffer_size = _read_size(infile)
     _buffer = infile.read(_buffer_size)
     if len(_buffer) != _buffer_size:
-        rais EOFError("End of file while reading object")
+        raise EOFError("End of file while reading object")
     return marshal.loads(_buffer)
 
 # --- code objects ---
@@ -1931,43 +1931,9 @@ def main(argv):
         #   [_INPUT_FLAG, 'path', 'real_path']
         #   [_INPUT_FLAG, sys.stdin]
 
-        # compile and cache input files by multiprocessing
-        inputs_conn1, inputs_conn2 = multiprocessing.Pipe()
-
         for i, item in enumerate(options.jobs):
             if item[0] == _INPUT_FLAG and isinstance(item[1], str):
                 inputs_conn1.send((i, item[2]))
-
-        inputs_conn1.close()
-
-        # in inputs_pipe:
-        #   (i, 'real_path')
-
-        # a deque of workers
-        workers = collections.deque()
-
-        while len(workers) < _MAX_PROCESS_NUMBER:
-
-            try:
-                job = inputs_conn2.recv()
-
-            except EOFError:
-                break
-
-            worker = __compiler_worker(
-                    job,
-                    inputs_conn2,
-
-                    cache_folder_path,
-                    compiler_env,
-
-                    )
-
-            workers.append(worker)
-
-            worker.start()
-
-        # read from stdin or wait for workers
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))
