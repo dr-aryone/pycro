@@ -47,16 +47,6 @@ def _write_object(outfile, obj):
 def _read_object(infile):
     return marshal.loads(_read_buffer(infile, _read_size(infile)))
 
-def process(func):
-    def process_init(*args, **kwargs):
-        return multiprocessing.Process(
-                target = func,
-                name = func.__name__ + ' process',
-                args = args,
-                kwargs = kwargs,
-                )
-    return process_init
-
 def __queue_maker(write_object, read_object):
     class Queue:
         def __init__(self):
@@ -90,12 +80,6 @@ PickleQueue = __queue_maker(_write_pickle_object, _read_pickle_object)
 
 class Workers:
     def __init__(self, func, workers_number=None):
-
-        if args is None:
-            args = ()
-
-        if kwargs is None:
-            kwargs = kwargs
 
         if workers_number is None:
             workers_number = os.sched_getaffinity(0)
@@ -157,9 +141,9 @@ class Workers:
                     workers_pid,
                     ) + args
 
-            self._workers[i]._kwargs = {kwargs}
+            self._workers[i]._kwargs = kwargs
 
-    def start(self, inputs):
+    def start(self, inputs, *args, **kwargs):
 
         inputs_len = len(inputs) // self._max_workers
         remaining = (inputs_len * self._max_workers) - inputs_len
@@ -187,3 +171,4 @@ class Workers:
         while i < len(self._workers):
             if not self._workers.is_alive():
                 del self._workers[i]
+
