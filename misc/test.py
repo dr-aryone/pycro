@@ -47,47 +47,128 @@ def _write_object(outfile, obj):
 def _read_object(infile):
     return marshal.loads(_read_buffer(infile, _read_size(infile)))
 
-def process(func):
-    def process_init(*args, **kwargs):
-        return multiprocessing.Process(
-                target = func,
-                name = func.__name__ + ' process',
-                args = args,
-                kwargs = kwargs,
-                )
-    return process_init
+def __queue_maker(write_object, read_object):
+    class Queue:
+        def __init__(self):
+            self._lock = multiprocessing.RLock()
+            self._size = multiprocessing.Value(ctypes.c_ulong, 0, lock=False)
+            self._pipe_r, self_pipe_w = itertools.starmap(
+                _fdopen, 
+                zip(os.pipe(), ('rb', 'wb'), (0, 0))
+            )
 
-class Queue:
-    def __init__(self, maxsize = 0):
-        if not isinstance(maxsize, int):
-            raise TypeError('maxsize must be type of int')
-        if maxsize < 0:
-            raise ValueError('maxsize must be greater than equal to 0')
+        def qsize():
+            return self._size.value
 
-        self._maxsize = maxsize
-        self._rlock = multiprocessing.RLock()
+        def put(self, obj):
+            with self._lock:
+                self._size.value += 1
+                write_object(self._pipe_w, obj)
 
-        self._size = multiprocessing.Value(ctypes.c_ulong, 0, 
-                lock = self._rlock)
+        def get(self):
+            with self._lock:
+                if self._size.value:
+                    self._size.value -= 1
+                    return read_object(self,_pipe_r)
+                else:
+                    raise queue.Empty()
+    return Queue
 
-        self._pipe_r, self._pipe_w = \
-                itertools.starmap(
-                        _fdopen, 
-                        zip(os.pipe(), ('rb', 'wb'), (0, 0)),
-                        )
+MarshalQueue = __queue_maker(_write_marshal_object, _read_marshal_object)
 
-    def put(self, obj):
-        with self._rlock:
-            if self._maxsize and self._size.value >= self._maxsize:
-                raise queue.Full()
-            self._size.value += 1
-            _write_object(self._pipe_w, obj)
+PickleQueue = __queue_maker(_write_pickle_object, _read_pickle_object)
 
-    def get(self):
-        with self._rlock:
-            if self._size.value:
-                self._size.value -= 1
-                return _read_object(self._pipe_r)
-            else:
-                raise queue.Empty()
+class Workers:
+    def __init__(self, func, workers_number=None):
+
+        if workers_number is None:
+            workers_number = os.sched_getaffinity(0)
+
+        def process_init(
+                inputs_queue, 
+                outputs_queue, 
+                errors_queue, 
+                workers_pid,
+                *args, 
+                **kwargs
+                ):
+            try:
+
+                while True:
+                    try:
+                        inputs_queue.get()
+                    except queue.Empty:
+                        break
+
+                    try:
+                        result = func(item, *args, **kwargs)
+                    except BaseException as e:
+                        errors_queue.put(e)
+                        # TODO: signal other workers
+
+                    outputs_queue.put(result)
+            except KeyboardInterrupt:
+                pass
+
+        self._workers_number = workers_number
+        self._workers = [None] * workers_number
+        workers_pid = [None] * (workers_number + 1)
+
+        workers_pid[0] = multiprocessing.current_process().pid
+
+        # --- create Process and save its pid ---
+        for i in range(workers_number):
+            worker = multiprocessing.Process(
+                    target = process_init,
+                    name = '{} worker-{}'.format(func.__name__, i),
+                    )
+
+            workers_pid[i] = worker.pid
+
+            workers[i] = worker
+
+        self._outputs_queues = [None] * workers_number
+        self._errors_queue = None
+
+        # --- now set args, kwargs of each process ---
+        for i in range(workers_number):
+            self._outputs_queues[i] = MarshalQueue()
+
+            self._workers[i]._args = (
+                    self._inputs_queues[i],
+                    self._outputs_queues[i],
+                    errors_queue,
+                    workers_pid,
+                    ) + args
+
+            self._workers[i]._kwargs = kwargs
+
+    def start(self, inputs, *args, **kwargs):
+
+        inputs_len = len(inputs) // self._max_workers
+        remaining = (inputs_len * self._max_workers) - inputs_len
+
+        start_i = 0
+        if remaining:
+            end_i = inputs_len + 1
+            remaining -= 1
+        else:
+            end_i = inputs_len
+
+        for i in range(self._max_workers):
+            worker = process_init(
+                    inputs[start_i:end_i],
+                    self._outputs_queue,
+                    *args, **kwargs)
+
+
+            self._workers.append(worker)
+
+            worker.start()
+
+    def free_workers(self):
+        i = 0
+        while i < len(self._workers):
+            if not self._workers.is_alive():
+                del self._workers[i]
 

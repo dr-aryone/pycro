@@ -174,16 +174,6 @@ else:
             )
         )
 
-def process(func):
-    def process_init(*args, **kwargs):
-        return multiprocessing.Process(
-                target = func,
-                name = func.__name__ + ' process',
-                args = args,
-                kwargs = kwargs,
-                )
-    return process_init
-
 def _create_pipe(read_mode = 'rt', write_mode = 'wt'):
     return map(_fdopen, zip(os.pipe(), (read_mode, write_mode)))
 
@@ -386,7 +376,7 @@ class Workers:
                         result = func(item, *args, **kwargs)
                     except BaseException as e:
                         errors_queue.put(e)
-                        # TODO: close python interrupter
+                        # TODO: signal other workers
 
                     outputs_queue.put(result)
             except KeyboardInterrupt:
@@ -1800,7 +1790,6 @@ def __apply_config_filters(config, filters):
     except KeyError:
         pass
 
-@process
 def __compiler_worker(
         initial_job,
         inputs_conn,
