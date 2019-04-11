@@ -665,14 +665,20 @@ _DEFINE_FLAG =              0x05
 _UNDEFINE_FLAG =            0x06
 _SETTING_FLAG =             0x07
 
-_OUTFILE_FLAG =             0x08
-_OUTFOLDER_FLAG =           0x09
+# --- output files unique flags ---
+
+# NOTE: cross-python-version flags
+_OUTFILE_FLAG =             0x01
+_OUTFOLDER_FLAG =           0x02
+
+# --- other flags ---
 
 _FILTER_NAME_FLAG =         0x0a
 
 # *** argument parser ***
 
 if __debug__:
+
     def __bit_flag_name(flag):
         if flag == _ARRANGE_PROCESS_FLAG:
             return '_ARRANGE_PROCESS_FLAG'
