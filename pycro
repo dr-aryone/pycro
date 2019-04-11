@@ -179,15 +179,16 @@ if __debug__:
             print("error: some bits on switchs is on")
         # outfile & outfolder
         print_line('output', width=40)
-        print(
-            '{}{}'.format(
-                ' ' * 4, 
-                ', '.join(
-                    [ __output_flag_name(options.output[0]),
-                        *map(str, options.output[1:]) ]
+        if options.output is not None:
+            print(
+                '{}{}'.format(
+                    ' ' * 4, 
+                    ', '.join(
+                        [ __output_flag_name(options.output[0]),
+                            *map(str, options.output[1:]) ]
+                    )
                 )
             )
-        )
         
 
 # --- utilities ---
@@ -1956,7 +1957,7 @@ def main(argv):
 
     if __debug__:
         print_options(options)
-        print_line()
+        print_line(fill='=')
         sys.exit()
 
     # --- join cache folder path ---
