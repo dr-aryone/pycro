@@ -102,6 +102,7 @@ _DEFAULT_PLACE_FUNCTION_NAME = '__place__'
 
 _DEFAULT_VERSION_VARIABLE_NAME = '__version__'
 
+_DEFAULT_COMMAND_VARIABLE_NAME = '__command__'
 
 # --- other settings ---
 
@@ -1318,6 +1319,7 @@ class CompilerEnvironment:
             tab = '\t',
             indent = 0,
 
+            # --- varaible names ---
             outfile_variable_name = _DEFAULT_OUTFILE_VARIABLE_NAME,
 
             pipes_varaible_name = _DEFAULT_PIPES_VARIABLE_NAME,
@@ -1569,6 +1571,7 @@ class ExecutorEnvironment:
             place_function_name = _DEFAULT_PLACE_FUNCTION_NAME,
 
             version_variable_name = _DEFAULT_VERSION_VARIABLE_NAME,
+            command_variable_name = _DEFAULT_COMMAND_VARIABLE_NAME,
             ):
 
         if variables is None:
@@ -1597,6 +1600,7 @@ class ExecutorEnvironment:
         self.place_function_name = place_function_name
 
         self.version_variable_name = version_variable_name
+        self.command_variable_name = command_variable_name
 
 def execute_code_object(
         code_object,
@@ -1604,6 +1608,7 @@ def execute_code_object(
         env,
 
         working_directory = '.',
+        command = None,
         ):
 
     variables = env.variables
@@ -1623,6 +1628,11 @@ def execute_code_object(
     # --- version variable ---
 
     variables[env.version_variable_name] = VERSION
+
+    # --- command variable ---
+    
+    if command is not None:
+        variables[env.command_variable_name] = command
 
     # --- divert function ---
 
