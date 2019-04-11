@@ -1681,19 +1681,20 @@ def execute_code_object(
         elif isinstance(stdin, (str, int)):
             _input = pipes[stdin].getvalue()
         else:
-            raise TypeError("run stdin argument must be type of str or int")
+            raise TypeError(
+                    "run stdin argument must be type of str or int")
 
         if stdout is None or isinstance(stdout, (str, int)):
             stdout = pipes[stdout]
         else:
             raise TypeError(
-                    "run stdout argument must be type of str or int or None")
+                    "run stdout argument must be None or type of str or int")
 
         if stderr is None or isinstance(stderr, (str, int)):
             stderr = pipes[stderr]
         else:
             raise TypeError(
-                    "run stderr argument must be type of str or int or None")
+                    "run stderr argument must be None or type of str or int")
 
         subprocess.run(command, input=_input, stdout=stdout, stderr=stderr)
 
