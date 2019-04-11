@@ -112,7 +112,11 @@ _OPTIMIZE_LEVEL = -1
 _MARSHAL_VERSION = 4
 _PICKLE_VERSION = pickle.HIGHEST_PROTOCOL
 
-_MAX_PROCESS_NUMBER = len(os.sched_getaffinity(0))
+try:
+    _MAX_PROCESS_NUMBER = len(os.sched_getaffinity(0))
+
+except AttributeError:
+    _MAX_PROCESS_NUMBER = os.cpu_count()
 
 if _MAX_PROCESS_NUMBER <= 0:
     raise BaseException('invalid _MAX_PROCESS_NUMBER value: {}'.format(
@@ -146,7 +150,7 @@ if __debug__:
 
     def print_options(options):
         # jobs
-        print_line('jobs', width=50)
+        print_line('jobs', width=40)
         for job in options.jobs:
             print(
                     '{}{}'.format(
@@ -156,11 +160,11 @@ if __debug__:
                     )
                 )
         # name filters
-        print_line('name filters', width=50)
+        print_line('name filters', width=40)
         for pattern in options.file_name_filters:
             print('{}{!r}'.format(' ' * 4, pattern))
         # switchs
-        print_line('switchs', width=50)
+        print_line('switchs', width=40)
         switchs = options.switchs
         for flag in (
                 _ARRANGE_PROCESS_FLAG,
@@ -171,7 +175,19 @@ if __debug__:
                 switchs &= ~flag
                 print('{}{}'.format(' ' * 4, __bit_flag_name(flag)))
         if switchs:
-            raise BaseException("some bits on switchs is on")
+            print("error: some bits on switchs is on")
+        # outfile & outfolder
+        print_line('output', width=40)
+        print(
+            '{}{}'.format(
+                ' ' * 4, 
+                ', '.join(
+                    [ __job_flag_name(options.output[0]),
+                        *map(str, options.output[1:]) ]
+                )
+            )
+        )
+        
 
 # --- utilities ---
 
