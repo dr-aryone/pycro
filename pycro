@@ -28,6 +28,7 @@ import marshal
 import pickle
 import subprocess
 import configparser
+import shutil
 import types
 
 import queue
@@ -124,11 +125,11 @@ _SIZE_LEN = 4
 if __debug__:
     from pprint import pprint
 
-    def print_line(title = None, fill='-', width=80):
+    def print_line(title = None, fill='-', width=80, lside=' ', rside=' '):
         if title:
             print('{:{fill}^{width}}'.format(
-                    ' ' + title.strip() + ' ',
-                    width=80,
+                    lside + title.strip() + rside,
+                    width=width,
                     fill=fill,
                     )
                 )
@@ -143,6 +144,34 @@ if __debug__:
                 file.write(repr(obj))
         file.write(end)
 
+    def print_options(options):
+        # jobs
+        print_line('jobs', width=50)
+        for job in options.jobs:
+            print(
+                    '{}{}'.format(
+                        ' ' * 4, 
+                        ', '.join([ __job_flag_name(job[0]), 
+                            *map(repr, job[1:]) ]),
+                    )
+                )
+        # name filters
+        print_line('name filters', width=50)
+        for pattern in options.file_name_filters:
+            print('{}{!r}'.format(' ' * 4, pattern))
+        # switchs
+        print_line('switchs', width=50)
+        switchs = options.switchs
+        for flag in (
+                _ARRANGE_PROCESS_FLAG,
+                _FORCE_FLAG,
+                _RECURSIVE_FLAG,
+                _CLEAR_CACHE_FLAG,):
+            if switchs & flag:
+                switchs &= ~flag
+                print('{}{}'.format(' ' * 4, __bit_flag_name(flag)))
+        if switchs:
+            raise BaseException("some bits on switchs is on")
 
 # --- utilities ---
 
@@ -204,6 +233,7 @@ def __prettify_items(items, indent = '    ', width = 80):
 # *** binary file operations ***
 
 # --- objects ---
+
 def _write_pickle_object(outfile, obj):
     _buffer = pickle.dumps(obj, _PICKLE_VERSION, fix_imports=False)
     _write_size(outfile, len(_buffer))
@@ -622,6 +652,53 @@ _OUTFOLDER_FLAG =           0x09
 _FILTER_NAME_FLAG =         0x0a
 
 # *** argument parser ***
+
+def __bit_flag_name(flag):
+    if flag == _ARRANGE_PROCESS_FLAG:
+        return '_ARRANGE_PROCESS_FLAG'
+
+    elif flag == _RECURSIVE_FLAG:
+        return '_RECURSIVE_FLAG'
+
+    elif flag == _CLEAR_CACHE_FLAG:
+        return '_CLEAR_CACHE_FLAG'
+
+    elif flag == _FORCE_FLAG:
+        return '_FORCE_FLAG'
+
+    else:
+        raise ValueError('unknown flag')
+
+def __job_flag_name(flag):
+    if flag == _IMPORT_FLAG:
+        return '_IMPORT_FLAG'
+
+    elif flag == _LANG_FLAG:
+        return '_LANG_FLAG'
+
+    elif flag == _JSONFILE_FLAG:
+        return '_JSONFILE_FLAG'
+
+    elif flag == _INPUT_FLAG:
+        return '_INPUT_FLAG'
+
+    elif flag == _DEFINE_FLAG:
+        return '_DEFINE_FLAG'
+
+    elif flag == _UNDEFINE_FLAG:
+        return '_UNDEFINE_FLAG'
+
+    elif flag == _SETTING_FLAG:
+        return '_SETTING_FLAG'
+
+    elif flag == _OUTFOLDER_FLAG:
+        return '_OUTFOLDER_FLAG'
+
+    elif flag == '_FILTER_NAME_FLAG':
+        return '_FILTER_NAME_FLAG'
+
+    else:
+        raise ValueError('unknown flag')
 
 # HACK: some interesting options:
 #       -i, --isolate                   isolate preprocessing each input file
@@ -1791,13 +1868,7 @@ def __apply_config_filters(config, filters):
         pass
 
 def __compiler_worker(
-        initial_job,
-        inputs_conn,
-
-        cache_folder_path,
-        compiler_env,
-
-        outputs_conn,
+        job
         ):
 
     try:
@@ -1856,10 +1927,10 @@ def main(argv):
     #   _DEFINE_FLAG
     #   _UNDEFINE_FLAG
 
-
     if __debug__:
-        pprint(options)
+        print_options(options)
         print_line()
+        sys.exit()
 
     # --- join cache folder path ---
     cache_folder_path = __joinpath(_HOME_DIRECTORY, _CACHE_FOLDER_NAME)
@@ -1881,10 +1952,10 @@ def main(argv):
     #   [_INPUT_FLAG, 'path']
     #   [_INPUT_FLAG, sys.stdin]
 
-    # --- append real path ---
+    # --- append real path, remove dirs ---
     for item in options.jobs:
         if item[0] == _INPUT_FLAG and isinstance(item[1], str):
-            item.append( __realpath(__joinpath(item[1])) )
+            item.append( __realpath(__abspath(item[1])) )
 
     # options.jobs contains:
     #   [_INPUT_FLAG, 'path', 'real_path']
@@ -1901,7 +1972,7 @@ def main(argv):
         if config is not None:
             __apply_config_compiler_env(config, compiler_env)
 
-        # --- initialize environments ---
+        # --- initialize compiler environment ---
         compiler_env = CompilerEnvironment()
 
         # --- apply settings & languages ---
@@ -1920,9 +1991,10 @@ def main(argv):
         #   [_INPUT_FLAG, 'path', 'real_path']
         #   [_INPUT_FLAG, sys.stdin]
 
-        for i, item in enumerate(options.jobs):
-            if item[0] == _INPUT_FLAG and isinstance(item[1], str):
-                inputs_conn1.send((i, item[2]))
+        # --- first compile the inputs ---
+        # TODO: complete here
+
+        print('I\'m here')
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))
