@@ -28,6 +28,7 @@ import marshal
 import pickle
 import subprocess
 import configparser
+import shutil
 import types
 
 import queue
@@ -101,6 +102,7 @@ _DEFAULT_PLACE_FUNCTION_NAME = '__place__'
 
 _DEFAULT_VERSION_VARIABLE_NAME = '__version__'
 
+_DEFAULT_COMMAND_VARIABLE_NAME = '__command__'
 
 # --- other settings ---
 
@@ -111,7 +113,11 @@ _OPTIMIZE_LEVEL = -1
 _MARSHAL_VERSION = 4
 _PICKLE_VERSION = pickle.HIGHEST_PROTOCOL
 
-_MAX_PROCESS_NUMBER = len(os.sched_getaffinity(0))
+try:
+    _MAX_PROCESS_NUMBER = len(os.sched_getaffinity(0))
+
+except AttributeError:
+    _MAX_PROCESS_NUMBER = os.cpu_count()
 
 if _MAX_PROCESS_NUMBER <= 0:
     raise BaseException('invalid _MAX_PROCESS_NUMBER value: {}'.format(
@@ -124,11 +130,11 @@ _SIZE_LEN = 4
 if __debug__:
     from pprint import pprint
 
-    def print_line(title = None, fill='-', width=80):
+    def print_line(title = None, fill='-', width=80, lside=' ', rside=' '):
         if title:
             print('{:{fill}^{width}}'.format(
-                    ' ' + title.strip() + ' ',
-                    width=80,
+                    lside + title.strip() + rside,
+                    width=width,
                     fill=fill,
                     )
                 )
@@ -143,6 +149,46 @@ if __debug__:
                 file.write(repr(obj))
         file.write(end)
 
+    def print_options(options):
+        # jobs
+        print_line('jobs', width=40)
+        for job in options.jobs:
+            print(
+                    '{}{}'.format(
+                        ' ' * 4, 
+                        ', '.join([ __job_flag_name(job[0]), 
+                            *map(repr, job[1:]) ]),
+                    )
+                )
+        # name filters
+        print_line('name filters', width=40)
+        for pattern in options.file_name_filters:
+            print('{}{!r}'.format(' ' * 4, pattern))
+        # switchs
+        print_line('switchs', width=40)
+        switchs = options.switchs
+        for flag in (
+                _ARRANGE_PROCESS_FLAG,
+                _FORCE_FLAG,
+                _RECURSIVE_FLAG,
+                _CLEAR_CACHE_FLAG,):
+            if switchs & flag:
+                switchs &= ~flag
+                print('{}{}'.format(' ' * 4, __bit_flag_name(flag)))
+        if switchs:
+            print("error: some bits on switchs is on")
+        # outfile & outfolder
+        print_line('output', width=40)
+        print(
+            '{}{}'.format(
+                ' ' * 4, 
+                ', '.join(
+                    [ __job_flag_name(options.output[0]),
+                        *map(str, options.output[1:]) ]
+                )
+            )
+        )
+        
 
 # --- utilities ---
 
@@ -151,6 +197,8 @@ __joinpath = os.path.join
 __abspath = os.path.abspath
 __normpath = os.path.normpath
 __realpath = os.path.realpath
+__isdir = os.path.isdir
+__isfile = os.path.isfile
 
 if sys.version_info >= (3, 4):
     __fullmatch = re._pattern_type.fullmatch
@@ -204,6 +252,7 @@ def __prettify_items(items, indent = '    ', width = 80):
 # *** binary file operations ***
 
 # --- objects ---
+
 def _write_pickle_object(outfile, obj):
     _buffer = pickle.dumps(obj, _PICKLE_VERSION, fix_imports=False)
     _write_size(outfile, len(_buffer))
@@ -622,6 +671,53 @@ _OUTFOLDER_FLAG =           0x09
 _FILTER_NAME_FLAG =         0x0a
 
 # *** argument parser ***
+
+def __bit_flag_name(flag):
+    if flag == _ARRANGE_PROCESS_FLAG:
+        return '_ARRANGE_PROCESS_FLAG'
+
+    elif flag == _RECURSIVE_FLAG:
+        return '_RECURSIVE_FLAG'
+
+    elif flag == _CLEAR_CACHE_FLAG:
+        return '_CLEAR_CACHE_FLAG'
+
+    elif flag == _FORCE_FLAG:
+        return '_FORCE_FLAG'
+
+    else:
+        raise ValueError('unknown flag')
+
+def __job_flag_name(flag):
+    if flag == _IMPORT_FLAG:
+        return '_IMPORT_FLAG'
+
+    elif flag == _LANG_FLAG:
+        return '_LANG_FLAG'
+
+    elif flag == _JSONFILE_FLAG:
+        return '_JSONFILE_FLAG'
+
+    elif flag == _INPUT_FLAG:
+        return '_INPUT_FLAG'
+
+    elif flag == _DEFINE_FLAG:
+        return '_DEFINE_FLAG'
+
+    elif flag == _UNDEFINE_FLAG:
+        return '_UNDEFINE_FLAG'
+
+    elif flag == _SETTING_FLAG:
+        return '_SETTING_FLAG'
+
+    elif flag == _OUTFOLDER_FLAG:
+        return '_OUTFOLDER_FLAG'
+
+    elif flag == '_FILTER_NAME_FLAG':
+        return '_FILTER_NAME_FLAG'
+
+    else:
+        raise ValueError('unknown flag')
 
 # HACK: some interesting options:
 #       -i, --isolate                   isolate preprocessing each input file
@@ -1225,6 +1321,7 @@ class CompilerEnvironment:
             tab = '\t',
             indent = 0,
 
+            # --- varaible names ---
             outfile_variable_name = _DEFAULT_OUTFILE_VARIABLE_NAME,
 
             pipes_varaible_name = _DEFAULT_PIPES_VARIABLE_NAME,
@@ -1476,6 +1573,7 @@ class ExecutorEnvironment:
             place_function_name = _DEFAULT_PLACE_FUNCTION_NAME,
 
             version_variable_name = _DEFAULT_VERSION_VARIABLE_NAME,
+            command_variable_name = _DEFAULT_COMMAND_VARIABLE_NAME,
             ):
 
         if variables is None:
@@ -1504,6 +1602,7 @@ class ExecutorEnvironment:
         self.place_function_name = place_function_name
 
         self.version_variable_name = version_variable_name
+        self.command_variable_name = command_variable_name
 
 def execute_code_object(
         code_object,
@@ -1511,6 +1610,7 @@ def execute_code_object(
         env,
 
         working_directory = '.',
+        command = None,
         ):
 
     variables = env.variables
@@ -1530,6 +1630,11 @@ def execute_code_object(
     # --- version variable ---
 
     variables[env.version_variable_name] = VERSION
+
+    # --- command variable ---
+    
+    if command is not None:
+        variables[env.command_variable_name] = command
 
     # --- divert function ---
 
@@ -1578,19 +1683,20 @@ def execute_code_object(
         elif isinstance(stdin, (str, int)):
             _input = pipes[stdin].getvalue()
         else:
-            raise TypeError("run stdin argument must be type of str or int")
+            raise TypeError(
+                    "run stdin argument must be type of str or int")
 
         if stdout is None or isinstance(stdout, (str, int)):
             stdout = pipes[stdout]
         else:
             raise TypeError(
-                    "run stdout argument must be type of str or int or None")
+                    "run stdout argument must be None or type of str or int")
 
         if stderr is None or isinstance(stderr, (str, int)):
             stderr = pipes[stderr]
         else:
             raise TypeError(
-                    "run stderr argument must be type of str or int or None")
+                    "run stderr argument must be None or type of str or int")
 
         subprocess.run(command, input=_input, stdout=stdout, stderr=stderr)
 
@@ -1791,34 +1897,9 @@ def __apply_config_filters(config, filters):
         pass
 
 def __compiler_worker(
-        initial_job,
-        inputs_conn,
-
-        cache_folder_path,
-        compiler_env,
-
-        outputs_conn,
+        item,
         ):
-
-    try:
-        job = initial_job
-
-        while True:
-
-            # --- append cache file path ---
-            cache_file_path = \
-                    __get_cache_file_path(cache_folder_path, job[2])
-
-            # --- compile the file ---
-
-            try:
-                job = inputs_conn.recv()
-
-            except EOFError:
-                return
-
-    except KeyboardInterrupt:
-        pass
+    pass
 
 def main(argv):
 
@@ -1856,10 +1937,10 @@ def main(argv):
     #   _DEFINE_FLAG
     #   _UNDEFINE_FLAG
 
-
     if __debug__:
-        pprint(options)
+        print_options(options)
         print_line()
+        sys.exit()
 
     # --- join cache folder path ---
     cache_folder_path = __joinpath(_HOME_DIRECTORY, _CACHE_FOLDER_NAME)
@@ -1881,10 +1962,11 @@ def main(argv):
     #   [_INPUT_FLAG, 'path']
     #   [_INPUT_FLAG, sys.stdin]
 
-    # --- append real path ---
+    # --- append real path, remove dirs ---
     for item in options.jobs:
         if item[0] == _INPUT_FLAG and isinstance(item[1], str):
-            item.append( __realpath(__joinpath(item[1])) )
+            # TODO: complete here
+            item.append( __realpath(__abspath(item[1])) )
 
     # options.jobs contains:
     #   [_INPUT_FLAG, 'path', 'real_path']
@@ -1901,7 +1983,7 @@ def main(argv):
         if config is not None:
             __apply_config_compiler_env(config, compiler_env)
 
-        # --- initialize environments ---
+        # --- initialize compiler environment ---
         compiler_env = CompilerEnvironment()
 
         # --- apply settings & languages ---
@@ -1920,9 +2002,10 @@ def main(argv):
         #   [_INPUT_FLAG, 'path', 'real_path']
         #   [_INPUT_FLAG, sys.stdin]
 
-        for i, item in enumerate(options.jobs):
-            if item[0] == _INPUT_FLAG and isinstance(item[1], str):
-                inputs_conn1.send((i, item[2]))
+        # --- first compile the inputs ---
+        # TODO: complete here
+
+        print("I'm here")
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))
