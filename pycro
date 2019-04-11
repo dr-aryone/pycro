@@ -197,6 +197,8 @@ __joinpath = os.path.join
 __abspath = os.path.abspath
 __normpath = os.path.normpath
 __realpath = os.path.realpath
+__isdir = os.path.isdir
+__isfile = os.path.isfile
 
 if sys.version_info >= (3, 4):
     __fullmatch = re._pattern_type.fullmatch
@@ -1895,28 +1897,9 @@ def __apply_config_filters(config, filters):
         pass
 
 def __compiler_worker(
-        job
+        item,
         ):
-
-    try:
-        job = initial_job
-
-        while True:
-
-            # --- append cache file path ---
-            cache_file_path = \
-                    __get_cache_file_path(cache_folder_path, job[2])
-
-            # --- compile the file ---
-
-            try:
-                job = inputs_conn.recv()
-
-            except EOFError:
-                return
-
-    except KeyboardInterrupt:
-        pass
+    pass
 
 def main(argv):
 
@@ -1982,6 +1965,7 @@ def main(argv):
     # --- append real path, remove dirs ---
     for item in options.jobs:
         if item[0] == _INPUT_FLAG and isinstance(item[1], str):
+            # TODO: complete here
             item.append( __realpath(__abspath(item[1])) )
 
     # options.jobs contains:
@@ -2021,7 +2005,7 @@ def main(argv):
         # --- first compile the inputs ---
         # TODO: complete here
 
-        print('I\'m here')
+        print("I'm here")
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))
