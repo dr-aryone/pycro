@@ -572,7 +572,7 @@ def __print_help():
 
 __TRY = "try '{} --help' for more information."
 
-def __print_try(name, file=sys.stderr):
+def __print_try(name, file = sys.stderr):
     print(__TRY.format(name), file=sys.stderr)
 
 __VERSION = "pycro v{}.{}.{}"
@@ -1064,7 +1064,7 @@ def __parse_argv(argv):
                         next_args.append((_IMPORT_FLAG, '-I'))
 
                     else:
-                        __print_error("invalid option: '{}'".format('-' + ch))
+                        __print_error("unknown option: '{}'".format('-' + ch))
                         __print_try(argv[0])
                         return 1
 
