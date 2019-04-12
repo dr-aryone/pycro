@@ -559,6 +559,10 @@ def __print_help():
         end = '')
 
 __TRY = "try '{} --help' for more information."
+
+def __print_try(name, file=sys.stderr):
+    print(__TRY.format(name), file=sys.stderr)
+
 __VERSION = "pycro v{}.{}.{}"
 
 def __print_version():
@@ -792,7 +796,7 @@ def __parse_argv(argv):
                             next_arg[1],
                         )
                     )
-                    print(__TRY.format(argv[0]))
+                    __print_try(argv[0])
                     return 1
 
                 # --- checking variable name pattern ---
@@ -803,7 +807,7 @@ def __parse_argv(argv):
                             next_arg[1],
                         )
                     )
-                    print(__TRY.format(argv[0]))
+                    __print_try(argv[0])
                     return 1
 
                 result.jobs.append((_DEFINE_FLAG, arg))
@@ -818,7 +822,7 @@ def __parse_argv(argv):
                             next_arg[1],
                         )
                     )
-                    print(__TRY.format(argv[0]))
+                    __print_try(argv[0])
                     return 1
 
                 result.jobs.append((_UNDEFINE_FLAG, arg))
@@ -833,7 +837,7 @@ def __parse_argv(argv):
                             next_arg[1],
                         )
                     )
-                    print(__TRY.format(argv[0]))
+                    __print_try(argv[0])
                     return 1
 
                 # --- checking valid keys ---
@@ -844,7 +848,7 @@ def __parse_argv(argv):
                             next_arg[1],
                         )
                     )
-                    print(__TRY.format(argv[0]))
+                    __print_try(argv[0])
                     return 1
 
                 result.jobs.append((_SETTING_FLAG, arg))
@@ -863,7 +867,7 @@ def __parse_argv(argv):
         # empty argument
         if not arg:
             __print_error("empty argument: #{} argument".format(i + 1))
-            print(__TRY.format(argv[0]))
+            __print_try(argv[0])
             return 1
 
         if arg[0] == '-':
@@ -961,7 +965,7 @@ def __parse_argv(argv):
 
                 else:
                     __print_error("unknown option: '{}'".format(arg))
-                    print(__TRY.format(argv[0]))
+                    __print_try(argv[0])
                     return 1
 
             else: # if arg[1] == '-'
@@ -1040,7 +1044,7 @@ def __parse_argv(argv):
 
                     else:
                         __print_error("invalid option: '{}'".format('-' + ch))
-                        print(__TRY.format(argv[0]))
+                        __print_try(argv[0])
                         return 1
 
         else: # (arg[0] != '-')
