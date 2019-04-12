@@ -29,6 +29,7 @@ import pickle
 import subprocess
 import configparser
 import shutil
+import fnmatch
 import types
 
 import queue
@@ -2003,6 +2004,32 @@ def main(argv):
 
     # options.jobs contains:
     #   [_INPUT_FLAG, 'path']
+    #   [_INPUT_FLAG, sys.stdin]
+
+    # --- filter input FILEs ---
+    i = 0
+    while i < len(options.jobs):
+        item = options.jobs[i]
+        if item[0] == _INPUT_FLAG and isinstance(item[1], str):
+
+            # remove input FILE name
+            for pattern in options.name_filters:
+                if fnmatch.fnmatch(__splitpath(item[1])[1], pattern) :
+                    # pop matched file name
+                    options.jobs.pop(i)
+                    continue
+            
+            # remove input FILE path
+            for pattern in options.path_filters:
+                if fnmatch.fnmatch(item[1], pattern):
+                    # pop matched file path
+                    options.jobs.pop(i)
+                    continue
+
+        i += 1
+
+    # options.jobs contains:
+    #   [_INPUT_FLAG, 'path-filtered']
     #   [_INPUT_FLAG, sys.stdin]
 
     # --- append real path ---
