@@ -24,6 +24,7 @@ import os
 import io
 import re
 import collections
+import inspect
 import marshal
 import pickle
 import subprocess
@@ -241,6 +242,7 @@ __joinpath = os.path.join
 __abspath = os.path.abspath
 __normpath = os.path.normpath
 __realpath = os.path.realpath
+__splitpath = os.path.split
 __isdir = os.path.isdir
 __isfile = os.path.isfile
 
