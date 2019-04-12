@@ -2042,17 +2042,15 @@ def main(argv):
     #   [_INPUT_FLAG, sys.stdin]
 
     # --- check directories ---
+    
+
     if _RECURSIVE_FLAG & options.switchs:
         # TODO: complete here
-        raise BaseException("unimplemented code")
+        raise BaseException('unimplemented code')
+
     else:
-        i = 0
-        while i < len(options.jobs):
-            job = options.jobs
-            if job[0] == _INPUT_FLAG and isinstance(job[1], str):
-                if __isdir(job[2]):
-                    # TODO: print ignore directory
-                    options.jobs.pop(i)
+        # TODO: remove directories
+        raise BaseException('unimplemented code')
 
     if _ARRANGE_PROCESS_FLAG & options.switchs:
 
