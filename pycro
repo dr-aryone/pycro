@@ -35,6 +35,11 @@ import queue
 import multiprocessing
 import signal
 
+# --- some initial utilities ---
+
+def __print_error(line, file = sys.stdout):
+    print('pycro: error:', line, file=file)
+
 if sys.version_info[0] == 3:
     import builtins
 
@@ -748,9 +753,6 @@ if __debug__:
 
 # HACK: some interesting options:
 #       -i, --isolate                   isolate preprocessing each input file
-
-def __print_error(line, file = sys.stdout):
-    print('pycro: error:', line, file=file)
 
 def __parse_argv(argv):
     result = dotdict(
