@@ -162,7 +162,11 @@ if __debug__:
                 )
         # name filters
         print_line('name filters', width=40)
-        for pattern in options.file_name_filters:
+        for pattern in options.name_filters:
+            print('{}{!r}'.format(' ' * 4, pattern))
+        # path filters
+        print_line('path filters', width=40)
+        for pattern in options.path_filters:
             print('{}{!r}'.format(' ' * 4, pattern))
         # switchs
         print_line('switchs', width=40)
@@ -185,7 +189,7 @@ if __debug__:
                     ' ' * 4, 
                     ', '.join(
                         [ __output_flag_name(options.output[0]),
-                            *map(str, options.output[1:]) ]
+                            *map(repr, options.output[1:]) ]
                     )
                 )
             )
@@ -241,7 +245,7 @@ def __prettify_items(items, indent = '    ', width = 80):
     lines = collections.deque([indent + items[0]])
 
     for item in items[1:]:
-        if len(lines[-1]) + len(item) + 1 >= 80:
+        if len(lines[-1]) + len(item) + 1 >= width:
             lines[-1] += ','
             lines.append(indent + item)
 
@@ -523,7 +527,10 @@ Sortable options:
                                       standard input)
 
 Common options:
-    -N, --filter-name PATTERN       filter input FILE names by shell PATTERN
+    -N, --filter-name PATTERN       ignore any input FILEs that its name match
+                                      shell PATTERN
+    -P, --filter-path PATTERN       ignore any input FILEs that its path match
+                                      shell PATTERN
     -f, --force                     overwrite existing files
     -r, --recursive                 pycro directories recursively
     -C, --clear-cache               first clear compiler cache
@@ -670,15 +677,13 @@ _DEFINE_FLAG =              0x05
 _UNDEFINE_FLAG =            0x06
 _SETTING_FLAG =             0x07
 
-# --- output files unique flags ---
-
-# NOTE: cross-python-version flags
-_OUTFILE_FLAG =             0x01
-_OUTFOLDER_FLAG =           0x02
-
-# --- other flags ---
-
+# used in __parse_argv:
 _FILTER_NAME_FLAG =         0x0a
+_FILTER_PATH_FLAG =         0x0b
+
+# used in __parse_argv
+_OUTFILE_FLAG =             0x0c
+_OUTFOLDER_FLAG =           0x0d
 
 # *** argument parser ***
 
@@ -750,7 +755,8 @@ def __print_error(line, file = sys.stdout):
 def __parse_argv(argv):
     result = dotdict(
             jobs = collections.deque(),
-            file_name_filters = collections.deque(),
+            name_filters = collections.deque(),
+            path_filters = collections.deque(),
             switchs = 0,
             output = None,
             )
@@ -856,7 +862,12 @@ def __parse_argv(argv):
             elif next_arg[0] == _FILTER_NAME_FLAG:
 
                 # --- append file name filter ---
-                result.file_name_filters.append(arg)
+                result.name_filters.append(arg)
+            
+            elif next_arg[0] == _FILTER_PATH_FLAG:
+
+                # --- append file path filter ---
+                result.path_filters.append(arg)
 
             else:
                 raise BaseException("unknown argument name pushed to "
@@ -908,6 +919,10 @@ def __parse_argv(argv):
                 # filter file names
                 elif option == 'filter-name':
                     next_args.append((_FILTER_NAME_FLAG, '--filter-name'))
+
+                # filter file paths
+                elif option == 'filter-path':
+                    next_args.append((_FILTER_PATH_FLAG, '--filter-path'))
 
                 # force overwrite
                 elif option == 'force':
@@ -988,6 +1003,10 @@ def __parse_argv(argv):
                     elif ch == 'N':
                         next_args.append((_FILTER_NAME_FLAG, '-N'))
 
+                    # filter file paths
+                    elif ch == 'P':
+                        next_args.append((_FILTER_PATH_FLAG, '-P'))
+
                     # force overwrite
                     elif ch == 'f':
                         result.switchs |= _FORCE_FLAG
@@ -1054,7 +1073,7 @@ def __parse_argv(argv):
     if next_args:
         __print_error(
                 "{!r} option requires an argument".format(next_args[0][1]))
-        print(__TRY.format(argv[0]))
+        __print_try(argv[0])
         return 1
 
     if input_number == 0:
