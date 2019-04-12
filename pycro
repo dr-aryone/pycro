@@ -1980,15 +1980,27 @@ def main(argv):
     #   [_INPUT_FLAG, 'path']
     #   [_INPUT_FLAG, sys.stdin]
 
-    # --- append real path, remove dirs ---
+    # --- append real path ---
     for item in options.jobs:
         if item[0] == _INPUT_FLAG and isinstance(item[1], str):
-            # TODO: complete here
-            item.append( __realpath(__abspath(item[1])) )
+            item.append(__realpath(__abspath(item[1])))
 
     # options.jobs contains:
     #   [_INPUT_FLAG, 'path', 'real_path']
     #   [_INPUT_FLAG, sys.stdin]
+
+    # --- check directories ---
+    if _RECURSIVE_FLAG & options.switchs:
+        # TODO: complete here
+        raise BaseException("unimplemented code")
+    else:
+        i = 0
+        while i < len(options.jobs):
+            job = options.jobs
+            if job[0] == _INPUT_FLAG and isinstance(job[1], str):
+                if __isdir(job[2]):
+                    # TODO: print ignore directory
+                    options.jobs.pop(i)
 
     if _ARRANGE_PROCESS_FLAG & options.switchs:
 
