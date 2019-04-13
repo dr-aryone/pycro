@@ -195,8 +195,8 @@ if __debug__:
         for job in options.jobs:
             print(
                     '{}{}'.format(
-                        ' ' * 4, 
-                        ', '.join([ __job_flag_name(job[0]), 
+                        ' ' * 4,
+                        ', '.join([ __job_flag_name(job[0]),
                             *map(repr, job[1:]) ]),
                     )
                 )
@@ -226,14 +226,14 @@ if __debug__:
         if options.output is not None:
             print(
                 '{}{}'.format(
-                    ' ' * 4, 
+                    ' ' * 4,
                     ', '.join(
                         [ __output_flag_name(options.output[0]),
                             *map(repr, options.output[1:]) ]
                     )
                 )
             )
-        
+
 
 # --- utilities ---
 
@@ -413,7 +413,7 @@ def __queue_maker(write_object, read_object):
             self._lock = multiprocessing.RLock()
             self._size = multiprocessing.Value(ctypes.c_ulong, 0, lock=False)
             self._pipe_r, self_pipe_w = itertools.starmap(
-                _fdopen, 
+                _fdopen,
                 zip(os.pipe(), ('rb', 'wb'), (0, 0))
             )
 
@@ -451,11 +451,11 @@ class Workers:
             workers_number = os.sched_getaffinity(0)
 
         def process_init(
-                inputs_queue, 
-                outputs_queue, 
-                errors_queue, 
+                inputs_queue,
+                outputs_queue,
+                errors_queue,
                 workers_pid,
-                *args, 
+                *args,
                 **kwargs
                 ):
             try:
@@ -779,7 +779,7 @@ if __debug__:
     def __output_flag_name(flag):
         if flag == _OUTFILE_FLAG:
             return '_OUTFILE_FLAG'
-        
+
         elif flag == _OUTFOLDER_FLAG:
             return '_OUTFOLDER_FLAG'
 
@@ -900,7 +900,7 @@ def __parse_argv(argv):
 
                 # --- append file name filter ---
                 result.name_ignores.append(arg)
-            
+
             elif next_arg[0] == _IGNORE_PATH_FLAG:
 
                 # --- append file path filter ---
@@ -1712,7 +1712,7 @@ def execute_code_object(
     variables[env.version_variable_name] = VERSION
 
     # --- command variable ---
-    
+
     if command is not None:
         variables[env.command_variable_name] = command
 
@@ -1830,7 +1830,7 @@ def __walk_files(root, name_ignores, path_ignores, sort_func):
 
                 if matched:
                     continue # continue os.listdir
-                
+
                 new_path = __joinpath(path, name)
 
                 # filter file path
@@ -1841,7 +1841,7 @@ def __walk_files(root, name_ignores, path_ignores, sort_func):
 
                 if matched:
                     continue # continue os.listdir
-                
+
                 new_result.append(new_path)
 
             # pop the path
@@ -1850,7 +1850,7 @@ def __walk_files(root, name_ignores, path_ignores, sort_func):
             # now extend result
             result.extend(new_result)
 
-            continue    
+            continue
         i += 1
     return result
 
@@ -2116,14 +2116,14 @@ def main(argv):
             # options.jobs contains:
             #   [_INPUT_FLAG, 'path', 'abs_path']
             #   [_INPUT_FLAG, sys.stdin]
-            
+
             # remove input FILE paths
             for pattern in options.path_ignores:
                 if fnmatch.fnmatch(item[2], pattern):
                     # pop matched file path
                     options.jobs.pop(i)
                     continue
-            
+
             # --- append real path ---
             item.append(__realpath(item[2]))
         i += 1
@@ -2143,7 +2143,7 @@ def main(argv):
                     __isdir(item[3]):
                 files = __walk_files(
                     item[3],
-                    options.name_ignores, 
+                    options.name_ignores,
                     options.path_ignores,
                     sorted,
                     )
