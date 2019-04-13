@@ -721,7 +721,7 @@ _SETTING_FLAG =             0x07
 _IGNORE_NAME_FLAG =         0x0a
 _IGNORE_PATH_FLAG =         0x0b
 
-# used in __parse_argv
+# used in __parse_argv:
 _OUTFILE_FLAG =             0x0c
 _OUTFOLDER_FLAG =           0x0d
 
@@ -2077,13 +2077,16 @@ def main(argv):
         shutil.rmtree(cache_folder_path)
 
     # --- read config file ---
-    config_file_path = __abspath(_CONFIG_FILE_NAME)
     try:
+        config_file_path = __abspath(_CONFIG_FILE_NAME)
         with open(config_file_path) as config_file:
             config = __create_config_parser()
             config.read_file(config_file)
     except FileNotFoundError:
         config = None
+
+    # config can be:
+    #   None or ConfigParser
 
     # options.jobs contains:
     #   [_INPUT_FLAG, 'path']
@@ -2166,11 +2169,10 @@ def main(argv):
     #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] filtered by name, path
     #   [_INPUT_FLAG, sys.stdin]
 
+    print_line('jobs')
     for item in options.jobs:
-        if item[0] == _INPUT_FLAG:
-            pprint(item)
+        print(item)
     sys.exit(1)
-
 
     if _ARRANGE_PROCESS_FLAG & options.switchs:
 
