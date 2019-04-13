@@ -2023,9 +2023,11 @@ def __apply_config_filters(config, filters):
         pass
 
 def __compiler_worker(
-        item,
+        file_real_path,
+        cache_folder_path,
         ):
-    pass
+    cache_file_path = \
+        __get_cache_file_path(cache_folder_path, file_real_path)
 
 def main(argv):
 
