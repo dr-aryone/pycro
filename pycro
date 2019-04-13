@@ -202,11 +202,11 @@ if __debug__:
                 )
         # name filters
         print_line('name filters', width=40)
-        for pattern in options.name_filters:
+        for pattern in options.name_ignores:
             print('{}{!r}'.format(' ' * 4, pattern))
         # path filters
         print_line('path filters', width=40)
-        for pattern in options.path_filters:
+        for pattern in options.path_ignores:
             print('{}{!r}'.format(' ' * 4, pattern))
         # switchs
         print_line('switchs', width=40)
@@ -792,8 +792,8 @@ if __debug__:
 def __parse_argv(argv):
     result = dotdict(
             jobs = collections.deque(),
-            name_filters = collections.deque(),
-            path_filters = collections.deque(),
+            name_ignores = collections.deque(),
+            path_ignores = collections.deque(),
             switchs = 0,
             output = None,
             )
@@ -899,12 +899,12 @@ def __parse_argv(argv):
             elif next_arg[0] == _FILTER_NAME_FLAG:
 
                 # --- append file name filter ---
-                result.name_filters.append(arg)
+                result.name_ignores.append(arg)
             
             elif next_arg[0] == _FILTER_PATH_FLAG:
 
                 # --- append file path filter ---
-                result.path_filters.append(arg)
+                result.path_ignores.append(arg)
 
             else:
                 raise BaseException("unknown argument name pushed to "
@@ -1117,8 +1117,8 @@ def __parse_argv(argv):
         result.jobs.append( [_INPUT_FLAG, sys.stdin] )
 
     result.jobs = list(result.jobs)
-    result.name_filters = list(result.name_filters)
-    result.path_filters = list(result.path_filters)
+    result.name_ignores = list(result.name_ignores)
+    result.path_ignores = list(result.path_ignores)
     return result
 
 # *** errors ***
@@ -1808,7 +1808,7 @@ else:
             'implement __get_cache_file_path() for your platform: {}'.format(
                 sys.platform))
 
-def __walk_files(root, name_filters, path_filters, sort_func):
+def __walk_files(root, name_ignores, path_ignores, sort_func):
     # root is a real path
     result = [root]
     i = 0
@@ -1823,7 +1823,7 @@ def __walk_files(root, name_filters, path_filters, sort_func):
             for name in names:
                 # filter file name
                 matched = False
-                for pattern in name_filters:
+                for pattern in name_ignores:
                     if fnmatch.fnmatch(name, pattern):
                         matched = True
                         break
@@ -1834,7 +1834,7 @@ def __walk_files(root, name_filters, path_filters, sort_func):
                 new_path = __joinpath(path, name)
 
                 # filter file path
-                for pattern in path_filters:
+                for pattern in path_ignores:
                     if fnmatch.fnmatch(new_path, pattern):
                         matched = True
                         break
@@ -2101,7 +2101,7 @@ def main(argv):
             #   [_INPUT_FLAG, sys.stdin]
 
             # remove input FILE names
-            for pattern in options.name_filters:
+            for pattern in options.name_ignores:
                 if fnmatch.fnmatch(__splitpath(item[1])[1], pattern):
                     # pop matched file name
                     options.pop(i)
@@ -2115,7 +2115,7 @@ def main(argv):
             #   [_INPUT_FLAG, sys.stdin]
             
             # remove input FILE paths
-            for pattern in options.path_filters:
+            for pattern in options.path_ignores:
                 if fnmatch.fnmatch(item[2], pattern):
                     # pop matched file path
                     options.jobs.pop(i)
@@ -2136,8 +2136,8 @@ def main(argv):
             item = options.jobs[i]
             __walk_files(
                 item[3],
-                options.name_filters, 
-                options.path_filters,
+                options.name_ignores, 
+                options.path_ignores,
                 sorted,
                 )
 
