@@ -2085,7 +2085,7 @@ def main(argv):
         i = 0
         while i < len(options.jobs):
             item = options.jobs[i]
-
+            
 
     else:
         i = 0
@@ -2105,6 +2105,7 @@ def main(argv):
         if item[0] == _INPUT_FLAG:
             print('input:', item[1:])
     sys.exit(1)
+
 
     if _ARRANGE_PROCESS_FLAG & options.switchs:
 
