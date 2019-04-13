@@ -238,7 +238,6 @@ if __debug__:
 # --- utilities ---
 
 __joinpath = os.path.join
-
 __abspath = os.path.abspath
 __normpath = os.path.normpath
 __realpath = os.path.realpath
@@ -1118,6 +1117,8 @@ def __parse_argv(argv):
         result.jobs.append( [_INPUT_FLAG, sys.stdin] )
 
     result.jobs = list(result.jobs)
+    result.name_filters = list(result.name_filters)
+    result.path_filters = list(result.path_filters)
     return result
 
 # *** errors ***
@@ -2019,7 +2020,6 @@ def main(argv):
     if __debug__:
         print_options(options)
         print_line(fill='=')
-        sys.exit()
 
     # --- join cache folder path ---
     cache_folder_path = __joinpath(_HOME_DIRECTORY, _CACHE_FOLDER_NAME)
@@ -2041,51 +2041,70 @@ def main(argv):
     #   [_INPUT_FLAG, 'path']
     #   [_INPUT_FLAG, sys.stdin]
 
-    # --- filter input FILEs ---
+    # --- append abs path & real path, filter files ---
     i = 0
     while i < len(options.jobs):
         item = options.jobs[i]
+
         if item[0] == _INPUT_FLAG and isinstance(item[1], str):
 
-            # remove input FILE name
+            # options.jobs contains:
+            #   [_INPUT_FLAG, 'path']
+            #   [_INPUT_FLAG, sys.stdin]
+
+            # remove input FILE names
             for pattern in options.name_filters:
-                if fnmatch.fnmatch(__splitpath(item[1])[1], pattern) :
+                if fnmatch.fnmatch(__splitpath(item[1])[1], pattern):
                     # pop matched file name
-                    options.jobs.pop(i)
+                    options.pop(i)
                     continue
+
+            # --- append abs path ---
+            item.append(__abspath(item[1]))
+
+            # options.jobs contains:
+            #   [_INPUT_FLAG, 'path', 'abs_path']
+            #   [_INPUT_FLAG, sys.stdin]
             
-            # remove input FILE path
+            # remove input FILE paths
             for pattern in options.path_filters:
-                if fnmatch.fnmatch(item[1], pattern):
+                if fnmatch.fnmatch(item[2], pattern):
                     # pop matched file path
                     options.jobs.pop(i)
                     continue
-
-        i += 1
-
-    # options.jobs contains:
-    #   [_INPUT_FLAG, 'path-filtered']
-    #   [_INPUT_FLAG, sys.stdin]
-
-    # --- append real path ---
-    for item in options.jobs:
-        if item[0] == _INPUT_FLAG and isinstance(item[1], str):
-            item.append(__realpath(__abspath(item[1])))
+            
+            # --- append real path ---
+            item.append(__realpath(item[2]))
 
     # options.jobs contains:
-    #   [_INPUT_FLAG, 'path', 'real_path']
+    #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path]
     #   [_INPUT_FLAG, sys.stdin]
 
     # --- check directories ---
-    
-
     if _RECURSIVE_FLAG & options.switchs:
-        # TODO: complete here
-        raise BaseException('unimplemented code')
+        i = 0
+        while i < len(options.jobs):
+            item = options.jobs[i]
+
 
     else:
-        # TODO: remove directories
-        raise BaseException('unimplemented code')
+        i = 0
+        while i < len(options.jobs):
+            item = options.jobs[i]
+            if __isdir(item[3]):
+                print(
+                    'pycro: -r not specified; omitting {!r} directory'.format(
+                        item[1],
+                    ),
+                    file=sys.stderr,
+                )
+            else:
+                i += 1
+
+    for item in options.jobs:
+        if item[0] == _INPUT_FLAG:
+            print('input:', item[1:])
+    sys.exit(1)
 
     if _ARRANGE_PROCESS_FLAG & options.switchs:
 
