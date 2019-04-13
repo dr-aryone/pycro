@@ -567,9 +567,9 @@ Sortable options:
                                       standard input)
 
 Common options:
-    -N, --filter-name PATTERN       ignore any input FILEs that its name match
+    -N, --ignore-name PATTERN       ignore any input FILEs that its name match
                                       shell PATTERN
-    -P, --filter-path PATTERN       ignore any input FILEs that its path match
+    -P, --ignore-path PATTERN       ignore any input FILEs that its path match
                                       shell PATTERN
     -f, --force                     overwrite existing files
     -r, --recursive                 pycro directories recursively
@@ -953,13 +953,13 @@ def __parse_argv(argv):
                 elif option == 'arrange-process':
                     result.switchs |= _ARRANGE_PROCESS_FLAG
 
-                # filter file names
-                elif option == 'filter-name':
-                    next_args.append((_FILTER_NAME_FLAG, '--filter-name'))
+                # ignore file names
+                elif option == 'ignore-name':
+                    next_args.append((_FILTER_NAME_FLAG, '--ignore-name'))
 
-                # filter file paths
-                elif option == 'filter-path':
-                    next_args.append((_FILTER_PATH_FLAG, '--filter-path'))
+                # ignore file paths
+                elif option == 'ignore-path':
+                    next_args.append((_FILTER_PATH_FLAG, '--ignore-path'))
 
                 # force overwrite
                 elif option == 'force':
@@ -1036,11 +1036,11 @@ def __parse_argv(argv):
                     elif ch == 'a':
                         result.switchs |= _ARRANGE_PROCESS_FLAG
 
-                    # filter file names
+                    # ignore file names
                     elif ch == 'N':
                         next_args.append((_FILTER_NAME_FLAG, '-N'))
 
-                    # filter file paths
+                    # ignore file paths
                     elif ch == 'P':
                         next_args.append((_FILTER_PATH_FLAG, '-P'))
 
