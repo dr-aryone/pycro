@@ -2104,7 +2104,7 @@ def main(argv):
             for pattern in options.name_ignores:
                 if fnmatch.fnmatch(__splitpath(item[1])[1], pattern):
                     # pop matched file name
-                    options.pop(i)
+                    options.jobs.pop(i)
                     continue
 
             # --- append abs path ---
@@ -2134,32 +2134,41 @@ def main(argv):
         i = 0
         while i < len(options.jobs):
             item = options.jobs[i]
-            __walk_files(
-                item[3],
-                options.name_ignores, 
-                options.path_ignores,
-                sorted,
-                )
+            if \
+                    item[0] == _INPUT_FLAG and \
+                    isinstance(item[1], str) and \
+                    __isdir(item[3]):
+                files = __walk_files(
+                    item[3],
+                    options.name_ignores, 
+                    options.path_ignores,
+                    sorted,
+                    )
+                options.jobs[i] = [_INPUT_FLAG, tuple(files)]
+            i += 1
 
     else:
         _LINE = 'pycro: -r not specified; omitting {!r} directory'
         i = 0
         while i < len(options.jobs):
             item = options.jobs[i]
-            if item[0] == _INPUT_FLAG and isinstance(item[1], str):
-                if __isdir(item[3]):
-                    print(_LINE.format(item[1]), file=sys.stderr)
-                    options.jobs.pop(i)
-                    continue
+            if \
+                    item[0] == _INPUT_FLAG and \
+                    isinstance(item[1], str) and \
+                    __isdir(item[3]):
+                print(_LINE.format(item[1]), file=sys.stderr)
+                options.jobs.pop(i)
+                continue
             i += 1
 
     # options.jobs contains:
-    #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path] filtered by name, path
+    #   [_INPUT_FLAG, [walked files]] filtered by name, path
+    #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] filtered by name, path
     #   [_INPUT_FLAG, sys.stdin]
 
     for item in options.jobs:
         if item[0] == _INPUT_FLAG:
-            print('input:', item[1:])
+            pprint(item)
     sys.exit(1)
 
 
