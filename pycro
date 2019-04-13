@@ -2075,6 +2075,7 @@ def main(argv):
             
             # --- append real path ---
             item.append(__realpath(item[2]))
+        i += 1
 
     # options.jobs contains:
     #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path]
@@ -2085,13 +2086,13 @@ def main(argv):
         i = 0
         while i < len(options.jobs):
             item = options.jobs[i]
-            
 
     else:
         i = 0
         while i < len(options.jobs):
             item = options.jobs[i]
             if __isdir(item[3]):
+                options.jobs.pop(i)
                 print(
                     'pycro: -r not specified; omitting {!r} directory'.format(
                         item[1],
