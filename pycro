@@ -1808,6 +1808,52 @@ else:
             'implement __get_cache_file_path() for your platform: {}'.format(
                 sys.platform))
 
+def __walk_files(root, name_filters, path_filters, sort_func):
+    # root is a real path
+    result = [root]
+    i = 0
+    while i < len(result):
+        path = result[i]
+
+        if __isdir(path):
+            new_result = collections.deque()
+
+            # walk into directory
+            names = sort_func(os.listdir(path))
+            for name in names:
+                # filter file name
+                matched = False
+                for pattern in name_filters:
+                    if fnmatch.fnmatch(name, pattern):
+                        matched = True
+                        break
+
+                if matched:
+                    continue # continue os.listdir
+                
+                new_path = __joinpath(path, name)
+
+                # filter file path
+                for pattern in path_filters:
+                    if fnmatch.fnmatch(new_path, pattern):
+                        matched = True
+                        break
+
+                if matched:
+                    continue # continue os.listdir
+                
+                new_result.append(new_path)
+
+            # pop the path
+            result.pop(i)
+
+            # now extend result
+            result.extend(new_result)
+
+            continue    
+        i += 1
+    return result
+
 def __write_compiled_code_env(code_object, env, outfile):
     # --- writing to file ---
     outfile.write(_CACHE_FILE_MAGIC_NUMBER)
@@ -2078,7 +2124,7 @@ def main(argv):
         i += 1
 
     # options.jobs contains:
-    #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path]
+    #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path] filtered by name, path
     #   [_INPUT_FLAG, sys.stdin]
 
     # --- check directories ---
@@ -2086,21 +2132,28 @@ def main(argv):
         i = 0
         while i < len(options.jobs):
             item = options.jobs[i]
+            __walk_files(
+                item[3],
+                options.name_filters, 
+                options.path_filters,
+                sorted,
+                )
 
     else:
+        _LINE = 'pycro: -r not specified; omitting {!r} directory'
         i = 0
         while i < len(options.jobs):
             item = options.jobs[i]
-            if __isdir(item[3]):
-                options.jobs.pop(i)
-                print(
-                    'pycro: -r not specified; omitting {!r} directory'.format(
-                        item[1],
-                    ),
-                    file=sys.stderr,
-                )
-            else:
-                i += 1
+            if item[0] == _INPUT_FLAG and isinstance(item[1], str):
+                if __isdir(item[3]):
+                    print(_LINE.format(item[1]), file=sys.stderr)
+                    options.jobs.pop(i)
+                    continue
+            i += 1
+
+    # options.jobs contains:
+    #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path] filtered by name, path
+    #   [_INPUT_FLAG, sys.stdin]
 
     for item in options.jobs:
         if item[0] == _INPUT_FLAG:
