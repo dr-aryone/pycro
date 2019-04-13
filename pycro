@@ -200,12 +200,12 @@ if __debug__:
                             *map(repr, job[1:]) ]),
                     )
                 )
-        # name filters
-        print_line('name filters', width=40)
+        # name ignores
+        print_line('name ignores', width=40)
         for pattern in options.name_ignores:
             print('{}{!r}'.format(' ' * 4, pattern))
-        # path filters
-        print_line('path filters', width=40)
+        # path ignores
+        print_line('path ignores', width=40)
         for pattern in options.path_ignores:
             print('{}{!r}'.format(' ' * 4, pattern))
         # switchs
@@ -718,8 +718,8 @@ _UNDEFINE_FLAG =            0x06
 _SETTING_FLAG =             0x07
 
 # used in __parse_argv:
-_FILTER_NAME_FLAG =         0x0a
-_FILTER_PATH_FLAG =         0x0b
+_IGNORE_NAME_FLAG =         0x0a
+_IGNORE_PATH_FLAG =         0x0b
 
 # used in __parse_argv
 _OUTFILE_FLAG =             0x0c
@@ -770,8 +770,8 @@ if __debug__:
         elif flag == _OUTFOLDER_FLAG:
             return '_OUTFOLDER_FLAG'
 
-        elif flag == '_FILTER_NAME_FLAG':
-            return '_FILTER_NAME_FLAG'
+        elif flag == '_IGNORE_NAME_FLAG':
+            return '_IGNORE_NAME_FLAG'
 
         else:
             raise ValueError('unknown flag: {}'.format(flag))
@@ -896,12 +896,12 @@ def __parse_argv(argv):
 
                 result.jobs.append((_SETTING_FLAG, arg))
 
-            elif next_arg[0] == _FILTER_NAME_FLAG:
+            elif next_arg[0] == _IGNORE_NAME_FLAG:
 
                 # --- append file name filter ---
                 result.name_ignores.append(arg)
             
-            elif next_arg[0] == _FILTER_PATH_FLAG:
+            elif next_arg[0] == _IGNORE_PATH_FLAG:
 
                 # --- append file path filter ---
                 result.path_ignores.append(arg)
@@ -955,11 +955,11 @@ def __parse_argv(argv):
 
                 # ignore file names
                 elif option == 'ignore-name':
-                    next_args.append((_FILTER_NAME_FLAG, '--ignore-name'))
+                    next_args.append((_IGNORE_NAME_FLAG, '--ignore-name'))
 
                 # ignore file paths
                 elif option == 'ignore-path':
-                    next_args.append((_FILTER_PATH_FLAG, '--ignore-path'))
+                    next_args.append((_IGNORE_PATH_FLAG, '--ignore-path'))
 
                 # force overwrite
                 elif option == 'force':
@@ -1038,11 +1038,11 @@ def __parse_argv(argv):
 
                     # ignore file names
                     elif ch == 'N':
-                        next_args.append((_FILTER_NAME_FLAG, '-N'))
+                        next_args.append((_IGNORE_NAME_FLAG, '-N'))
 
                     # ignore file paths
                     elif ch == 'P':
-                        next_args.append((_FILTER_PATH_FLAG, '-P'))
+                        next_args.append((_IGNORE_PATH_FLAG, '-P'))
 
                     # force overwrite
                     elif ch == 'f':
