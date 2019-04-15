@@ -195,18 +195,18 @@ if __debug__:
         for job in options.jobs:
             print(
                     '{}{}'.format(
-                        ' ' * 4, 
-                        ', '.join([ __job_flag_name(job[0]), 
+                        ' ' * 4,
+                        ', '.join([ __job_flag_name(job[0]),
                             *map(repr, job[1:]) ]),
                     )
                 )
-        # name filters
-        print_line('name filters', width=40)
-        for pattern in options.name_filters:
+        # name ignores
+        print_line('name ignores', width=40)
+        for pattern in options.name_ignores:
             print('{}{!r}'.format(' ' * 4, pattern))
-        # path filters
-        print_line('path filters', width=40)
-        for pattern in options.path_filters:
+        # path ignores
+        print_line('path ignores', width=40)
+        for pattern in options.path_ignores:
             print('{}{!r}'.format(' ' * 4, pattern))
         # switchs
         print_line('switchs', width=40)
@@ -226,14 +226,14 @@ if __debug__:
         if options.output is not None:
             print(
                 '{}{}'.format(
-                    ' ' * 4, 
+                    ' ' * 4,
                     ', '.join(
                         [ __output_flag_name(options.output[0]),
                             *map(repr, options.output[1:]) ]
                     )
                 )
             )
-        
+
 
 # --- utilities ---
 
@@ -413,7 +413,7 @@ def __queue_maker(write_object, read_object):
             self._lock = multiprocessing.RLock()
             self._size = multiprocessing.Value(ctypes.c_ulong, 0, lock=False)
             self._pipe_r, self_pipe_w = itertools.starmap(
-                _fdopen, 
+                _fdopen,
                 zip(os.pipe(), ('rb', 'wb'), (0, 0))
             )
 
@@ -451,11 +451,11 @@ class Workers:
             workers_number = os.sched_getaffinity(0)
 
         def process_init(
-                inputs_queue, 
-                outputs_queue, 
-                errors_queue, 
+                inputs_queue,
+                outputs_queue,
+                errors_queue,
                 workers_pid,
-                *args, 
+                *args,
                 **kwargs
                 ):
             try:
@@ -567,9 +567,9 @@ Sortable options:
                                       standard input)
 
 Common options:
-    -N, --filter-name PATTERN       ignore any input FILEs that its name match
+    -N, --ignore-name PATTERN       ignore any input FILEs that its name match
                                       shell PATTERN
-    -P, --filter-path PATTERN       ignore any input FILEs that its path match
+    -P, --ignore-path PATTERN       ignore any input FILEs that its path match
                                       shell PATTERN
     -f, --force                     overwrite existing files
     -r, --recursive                 pycro directories recursively
@@ -718,10 +718,10 @@ _UNDEFINE_FLAG =            0x06
 _SETTING_FLAG =             0x07
 
 # used in __parse_argv:
-_FILTER_NAME_FLAG =         0x0a
-_FILTER_PATH_FLAG =         0x0b
+_IGNORE_NAME_FLAG =         0x0a
+_IGNORE_PATH_FLAG =         0x0b
 
-# used in __parse_argv
+# used in __parse_argv:
 _OUTFILE_FLAG =             0x0c
 _OUTFOLDER_FLAG =           0x0d
 
@@ -770,8 +770,8 @@ if __debug__:
         elif flag == _OUTFOLDER_FLAG:
             return '_OUTFOLDER_FLAG'
 
-        elif flag == '_FILTER_NAME_FLAG':
-            return '_FILTER_NAME_FLAG'
+        elif flag == '_IGNORE_NAME_FLAG':
+            return '_IGNORE_NAME_FLAG'
 
         else:
             raise ValueError('unknown flag: {}'.format(flag))
@@ -779,7 +779,7 @@ if __debug__:
     def __output_flag_name(flag):
         if flag == _OUTFILE_FLAG:
             return '_OUTFILE_FLAG'
-        
+
         elif flag == _OUTFOLDER_FLAG:
             return '_OUTFOLDER_FLAG'
 
@@ -792,8 +792,8 @@ if __debug__:
 def __parse_argv(argv):
     result = dotdict(
             jobs = collections.deque(),
-            name_filters = collections.deque(),
-            path_filters = collections.deque(),
+            name_ignores = collections.deque(),
+            path_ignores = collections.deque(),
             switchs = 0,
             output = None,
             )
@@ -896,15 +896,15 @@ def __parse_argv(argv):
 
                 result.jobs.append((_SETTING_FLAG, arg))
 
-            elif next_arg[0] == _FILTER_NAME_FLAG:
+            elif next_arg[0] == _IGNORE_NAME_FLAG:
 
                 # --- append file name filter ---
-                result.name_filters.append(arg)
-            
-            elif next_arg[0] == _FILTER_PATH_FLAG:
+                result.name_ignores.append(arg)
+
+            elif next_arg[0] == _IGNORE_PATH_FLAG:
 
                 # --- append file path filter ---
-                result.path_filters.append(arg)
+                result.path_ignores.append(arg)
 
             else:
                 raise BaseException("unknown argument name pushed to "
@@ -953,13 +953,13 @@ def __parse_argv(argv):
                 elif option == 'arrange-process':
                     result.switchs |= _ARRANGE_PROCESS_FLAG
 
-                # filter file names
-                elif option == 'filter-name':
-                    next_args.append((_FILTER_NAME_FLAG, '--filter-name'))
+                # ignore file names
+                elif option == 'ignore-name':
+                    next_args.append((_IGNORE_NAME_FLAG, '--ignore-name'))
 
-                # filter file paths
-                elif option == 'filter-path':
-                    next_args.append((_FILTER_PATH_FLAG, '--filter-path'))
+                # ignore file paths
+                elif option == 'ignore-path':
+                    next_args.append((_IGNORE_PATH_FLAG, '--ignore-path'))
 
                 # force overwrite
                 elif option == 'force':
@@ -1036,13 +1036,13 @@ def __parse_argv(argv):
                     elif ch == 'a':
                         result.switchs |= _ARRANGE_PROCESS_FLAG
 
-                    # filter file names
+                    # ignore file names
                     elif ch == 'N':
-                        next_args.append((_FILTER_NAME_FLAG, '-N'))
+                        next_args.append((_IGNORE_NAME_FLAG, '-N'))
 
-                    # filter file paths
+                    # ignore file paths
                     elif ch == 'P':
-                        next_args.append((_FILTER_PATH_FLAG, '-P'))
+                        next_args.append((_IGNORE_PATH_FLAG, '-P'))
 
                     # force overwrite
                     elif ch == 'f':
@@ -1117,8 +1117,8 @@ def __parse_argv(argv):
         result.jobs.append( [_INPUT_FLAG, sys.stdin] )
 
     result.jobs = list(result.jobs)
-    result.name_filters = list(result.name_filters)
-    result.path_filters = list(result.path_filters)
+    result.name_ignores = list(result.name_ignores)
+    result.path_ignores = list(result.path_ignores)
     return result
 
 # *** errors ***
@@ -1712,7 +1712,7 @@ def execute_code_object(
     variables[env.version_variable_name] = VERSION
 
     # --- command variable ---
-    
+
     if command is not None:
         variables[env.command_variable_name] = command
 
@@ -1807,6 +1807,52 @@ else:
     raise NotImplemented(
             'implement __get_cache_file_path() for your platform: {}'.format(
                 sys.platform))
+
+def __walk_files(root, name_ignores, path_ignores, sort_func):
+    # root is a real path
+    result = [root]
+    i = 0
+    while i < len(result):
+        path = result[i]
+
+        if __isdir(path):
+            new_result = collections.deque()
+
+            # walk into directory
+            names = sort_func(os.listdir(path))
+            for name in names:
+                # filter file name
+                matched = False
+                for pattern in name_ignores:
+                    if fnmatch.fnmatch(name, pattern):
+                        matched = True
+                        break
+
+                if matched:
+                    continue # continue os.listdir
+
+                new_path = __joinpath(path, name)
+
+                # filter file path
+                for pattern in path_ignores:
+                    if fnmatch.fnmatch(new_path, pattern):
+                        matched = True
+                        break
+
+                if matched:
+                    continue # continue os.listdir
+
+                new_result.append(new_path)
+
+            # pop the path
+            result.pop(i)
+
+            # now extend result
+            result.extend(new_result)
+
+            continue
+        i += 1
+    return result
 
 def __write_compiled_code_env(code_object, env, outfile):
     # --- writing to file ---
@@ -1977,9 +2023,11 @@ def __apply_config_filters(config, filters):
         pass
 
 def __compiler_worker(
-        item,
+        file_real_path,
+        cache_folder_path,
         ):
-    pass
+    cache_file_path = \
+        __get_cache_file_path(cache_folder_path, file_real_path)
 
 def main(argv):
 
@@ -2029,13 +2077,16 @@ def main(argv):
         shutil.rmtree(cache_folder_path)
 
     # --- read config file ---
-    config_file_path = __abspath(_CONFIG_FILE_NAME)
     try:
+        config_file_path = __abspath(_CONFIG_FILE_NAME)
         with open(config_file_path) as config_file:
             config = __create_config_parser()
             config.read_file(config_file)
     except FileNotFoundError:
         config = None
+
+    # config can be:
+    #   None or ConfigParser
 
     # options.jobs contains:
     #   [_INPUT_FLAG, 'path']
@@ -2053,10 +2104,10 @@ def main(argv):
             #   [_INPUT_FLAG, sys.stdin]
 
             # remove input FILE names
-            for pattern in options.name_filters:
+            for pattern in options.name_ignores:
                 if fnmatch.fnmatch(__splitpath(item[1])[1], pattern):
                     # pop matched file name
-                    options.pop(i)
+                    options.jobs.pop(i)
                     continue
 
             # --- append abs path ---
@@ -2065,20 +2116,20 @@ def main(argv):
             # options.jobs contains:
             #   [_INPUT_FLAG, 'path', 'abs_path']
             #   [_INPUT_FLAG, sys.stdin]
-            
+
             # remove input FILE paths
-            for pattern in options.path_filters:
+            for pattern in options.path_ignores:
                 if fnmatch.fnmatch(item[2], pattern):
                     # pop matched file path
                     options.jobs.pop(i)
                     continue
-            
+
             # --- append real path ---
             item.append(__realpath(item[2]))
         i += 1
 
     # options.jobs contains:
-    #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path]
+    #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path] filtered by name, path
     #   [_INPUT_FLAG, sys.stdin]
 
     # --- check directories ---
@@ -2086,27 +2137,42 @@ def main(argv):
         i = 0
         while i < len(options.jobs):
             item = options.jobs[i]
+            if \
+                    item[0] == _INPUT_FLAG and \
+                    isinstance(item[1], str) and \
+                    __isdir(item[3]):
+                files = __walk_files(
+                    item[3],
+                    options.name_ignores,
+                    options.path_ignores,
+                    sorted,
+                    )
+                options.jobs[i] = [_INPUT_FLAG, tuple(files)]
+            i += 1
 
     else:
+        _LINE = 'pycro: -r not specified; omitting {!r} directory'
         i = 0
         while i < len(options.jobs):
             item = options.jobs[i]
-            if __isdir(item[3]):
+            if \
+                    item[0] == _INPUT_FLAG and \
+                    isinstance(item[1], str) and \
+                    __isdir(item[3]):
+                print(_LINE.format(item[1]), file=sys.stderr)
                 options.jobs.pop(i)
-                print(
-                    'pycro: -r not specified; omitting {!r} directory'.format(
-                        item[1],
-                    ),
-                    file=sys.stderr,
-                )
-            else:
-                i += 1
+                continue
+            i += 1
 
+    # options.jobs contains:
+    #   [_INPUT_FLAG, [walked files]] filtered by name, path
+    #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] filtered by name, path
+    #   [_INPUT_FLAG, sys.stdin]
+
+    print_line('jobs')
     for item in options.jobs:
-        if item[0] == _INPUT_FLAG:
-            print('input:', item[1:])
+        print(item)
     sys.exit(1)
-
 
     if _ARRANGE_PROCESS_FLAG & options.switchs:
 
