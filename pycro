@@ -2131,7 +2131,7 @@ def main(argv):
         i += 1
 
     # options.jobs contains:
-    #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path] filtered by name, path
+    #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] filtered by name, path
     #   [_INPUT_FLAG, sys.stdin]
 
     # --- check directories ---
@@ -2153,7 +2153,7 @@ def main(argv):
             i += 1
 
     else:
-        _LINE = 'pycro: -r not specified; omitting {!r} directory'
+        _LINE = "pycro: -r not specified; omitting directory '{}'"
         i = 0
         while i < len(options.jobs):
             item = options.jobs[i]
