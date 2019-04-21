@@ -1,6 +1,8 @@
 *.swp
 
 __pycache__/
+*.pyc
+
 .vscode/*
 
 misc/pycro
