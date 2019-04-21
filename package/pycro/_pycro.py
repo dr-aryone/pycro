@@ -19,6 +19,8 @@
 
 # --- modules ---
 
+from __future__ import print_function
+
 import sys
 import os
 import io
@@ -32,6 +34,7 @@ import configparser
 import shutil
 import fnmatch
 import types
+import itertools
 
 import queue
 import multiprocessing
@@ -153,6 +156,8 @@ _OPTIMIZE_LEVEL = -1
 _MARSHAL_VERSION = 4
 _PICKLE_VERSION = pickle.HIGHEST_PROTOCOL
 
+_MULTIPROCESSING_ENABLED = False
+
 try:
     _MAX_PROCESS_NUMBER = len(os.sched_getaffinity(0))
 
@@ -181,33 +186,77 @@ if __debug__:
         else:
             print(fill * width)
 
-    def rprint(*objects, sep=', ', end='\n', file=sys.stdout):
-        if objects:
-            file.write(repr(objects[0]))
-            for obj in objects[1:]:
-                file.write(sep)
-                file.write(repr(obj))
-        file.write(end)
+    if sys.version_info[0] == 3:
+
+#        def rprint(*objects, sep=', ', end='\n', file=sys.stdout):
+#            file.write(
+#                '{}{}'.format(
+#                    sep.join(
+#                        repr(obj) for obj in objects,
+#                    ),
+#                    end,
+#                )
+#            )
+        pass
+
+    elif sys.version_info[0] == 2:
+
+        def rprint(*objects, **kwargs):
+            sep = ', '
+            end = '\n'
+            file = sys.stdout
+            for key, value in kwargs.items():
+                if key == 'sep':
+                    sep = value
+                elif key == 'end':
+                    end = value
+                elif key == 'file':
+                    file = value
+                else:
+                    raise TypeError(
+                            "{!r} is an invalid keyword argument for this " \
+                            "function".format(key)
+                        )
+
+            file.write(
+                '{}{}'.format(
+                    sep.join(
+                        repr(obj) for obj in objects,
+                    ),
+                    end,
+                )
+            )
+
+    else:
+        __not_implemented("print function")
 
     def print_options(options):
+
         # jobs
         print_line('jobs', width=40)
         for job in options.jobs:
             print(
                     '{}{}'.format(
                         ' ' * 4,
-                        ', '.join([ __job_flag_name(job[0]),
-                            *map(repr, job[1:]) ]),
+                        ', '.join(
+                            [__job_flag_name(job[0])] +
+                            list(
+                                map(repr, job[1:]) 
+                            )
+                        ),
                     )
                 )
+
         # name ignores
         print_line('name ignores', width=40)
         for pattern in options.name_ignores:
             print('{}{!r}'.format(' ' * 4, pattern))
+
         # path ignores
         print_line('path ignores', width=40)
         for pattern in options.path_ignores:
             print('{}{!r}'.format(' ' * 4, pattern))
+
         # switchs
         print_line('switchs', width=40)
         switchs = options.switchs
@@ -221,6 +270,7 @@ if __debug__:
                 print('{}{}'.format(' ' * 4, __bit_flag_name(flag)))
         if switchs:
             print("error: some bits on switchs is on")
+
         # outfile & outfolder
         print_line('output', width=40)
         if options.output is not None:
@@ -228,8 +278,10 @@ if __debug__:
                 '{}{}'.format(
                     ' ' * 4,
                     ', '.join(
-                        [ __output_flag_name(options.output[0]),
-                            *map(repr, options.output[1:]) ]
+                        [__output_flag_name(options.output[0])] +
+                        list(
+                            map(repr, options.output[1:])
+                        )
                     )
                 )
             )
@@ -634,8 +686,10 @@ __setting_keys = {
     'es', 'evaluation_suffix',
 }
 
-__language_specifications = {
-    **dict.fromkeys(
+__language_specifications = dict()
+
+__language_specifications.update(
+    dict.fromkeys(
         ['c', 'cpp', 'java', 'javascript'],
         dotdict(
             macro_prefix =          '//@',
@@ -654,8 +708,10 @@ __language_specifications = {
             evaluation_suffix =     '}}',
         ),
     ),
+)
 
-    **dict.fromkeys(
+__language_specifications.update(
+    dict.fromkeys(
         ['perl', 'python'],
         dotdict(
             macro_prefix =          '#@',
@@ -674,8 +730,10 @@ __language_specifications = {
             evaluation_suffix =     '}}',
         ),
     ),
+)
 
-    **dict.fromkeys(
+__language_specifications.update(
+    dict.fromkeys(
         ['html'],
         dotdict(
             macro_prefix =          '<!--@',
@@ -693,8 +751,8 @@ __language_specifications = {
             evaluation_prefix =     '$${{',
             evaluation_suffix =     '}}',
         ),
-    )
-}
+    ),
+)
 
 # --- switchs bit flags ---
 
@@ -1783,6 +1841,8 @@ def execute_code_object(
     variables[env.run_function_name] = _run_function
 
     # --- load function ---
+    # load json file and update variables, same as '-l, --load JSONFILE' 
+    # option.
 
     # TODO: write load function
 
@@ -2129,7 +2189,7 @@ def main(argv):
         i += 1
 
     # options.jobs contains:
-    #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path] filtered by name, path
+    #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] filtered by name, path
     #   [_INPUT_FLAG, sys.stdin]
 
     # --- check directories ---
@@ -2151,7 +2211,7 @@ def main(argv):
             i += 1
 
     else:
-        _LINE = 'pycro: -r not specified; omitting {!r} directory'
+        _LINE = "pycro: -r not specified; omitting directory '{}'"
         i = 0
         while i < len(options.jobs):
             item = options.jobs[i]
@@ -2193,10 +2253,14 @@ def main(argv):
                 (_SETTING_FLAG, _LANG_FLAG) ):
 
             if isinstance(item, tuple):
+                # --- apply settings ---
+
                 # item is a (Key, Value)
                 __apply_settings(item[0].lower(), item[1], compiler_env)
 
             else:
+                # --- apply language
+
                 # item is language specification
                 __apply_language(lang, compiler_env)
 
@@ -2206,8 +2270,6 @@ def main(argv):
 
         # --- first compile the inputs ---
         # TODO: complete here
-
-        print("I'm here")
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))
