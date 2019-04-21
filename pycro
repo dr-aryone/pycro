@@ -1785,6 +1785,8 @@ def execute_code_object(
     variables[env.run_function_name] = _run_function
 
     # --- load function ---
+    # load json file and update variables, same as '-l, --load JSONFILE' 
+    # option
 
     # TODO: write load function
 
@@ -2195,10 +2197,14 @@ def main(argv):
                 (_SETTING_FLAG, _LANG_FLAG) ):
 
             if isinstance(item, tuple):
+                # --- apply settings ---
+
                 # item is a (Key, Value)
                 __apply_settings(item[0].lower(), item[1], compiler_env)
 
             else:
+                # --- apply language
+
                 # item is language specification
                 __apply_language(lang, compiler_env)
 
@@ -2208,8 +2214,6 @@ def main(argv):
 
         # --- first compile the inputs ---
         # TODO: complete here
-
-        print("I'm here")
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))
