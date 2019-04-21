@@ -315,12 +315,15 @@ elif sys.version_info[0] == 2:
 else:
     raise NotImplemented(
             "implement _fdopen function for your python version: {}".format(
-                ','.join(n for n in sys.version_info[:3]),
+                '.'.join(n for n in sys.version_info[:3]),
             )
         )
 
 def _create_pipe(read_mode = 'rt', write_mode = 'wt'):
-    return map(_fdopen, zip(os.pipe(), (read_mode, write_mode)))
+    return itertools.starmap(
+        _fdopen,
+        zip(os.pipe(), (read_mode, write_mode)),
+    )
 
 class dotdict(dict):
     __getattr__ = dict.get
@@ -464,10 +467,7 @@ def __queue_maker(write_object, read_object):
         def __init__(self):
             self._lock = multiprocessing.RLock()
             self._size = multiprocessing.Value(ctypes.c_ulong, 0, lock=False)
-            self._pipe_r, self_pipe_w = itertools.starmap(
-                _fdopen,
-                zip(os.pipe(), ('rb', 'wb'), (0, 0))
-            )
+            self._pipe_r, self_pipe_w = _create_pipe()
 
         def qsize():
             return self._size.value
