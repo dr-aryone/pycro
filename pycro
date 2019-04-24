@@ -55,20 +55,37 @@ def __print_error(line, file = sys.stdout):
 
 # --- better main exception handling ---
 
-def __print_source(index = 0, context = 1, indent=False, file = sys.stdout):
+def __print_source(
+        index = 0, 
+        context = 1, 
+        number=True, 
+        file = sys.stdout,
+        ):
     if context <= 0:
         return
     frame_info = inspect.stack(context)[index + 1]
-    start_lnum = frame_info.lineno - (context // 2)
-    num_width = len(str(frame_info.lineno + ((context + 1) // 2)))
-    for n, line in enumerate(frame_info.code_context):
-        print('{0:>{2}} {1}'.format(n + start_lnum, line, num_width), end='')
+
+    if number:
+        start_lnum = frame_info.lineno - (context // 2)
+        num_width = len(str(frame_info.lineno + ((context + 1) // 2)))
+        for n, line in enumerate(frame_info.code_context):
+            print(
+                '{0:>{2}} {1}'.format(n + start_lnum, line, num_width), 
+                end='',
+            )
+
+    else:
+        for line in frame_info.code_context:
+            print(
+                line, 
+                end='',
+            )
 
 def __create_error_function(exception):
     def __error_function(error):
         if __name__ == '__main__':
             __print_error(error)
-            __print_source(1, context=5, file=sys.stderr)
+            __print_source(1, file=sys.stderr)
             sys.exit(_EXIT_FATAL_ERROR)
 
         else:
@@ -77,6 +94,11 @@ def __create_error_function(exception):
 
 __not_implemented = __create_error_function(NotImplementedError)
 __import_error = __create_error_function(ImportError)
+
+class FatalError(BaseException):
+    pass
+
+__fatal_error = __create_config_parser(FatalError)
 
 if sys.version_info[0] == 3:
     import builtins
@@ -168,8 +190,10 @@ except AttributeError:
     _MAX_PROCESS_NUMBER = os.cpu_count()
 
 if _MAX_PROCESS_NUMBER <= 0:
-    raise BaseException('invalid _MAX_PROCESS_NUMBER value: {}'.format(
-        _MAX_PROCESS_NUMBER))
+    __fatal_error('invalid _MAX_PROCESS_NUMBER value: {}'.format(
+        _MAX_PROCESS_NUMBER
+        )
+    )
 
 _SIZE_LEN = 4
 
@@ -188,6 +212,9 @@ if __debug__:
                 )
         else:
             print(fill * width)
+
+    # this function is not supported on python 2, and we are after
+    # before-removing-python-2-support branch. so we just leave it as it was.
 
     def rprint(*objects, sep=', ', end='\n', file=sys.stdout):
         file.write(
@@ -282,7 +309,7 @@ elif sys.version_info[0] == 2:
     _fdopen = os.fdopen
 
 else:
-    raise NotImplemented(
+    __not_implemented(
             "implement _fdopen function for your python version: {}".format(
                 '.'.join(n for n in sys.version_info[:3]),
             )
@@ -1733,9 +1760,11 @@ elif sys.platform == 'win32':
         return __joinpath(cache_folder_path, parts[0][0].lower(), *parts[1:])
 
 else:
-    raise NotImplemented(
-            'implement __get_cache_file_path() for your platform: {}'.format(
-                sys.platform))
+    __not_implemented(
+        'implement __get_cache_file_path() for your platform: {}'.format(
+            sys.platform
+        )
+    )
 
 def __walk_files(root, name_ignores, path_ignores, sort_func):
     # root is a real path
