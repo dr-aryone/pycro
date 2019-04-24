@@ -55,20 +55,37 @@ def __print_error(line, file = sys.stdout):
 
 # --- better main exception handling ---
 
-def __print_source(index = 0, context = 1, indent=False, file = sys.stdout):
+def __print_source(
+        index = 0, 
+        context = 1, 
+        number=True, 
+        file = sys.stdout,
+        ):
     if context <= 0:
         return
     frame_info = inspect.stack(context)[index + 1]
-    start_lnum = frame_info.lineno - (context // 2)
-    num_width = len(str(frame_info.lineno + ((context + 1) // 2)))
-    for n, line in enumerate(frame_info.code_context):
-        print('{0:>{2}} {1}'.format(n + start_lnum, line, num_width), end='')
+
+    if number:
+        start_lnum = frame_info.lineno - (context // 2)
+        num_width = len(str(frame_info.lineno + ((context + 1) // 2)))
+        for n, line in enumerate(frame_info.code_context):
+            print(
+                '{0:>{2}} {1}'.format(n + start_lnum, line, num_width), 
+                end='',
+            )
+
+    else:
+        for line in frame_info.code_context:
+            print(
+                line, 
+                end='',
+            )
 
 def __create_error_function(exception):
     def __error_function(error):
         if __name__ == '__main__':
             __print_error(error)
-            __print_source(1, context=5, file=sys.stderr)
+            __print_source(1, file=sys.stderr)
             sys.exit(_EXIT_FATAL_ERROR)
 
         else:
@@ -77,6 +94,11 @@ def __create_error_function(exception):
 
 __not_implemented = __create_error_function(NotImplementedError)
 __import_error = __create_error_function(ImportError)
+
+class FatalError(BaseException):
+    pass
+
+__fatal_error = __create_config_parser(FatalError)
 
 if sys.version_info[0] == 3:
     import builtins
@@ -101,8 +123,11 @@ elif sys.platform == 'win32':
     _HOME_DIRECTORY = os.environ['USERPROFILE']
 
 else:
-    raise NotImplemented('implement _HOME_DIRECTORY '
-            'for your platform: {}'.format(sys.platform))
+    __not_implemented(
+        'implement _HOME_DIRECTORY for your platform: {}'.format(
+            sys.platform
+        )
+    )
 
 _CACHE_FOLDER_NAME = '.pycro_cache'
 
@@ -165,8 +190,10 @@ except AttributeError:
     _MAX_PROCESS_NUMBER = os.cpu_count()
 
 if _MAX_PROCESS_NUMBER <= 0:
-    raise BaseException('invalid _MAX_PROCESS_NUMBER value: {}'.format(
-        _MAX_PROCESS_NUMBER))
+    __fatal_error('invalid _MAX_PROCESS_NUMBER value: {}'.format(
+        _MAX_PROCESS_NUMBER
+        )
+    )
 
 _SIZE_LEN = 4
 
@@ -186,49 +213,18 @@ if __debug__:
         else:
             print(fill * width)
 
-    if sys.version_info[0] == 3:
+    # this function is not supported on python 2, and we are after
+    # before-removing-python-2-support branch. so we just leave it as it was.
 
-#        def rprint(*objects, sep=', ', end='\n', file=sys.stdout):
-#            file.write(
-#                '{}{}'.format(
-#                    sep.join(
-#                        repr(obj) for obj in objects,
-#                    ),
-#                    end,
-#                )
-#            )
-        pass
-
-    elif sys.version_info[0] == 2:
-
-        def rprint(*objects, **kwargs):
-            sep = ', '
-            end = '\n'
-            file = sys.stdout
-            for key, value in kwargs.items():
-                if key == 'sep':
-                    sep = value
-                elif key == 'end':
-                    end = value
-                elif key == 'file':
-                    file = value
-                else:
-                    raise TypeError(
-                            "{!r} is an invalid keyword argument for this " \
-                            "function".format(key)
-                        )
-
-            file.write(
-                '{}{}'.format(
-                    sep.join(
-                        repr(obj) for obj in objects,
-                    ),
-                    end,
-                )
+    def rprint(*objects, sep=', ', end='\n', file=sys.stdout):
+        file.write(
+            '{}{}'.format(
+                sep.join(
+                    repr(obj) for obj in objects,
+                ),
+                end,
             )
-
-    else:
-        __not_implemented("print function")
+        )
 
     def print_options(options):
 
@@ -241,7 +237,7 @@ if __debug__:
                         ', '.join(
                             [__job_flag_name(job[0])] +
                             list(
-                                map(repr, job[1:]) 
+                                map(repr, job[1:])
                             )
                         ),
                     )
@@ -313,7 +309,7 @@ elif sys.version_info[0] == 2:
     _fdopen = os.fdopen
 
 else:
-    raise NotImplemented(
+    __not_implemented(
             "implement _fdopen function for your python version: {}".format(
                 '.'.join(n for n in sys.version_info[:3]),
             )
@@ -489,106 +485,6 @@ def __queue_maker(write_object, read_object):
 MarshalQueue = __queue_maker(_write_marshal_object, _read_marshal_object)
 
 PickleQueue = __queue_maker(_write_pickle_object, _read_pickle_object)
-
-class Workers:
-    def __init__(self, func, workers_number=None):
-
-        if args is None:
-            args = ()
-
-        if kwargs is None:
-            kwargs = kwargs
-
-        if workers_number is None:
-            workers_number = os.sched_getaffinity(0)
-
-        def process_init(
-                inputs_queue,
-                outputs_queue,
-                errors_queue,
-                workers_pid,
-                *args,
-                **kwargs
-                ):
-            try:
-
-                while True:
-                    try:
-                        inputs_queue.get()
-                    except queue.Empty:
-                        break
-
-                    try:
-                        result = func(item, *args, **kwargs)
-                    except BaseException as e:
-                        errors_queue.put(e)
-                        # TODO: signal other workers
-
-                    outputs_queue.put(result)
-            except KeyboardInterrupt:
-                pass
-
-        self._workers_number = workers_number
-        self._workers = [None] * workers_number
-        workers_pid = [None] * (workers_number + 1)
-
-        workers_pid[0] = multiprocessing.current_process().pid
-
-        # --- create Process and save its pid ---
-        for i in range(workers_number):
-            worker = multiprocessing.Process(
-                    target = process_init,
-                    name = '{} worker-{}'.format(func.__name__, i),
-                    )
-
-            workers_pid[i] = worker.pid
-
-            workers[i] = worker
-
-        self._outputs_queues = [None] * workers_number
-        self._errors_queue = None
-
-        # --- now set args, kwargs of each process ---
-        for i in range(workers_number):
-            self._outputs_queues[i] = MarshalQueue()
-
-            self._workers[i]._args = (
-                    self._inputs_queues[i],
-                    self._outputs_queues[i],
-                    errors_queue,
-                    workers_pid,
-                    ) + args
-
-            self._workers[i]._kwargs = {kwargs}
-
-    def start(self, inputs):
-
-        inputs_len = len(inputs) // self._max_workers
-        remaining = (inputs_len * self._max_workers) - inputs_len
-
-        start_i = 0
-        if remaining:
-            end_i = inputs_len + 1
-            remaining -= 1
-        else:
-            end_i = inputs_len
-
-        for i in range(self._max_workers):
-            worker = process_init(
-                    inputs[start_i:end_i],
-                    self._outputs_queue,
-                    *args, **kwargs)
-
-
-            self._workers.append(worker)
-
-            worker.start()
-
-    def free_workers(self):
-        i = 0
-        while i < len(self._workers):
-            if not self._workers.is_alive():
-                del self._workers[i]
 
 # --- command line help & options ---
 
@@ -1841,7 +1737,7 @@ def execute_code_object(
     variables[env.run_function_name] = _run_function
 
     # --- load function ---
-    # load json file and update variables, same as '-l, --load JSONFILE' 
+    # load json file and update variables, same as '-l, --load JSONFILE'
     # option.
 
     # TODO: write load function
@@ -1864,9 +1760,11 @@ elif sys.platform == 'win32':
         return __joinpath(cache_folder_path, parts[0][0].lower(), *parts[1:])
 
 else:
-    raise NotImplemented(
-            'implement __get_cache_file_path() for your platform: {}'.format(
-                sys.platform))
+    __not_implemented(
+        'implement __get_cache_file_path() for your platform: {}'.format(
+            sys.platform
+        )
+    )
 
 def __walk_files(root, name_ignores, path_ignores, sort_func):
     # root is a real path
@@ -1881,6 +1779,7 @@ def __walk_files(root, name_ignores, path_ignores, sort_func):
             # walk into directory
             names = sort_func(os.listdir(path))
             for name in names:
+
                 # filter file name
                 matched = False
                 for pattern in name_ignores:
@@ -2207,7 +2106,7 @@ def main(argv):
                     options.path_ignores,
                     sorted,
                     )
-                options.jobs[i] = [_INPUT_FLAG, tuple(files)]
+                options.jobs[i] = [_INPUT_FLAG, files]
             i += 1
 
     else:
@@ -2229,10 +2128,12 @@ def main(argv):
     #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] filtered by name, path
     #   [_INPUT_FLAG, sys.stdin]
 
+    ### debug code ###
     print_line('jobs')
     for item in options.jobs:
         print(item)
     sys.exit(1)
+    ### debug code ###
 
     if _ARRANGE_PROCESS_FLAG & options.switchs:
 
@@ -2265,7 +2166,9 @@ def main(argv):
                 __apply_language(lang, compiler_env)
 
         # options.jobs contains:
-        #   [_INPUT_FLAG, 'path', 'real_path']
+        #   [_INPUT_FLAG, [walked files]] filtered by name, path
+        #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] \
+        #       filtered by name, path
         #   [_INPUT_FLAG, sys.stdin]
 
         # --- first compile the inputs ---
