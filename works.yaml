@@ -1,17 +1,19 @@
 
-todos:
-- add __check_version__ function & version macro
-- add __argv__ variable if interpreted in pycro environment
 
+TODOs:
+- write '-o, --outfile', '-O, --outfolder' options functionalities.
+- add __argv__ variable
 
-dons:
-- nothing
+dones:
 
 
 interests:
-- may be need to add ( '--help-all' or '--full-help' ) option.
 
---- some temporary codes
+
+
+
+
+
 
 ```python
 # NOTE: '(?=(...))\1' works like atomic groups in other languages,
@@ -29,3 +31,4 @@ interests:
 #
 # TODO: test speed of both ways.
 ```
+
