@@ -186,49 +186,15 @@ if __debug__:
         else:
             print(fill * width)
 
-    if sys.version_info[0] == 3:
-
-#        def rprint(*objects, sep=', ', end='\n', file=sys.stdout):
-#            file.write(
-#                '{}{}'.format(
-#                    sep.join(
-#                        repr(obj) for obj in objects,
-#                    ),
-#                    end,
-#                )
-#            )
-        pass
-
-    elif sys.version_info[0] == 2:
-
-        def rprint(*objects, **kwargs):
-            sep = ', '
-            end = '\n'
-            file = sys.stdout
-            for key, value in kwargs.items():
-                if key == 'sep':
-                    sep = value
-                elif key == 'end':
-                    end = value
-                elif key == 'file':
-                    file = value
-                else:
-                    raise TypeError(
-                            "{!r} is an invalid keyword argument for this " \
-                            "function".format(key)
-                        )
-
-            file.write(
-                '{}{}'.format(
-                    sep.join(
-                        repr(obj) for obj in objects,
-                    ),
-                    end,
-                )
+    def rprint(*objects, sep=', ', end='\n', file=sys.stdout):
+        file.write(
+            '{}{}'.format(
+                sep.join(
+                    repr(obj) for obj in objects,
+                ),
+                end,
             )
-
-    else:
-        __not_implemented("print function")
+        )
 
     def print_options(options):
 
