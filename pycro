@@ -2166,7 +2166,9 @@ def main(argv):
                 __apply_language(lang, compiler_env)
 
         # options.jobs contains:
-        #   [_INPUT_FLAG, 'path', 'real_path']
+        #   [_INPUT_FLAG, [walked files]] filtered by name, path
+        #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] \
+        #       filtered by name, path
         #   [_INPUT_FLAG, sys.stdin]
 
         # --- first compile the inputs ---
