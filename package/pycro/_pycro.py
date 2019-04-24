@@ -237,7 +237,7 @@ if __debug__:
                         ', '.join(
                             [__job_flag_name(job[0])] +
                             list(
-                                map(repr, job[1:]) 
+                                map(repr, job[1:])
                             )
                         ),
                     )
@@ -1737,7 +1737,7 @@ def execute_code_object(
     variables[env.run_function_name] = _run_function
 
     # --- load function ---
-    # load json file and update variables, same as '-l, --load JSONFILE' 
+    # load json file and update variables, same as '-l, --load JSONFILE'
     # option.
 
     # TODO: write load function
@@ -2166,7 +2166,9 @@ def main(argv):
                 __apply_language(lang, compiler_env)
 
         # options.jobs contains:
-        #   [_INPUT_FLAG, 'path', 'real_path']
+        #   [_INPUT_FLAG, [walked files]] filtered by name, path
+        #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] \
+        #       filtered by name, path
         #   [_INPUT_FLAG, sys.stdin]
 
         # --- first compile the inputs ---
