@@ -101,8 +101,11 @@ elif sys.platform == 'win32':
     _HOME_DIRECTORY = os.environ['USERPROFILE']
 
 else:
-    raise NotImplemented('implement _HOME_DIRECTORY '
-            'for your platform: {}'.format(sys.platform))
+    __not_implemented(
+        'implement _HOME_DIRECTORY for your platform: {}'.format(
+            sys.platform
+        )
+    )
 
 _CACHE_FOLDER_NAME = '.pycro_cache'
 
@@ -1847,6 +1850,7 @@ def __walk_files(root, name_ignores, path_ignores, sort_func):
             # walk into directory
             names = sort_func(os.listdir(path))
             for name in names:
+
                 # filter file name
                 matched = False
                 for pattern in name_ignores:
@@ -2173,7 +2177,7 @@ def main(argv):
                     options.path_ignores,
                     sorted,
                     )
-                options.jobs[i] = [_INPUT_FLAG, tuple(files)]
+                options.jobs[i] = [_INPUT_FLAG, files]
             i += 1
 
     else:
@@ -2195,10 +2199,12 @@ def main(argv):
     #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] filtered by name, path
     #   [_INPUT_FLAG, sys.stdin]
 
+    ### debug code ###
     print_line('jobs')
     for item in options.jobs:
         print(item)
     sys.exit(1)
+    ### debug code ###
 
     if _ARRANGE_PROCESS_FLAG & options.switchs:
 
