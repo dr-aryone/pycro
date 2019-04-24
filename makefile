@@ -1,7 +1,11 @@
 
+
 PACKAGE_FOLDER = package
 PYCRO_PACKAGE_NAME = pycro
 PYCRO_FOLDER = $(PACKAGE_FOLDER)/$(PYCRO_PACKAGE_NAME)
+
+
+AUTO_COMMITS = makefile _README.md $(PACKAGE_FOLDER) misc .gitignore
 
 package: pycro __init__.py __main__.py
 	mkdir -p $(PYCRO_FOLDER)
@@ -16,4 +20,8 @@ import:
 import3:
 	$(MAKE) package
 	(cd $(PACKAGE_FOLDER) && python3 -ic "import pycro" -OO)
+
+commit-all:
+	git add $(AUTO_COMMITS)
+	git commit -m "update everything!"
 
