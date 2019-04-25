@@ -40,13 +40,33 @@ import queue
 import multiprocessing
 import signal
 
+# --- version ---
+
+_VersionType = collections.namedtuple(
+        'VersionType', 
+        ['major', 'minor', 'micro'],
+    )
+
+VERSION =  _VersionType(0, 0, 0)
+
+# --- exceptions ---
+
+class FatalError(BaseException):
+    pass
+
+class FileStructError(Exception):
+    pass
+
+class CompilerError(Exception):
+    pass
+
 # --- exit error code ---
 
 # NOTE: cross-python-version flags
-_EXIT_ERROR = 1
-_EXIT_FATAL_ERROR = 2
-_EXIT_SUCCESS = 0
-_EXIT_ARGUMENT_ERROR = -1
+EXIT_ERROR = 1
+EXIT_FATAL_ERROR = 2
+EXIT_SUCCESS = 0
+EXIT_ARGUMENT_ERROR = -1
 
 # --- some initial utilities ---
 
@@ -61,6 +81,7 @@ def __print_source(
         number=True, 
         file = sys.stdout,
         ):
+
     if context <= 0:
         return
     frame_info = inspect.stack(context)[index + 1]
@@ -84,9 +105,14 @@ def __print_source(
 def __create_error_function(exception):
     def __error_function(error):
         if __name__ == '__main__':
+
+            # --- print error message ---
             __print_error(error)
+
+            # --- write source code ---
             __print_source(1, file=sys.stderr)
-            sys.exit(_EXIT_FATAL_ERROR)
+
+            sys.exit(EXIT_FATAL_ERROR)
 
         else:
             raise exception(error)
@@ -95,10 +121,7 @@ def __create_error_function(exception):
 __not_implemented = __create_error_function(NotImplementedError)
 __import_error = __create_error_function(ImportError)
 
-class FatalError(BaseException):
-    pass
-
-__fatal_error = __create_config_parser(FatalError)
+__fatal_error = __create_error_function(FatalError)
 
 if sys.version_info[0] == 3:
     import builtins
@@ -117,24 +140,23 @@ else:
 # --- home directory & cache folder ---
 
 if sys.platform.startswith('linux') or sys.platform.startswith('freebsd'):
-    _HOME_DIRECTORY = os.environ['HOME']
+    HOME_DIRECTORY = os.environ['HOME']
 
 elif sys.platform == 'win32':
-    _HOME_DIRECTORY = os.environ['USERPROFILE']
+    HOME_DIRECTORY = os.environ['USERPROFILE']
 
 else:
     __not_implemented(
-        'implement _HOME_DIRECTORY for your platform: {}'.format(
+        'implement HOME_DIRECTORY for your platform: {}'.format(
             sys.platform
         )
     )
 
-_CACHE_FOLDER_NAME = '.pycro_cache'
+CACHE_FOLDER_NAME = '.pycro_cache'
 
+CONFIG_FILE_NAME = '.pycro'
 
-_CONFIG_FILE_NAME = '.pycro'
-
-_DEFAULT_STDIN_FILENAME = '<stdin>'
+DEFAULT_STDIN_FILENAME = '<stdin>'
 
 
 # --- patterns ---
@@ -172,14 +194,19 @@ _DEFAULT_VERSION_VARIABLE_NAME = '__version__'
 
 _DEFAULT_COMMAND_VARIABLE_NAME = '__command__'
 
+
 # --- other settings ---
 
 _CACHE_FILE_MAGIC_NUMBER = b'.pycroche'
 
 _COMPILE_FLAGS = 0
 _OPTIMIZE_LEVEL = -1
+
 _MARSHAL_VERSION = 4
 _PICKLE_VERSION = pickle.HIGHEST_PROTOCOL
+
+
+# --- multiprocessing settings ---
 
 _MULTIPROCESSING_ENABLED = False
 
@@ -197,7 +224,9 @@ if _MAX_PROCESS_NUMBER <= 0:
 
 _SIZE_LEN = 4
 
-# --- debuging code ---
+# TODO: remove debugging codes on final release
+
+################################################# debuging codes ###########
 
 if __debug__:
     from pprint import pprint
@@ -282,8 +311,31 @@ if __debug__:
                 )
             )
 
+################################################# debuging codes ###########
+
 
 # --- utilities ---
+
+class dotdict(dict):
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
+
+def __prettify_items(items, indent = '    ', width = 80):
+    if not items:
+        return ''
+
+    lines = collections.deque([indent + items[0]])
+
+    for item in items[1:]:
+        if len(lines[-1]) + len(item) + 1 >= width:
+            lines[-1] += ','
+            lines.append(indent + item)
+
+        else:
+            lines[-1] += ', ' + item
+
+    return '\n'.join(lines)
 
 __joinpath = os.path.join
 __abspath = os.path.abspath
@@ -318,32 +370,11 @@ else:
 def _create_pipe(read_mode = 'rt', write_mode = 'wt'):
     return itertools.starmap(
         _fdopen,
-        zip(os.pipe(), (read_mode, write_mode)),
+        zip(
+            os.pipe(), 
+            (read_mode, write_mode),
+        ),
     )
-
-class dotdict(dict):
-    __getattr__ = dict.get
-    __setattr__ = dict.__setitem__
-    __delattr__ = dict.__delitem__
-
-class FileStructError(Exception):
-    pass
-
-def __prettify_items(items, indent = '    ', width = 80):
-    if not items:
-        return ''
-
-    lines = collections.deque([indent + items[0]])
-
-    for item in items[1:]:
-        if len(lines[-1]) + len(item) + 1 >= width:
-            lines[-1] += ','
-            lines.append(indent + item)
-
-        else:
-            lines[-1] += ', ' + item
-
-    return '\n'.join(lines)
 
 # *** binary file operations ***
 
@@ -370,7 +401,7 @@ def _read_marshal_object(infile):
     _buffer_size = _read_size(infile)
     _buffer = infile.read(_buffer_size)
     if len(_buffer) != _buffer_size:
-        raise EOFError("End of file while reading object")
+        raise EOFError("End of file while reading marshal object")
     return marshal.loads(_buffer)
 
 # --- code objects ---
@@ -487,9 +518,6 @@ MarshalQueue = __queue_maker(_write_marshal_object, _read_marshal_object)
 PickleQueue = __queue_maker(_write_pickle_object, _read_pickle_object)
 
 # --- command line help & options ---
-
-VERSION = collections.namedtuple('VersionType', ['major', 'minor', 'micro']) \
-        (0, 0, 0)
 
 __USAGE = "usage: {} [OPTION]... [[--] FILE | -]..."
 __HELP = """\
@@ -861,7 +889,7 @@ def __parse_argv(argv):
                 result.path_ignores.append(arg)
 
             else:
-                raise BaseException("unknown argument name pushed to "
+                raise FatalError("unknown argument name pushed to "
                         "next_args: {}".format(next_arg))
 
             continue
@@ -1082,9 +1110,6 @@ _MACRO_REQUIRES = 1
 _WITHOUT_PRECEDING = 2
 _END_DOES_NOT_MATCH = 3
 _UNTERMINATED_BLOCK = 4
-
-class CompilerError(Exception):
-    pass
 
 # *** macros ***
 
@@ -2029,7 +2054,7 @@ def main(argv):
         print_line(fill='=')
 
     # --- join cache folder path ---
-    cache_folder_path = __joinpath(_HOME_DIRECTORY, _CACHE_FOLDER_NAME)
+    cache_folder_path = __joinpath(HOME_DIRECTORY, CACHE_FOLDER_NAME)
 
     # --- remove cache folder ---
     if _CLEAR_CACHE_FLAG & options.switchs:
@@ -2037,7 +2062,7 @@ def main(argv):
 
     # --- read config file ---
     try:
-        config_file_path = __abspath(_CONFIG_FILE_NAME)
+        config_file_path = __abspath(CONFIG_FILE_NAME)
         with open(config_file_path) as config_file:
             config = __create_config_parser()
             config.read_file(config_file)
@@ -2138,7 +2163,7 @@ def main(argv):
     if _ARRANGE_PROCESS_FLAG & options.switchs:
 
         # --- arranged performace ---
-        raise BaseException('unimplemented code')
+        raise FatalError('unimplemented code')
 
     else: # not (_ARRANGE_PROCESS_FLAG & options.switchs)
 
@@ -2173,6 +2198,36 @@ def main(argv):
 
         # --- first compile the inputs ---
         # TODO: complete here
+
+__all__ = [
+
+        # version
+        "VERSION",
+
+        # exceptions
+        "FatalError",
+        "FileStructError",
+        "CompilerError",
+
+        # exit errors
+        "EXIT_ERROR",
+        "EXIT_FATAL_ERROR",
+        "EXIT_SUCCESS",
+        "EXIT_ARGUMENT_ERROR",
+
+        # default directories
+        "HOME_DIRECTORY",
+        "CACHE_FOLDER_NAME",
+
+        # default file names
+        "CONFIG_FILE_NAME",
+        "DEFAULT_STDIN_FILENAME",
+        
+        # multiprocessing queues
+        "MarshalQueue",
+        "PickleQueue",
+
+        ]
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))

@@ -1,9 +1,7 @@
 
-
 PACKAGE_FOLDER = package
 PYCRO_PACKAGE_NAME = pycro
 PYCRO_FOLDER = $(PACKAGE_FOLDER)/$(PYCRO_PACKAGE_NAME)
-
 
 AUTO_COMMITS = makefile _README.md $(PACKAGE_FOLDER) misc .gitignore
 
@@ -13,7 +11,8 @@ package: pycro __init__.py __main__.py
 	cp __init__.py $(PYCRO_FOLDER)/__init__.py
 	cp __main__.py $(PYCRO_FOLDER)/__main__.py
 
-import: 
+# this import will failed
+import:
 	$(MAKE) package
 	(cd $(PACKAGE_FOLDER) && python -ic "import pycro" -OO)
 
