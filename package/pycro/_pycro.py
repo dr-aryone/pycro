@@ -487,7 +487,7 @@ def _read_string(infile):
 
     return _result.decode('utf-8')
 
-# --- Queue & Workers classes ---
+# --- Queue classes ---
 
 def __queue_maker(write_object, read_object):
     class Queue:
@@ -709,6 +709,8 @@ _OUTFOLDER_FLAG =           0x0d
 
 # *** argument parser ***
 
+################################################# debuging codes ###########
+
 if __debug__:
 
     def __bit_flag_name(flag):
@@ -767,6 +769,8 @@ if __debug__:
 
         else:
             raise ValueError('unknown flag: {}'.format(flag))
+
+################################################# debuging codes ###########
 
 # HACK: some interesting options:
 #       -i, --isolate                   isolate preprocessing each input file
