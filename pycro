@@ -40,6 +40,15 @@ import queue
 import multiprocessing
 import signal
 
+# --- version ---
+
+_VersionType = collections.namedtuple(
+        'VersionType', 
+        ['major', 'minor', 'micro'],
+    )
+
+VERSION =  _VersionType(0, 0, 0)
+
 # --- exceptions ---
 
 class FatalError(BaseException):
@@ -478,7 +487,6 @@ def _read_string(infile):
 
     return _result.decode('utf-8')
 
-
 # --- Queue & Workers classes ---
 
 def __queue_maker(write_object, read_object):
@@ -510,9 +518,6 @@ MarshalQueue = __queue_maker(_write_marshal_object, _read_marshal_object)
 PickleQueue = __queue_maker(_write_pickle_object, _read_pickle_object)
 
 # --- command line help & options ---
-
-VERSION = collections.namedtuple('VersionType', ['major', 'minor', 'micro']) \
-        (0, 0, 0)
 
 __USAGE = "usage: {} [OPTION]... [[--] FILE | -]..."
 __HELP = """\
@@ -2196,6 +2201,9 @@ def main(argv):
 
 __all__ = [
 
+        # version
+        "VERSION",
+
         # exceptions
         "FatalError",
         "FileStructError",
@@ -2214,8 +2222,10 @@ __all__ = [
         # default file names
         "CONFIG_FILE_NAME",
         "DEFAULT_STDIN_FILENAME",
-
-
+        
+        # multiprocessing queues
+        "MarshalQueue",
+        "PickleQueue",
 
         ]
 
