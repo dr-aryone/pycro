@@ -709,6 +709,8 @@ _OUTFOLDER_FLAG =           0x0d
 
 # *** argument parser ***
 
+################################################# debuging codes ###########
+
 if __debug__:
 
     def __bit_flag_name(flag):
@@ -767,6 +769,8 @@ if __debug__:
 
         else:
             raise ValueError('unknown flag: {}'.format(flag))
+
+################################################# debuging codes ###########
 
 # HACK: some interesting options:
 #       -i, --isolate                   isolate preprocessing each input file
