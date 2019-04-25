@@ -40,6 +40,17 @@ import queue
 import multiprocessing
 import signal
 
+# --- exceptions ---
+
+class FatalError(BaseException):
+    pass
+
+class FileStructError(Exception):
+    pass
+
+class CompilerError(Exception):
+    pass
+
 # --- exit error code ---
 
 # NOTE: cross-python-version flags
@@ -61,6 +72,7 @@ def __print_source(
         number=True, 
         file = sys.stdout,
         ):
+
     if context <= 0:
         return
     frame_info = inspect.stack(context)[index + 1]
@@ -84,8 +96,13 @@ def __print_source(
 def __create_error_function(exception):
     def __error_function(error):
         if __name__ == '__main__':
+
+            # --- print error message ---
             __print_error(error)
+
+            # --- write source code ---
             __print_source(1, file=sys.stderr)
+
             sys.exit(_EXIT_FATAL_ERROR)
 
         else:
@@ -94,9 +111,6 @@ def __create_error_function(exception):
 
 __not_implemented = __create_error_function(NotImplementedError)
 __import_error = __create_error_function(ImportError)
-
-class FatalError(BaseException):
-    pass
 
 __fatal_error = __create_config_parser(FatalError)
 
@@ -180,6 +194,8 @@ _COMPILE_FLAGS = 0
 _OPTIMIZE_LEVEL = -1
 _MARSHAL_VERSION = 4
 _PICKLE_VERSION = pickle.HIGHEST_PROTOCOL
+
+# --- multiprocessing settings ---
 
 _MULTIPROCESSING_ENABLED = False
 
@@ -326,9 +342,6 @@ class dotdict(dict):
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
 
-class FileStructError(Exception):
-    pass
-
 def __prettify_items(items, indent = '    ', width = 80):
     if not items:
         return ''
@@ -370,7 +383,7 @@ def _read_marshal_object(infile):
     _buffer_size = _read_size(infile)
     _buffer = infile.read(_buffer_size)
     if len(_buffer) != _buffer_size:
-        raise EOFError("End of file while reading object")
+        raise EOFError("End of file while reading marshal object")
     return marshal.loads(_buffer)
 
 # --- code objects ---
@@ -861,7 +874,7 @@ def __parse_argv(argv):
                 result.path_ignores.append(arg)
 
             else:
-                raise BaseException("unknown argument name pushed to "
+                raise FatalError("unknown argument name pushed to "
                         "next_args: {}".format(next_arg))
 
             continue
@@ -1082,9 +1095,6 @@ _MACRO_REQUIRES = 1
 _WITHOUT_PRECEDING = 2
 _END_DOES_NOT_MATCH = 3
 _UNTERMINATED_BLOCK = 4
-
-class CompilerError(Exception):
-    pass
 
 # *** macros ***
 
@@ -2138,7 +2148,7 @@ def main(argv):
     if _ARRANGE_PROCESS_FLAG & options.switchs:
 
         # --- arranged performace ---
-        raise BaseException('unimplemented code')
+        raise FatalError('unimplemented code')
 
     else: # not (_ARRANGE_PROCESS_FLAG & options.switchs)
 
@@ -2173,6 +2183,16 @@ def main(argv):
 
         # --- first compile the inputs ---
         # TODO: complete here
+
+__all__ = [
+
+        # exceptions
+        "FatalError",
+        "FileStructError",
+        "CompilerError",
+
+
+        ]
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))
