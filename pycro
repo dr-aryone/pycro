@@ -121,7 +121,7 @@ def __create_error_function(exception):
 __not_implemented = __create_error_function(NotImplementedError)
 __import_error = __create_error_function(ImportError)
 
-__fatal_error = __create_config_parser(FatalError)
+__fatal_error = __create_error_function(FatalError)
 
 if sys.version_info[0] == 3:
     import builtins
