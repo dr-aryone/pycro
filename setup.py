@@ -31,6 +31,7 @@ setuptools.setup(
             "Development Status :: 2 - Pre-Alpha",
 
             "Topic :: Text Processing",
+            "Topic :: Software Development :: Code Generators",
             ],
 
         keywords = "macro-preprocessor code-generator pycro",
