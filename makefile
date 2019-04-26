@@ -11,6 +11,9 @@ package: pycro __init__.py __main__.py
 	cp __init__.py $(PYCRO_FOLDER)/__init__.py
 	cp __main__.py $(PYCRO_FOLDER)/__main__.py
 
+pycro.py: pycro
+	cp -f pycro pycro.py
+
 # this import will failed
 import:
 	$(MAKE) package
