@@ -14,6 +14,8 @@ package: pycro __init__.py __main__.py
 pycro.py: pycro
 	cp -f pycro pycro.py
 
+# --- importing module ---
+
 # this import will failed
 import:
 	$(MAKE) package
@@ -23,7 +25,22 @@ import3:
 	$(MAKE) package
 	(cd $(PACKAGE_FOLDER) && python3 -ic "import pycro" -OO)
 
+# --- for commiters ---
+
+.PHONY:
 commit-all:
 	git add $(AUTO_COMMITS)
 	git commit -m "update everything!"
+
+# --- building & publishing ---
+
+.PHONY:
+build: pycro.py
+	python3 setup.py sdist bdist_wheel
+
+.PHONY:
+test-publish:
+	python3 -m twine upload \
+		--repository-url https://test.pypi.org/legacy/ \
+		dist/*
 
