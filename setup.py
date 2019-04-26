@@ -1,8 +1,6 @@
 
 import sys
 
-sys.path.append('package')
-
 import setuptools
 import pycro
 
@@ -24,8 +22,8 @@ setuptools.setup(
 
         # descriptions
         description = "A python integrated macro preprocessor",
-        long_desccription = read_file("README.md"),
-        long_desccription_content_type = "text/markdown",
+        long_description = read_file("README.md"),
+        long_description_content_type = "text/markdown",
 
         # other settings
         
