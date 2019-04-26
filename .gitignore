@@ -8,3 +8,5 @@ __pycache__/
 misc/pycro
 misc/preprocessor
 
+dist/
+pycro.egg-info/
