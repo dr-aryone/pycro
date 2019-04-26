@@ -24,12 +24,21 @@ setuptools.setup(
         long_desccription_content_type = "text/markdown",
 
         classifiers = [
+            "Development Status :: 2 - Pre-Alpha",
+
+            "Topic :: Text Processing",
             ],
 
         keywords = "macro-preprocessor code-generator pycro",
 
         project_urls = {
+            # TODO: add "Home Page" or "Documentation"
+            "Source": "https://github.com/mak12776/pycro",
             },
+
+        packages = [
+                "pycro",
+            ]
 
         )
 
