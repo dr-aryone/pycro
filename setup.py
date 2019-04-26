@@ -36,8 +36,10 @@ setuptools.setup(
         keywords = "macro-preprocessor code-generator pycro",
 
         project_urls = {
+
             # TODO: add "Home Page" or "Documentation"
             "Source": "https://github.com/mak12776/pycro",
+
             },
 
         packages = [],

@@ -35,6 +35,12 @@ commit-all:
 # --- building & publishing ---
 
 .PHONY:
+clean:
+	rm -rd dist/
+	rm -rd build/
+	rm -rd pycro.egg-info/
+
+.PHONY:
 build: pycro.py
 	python3 setup.py sdist bdist_wheel
 
