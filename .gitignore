@@ -1,12 +1,18 @@
-*.swp
-
-__pycache__/
-*.pyc
-
-.vscode/*
-
+# some other packages
 misc/pycro
 misc/preprocessor
 
+# vim
+*.swp
+
+# python cache
+__pycache__/
+*.pyc
+
+# vs code
+.vscode/*
+
+# python build directories
+build/
 dist/
-pycro.egg-info/
+*.egg-info/

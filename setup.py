@@ -27,7 +27,6 @@ setuptools.setup(
         long_desccription = read_file("README.md"),
         long_desccription_content_type = "text/markdown",
 
-        
         # other settings
         
         classifiers = [
