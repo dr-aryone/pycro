@@ -47,7 +47,7 @@ _VersionType = collections.namedtuple(
         ['major', 'minor', 'micro'],
     )
 
-VERSION =  _VersionType(0, 0, 0)
+VERSION =  _VersionType(0, 0, 1)
 
 # --- exceptions ---
 
