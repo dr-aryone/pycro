@@ -25,8 +25,7 @@ setuptools.setup(
         long_description = read_file("README.md"),
         long_description_content_type = "text/markdown",
 
-        # other settings
-        
+        # classifiers, keywords, urls
         classifiers = [
             "Development Status :: 2 - Pre-Alpha",
 
@@ -43,8 +42,32 @@ setuptools.setup(
 
             },
 
+
+        # specify modules
         packages = [],
         py_modules = ['pycro'],
+
+
+        # install requirements
+        install_requires = [],
+
+        # python requires
+        python_requires = '~=3.0',
+
+        # package data like: docs, ...
+        package_data = [],
+
+        # data files:
+        # a list of (directory, <list of files>) that each file in
+        # <list of files> will be copy in: `sys.prefix + directory`
+        data_files = [],
+
+        # entry points
+        entry_points = {
+                'console_scripts': [
+                    'pycro=pycro:main',
+                ],
+            },
 
         )
 
