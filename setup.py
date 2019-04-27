@@ -55,7 +55,7 @@ setuptools.setup(
         python_requires = '~=3.0',
 
         # package data like: docs, ...
-        package_data = [],
+        package_data = {},
 
         # data files:
         # a list of (directory, <list of files>) that each file in
