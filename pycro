@@ -1363,6 +1363,8 @@ _default_code_generators = {
         # TODO: add 'load' when ready
 }
 
+# --- compiler environment & functions ---
+
 class CompilerEnvironment:
     def __init__(
             self,
@@ -1621,6 +1623,8 @@ def compile_file(infile, env):
 
 _default_builtins = builtins
 
+# --- executor environment & functions ---
+
 class ExecutorEnvironment:
     def __init__(self,
             variables = None,
@@ -1783,6 +1787,99 @@ def execute_code_object(
 
     return exec(code_object, variables)
 
+# --- config parser ---
+
+def __create_config_parser():
+    return configparser.ConfigParser(
+            defaults = None,
+
+            dict_type = dict,
+            allow_no_value = False,
+
+            delimiters = ('=', ),
+
+            comment_prefixes = ('#', ),
+            inline_comment_prefixes = None,
+
+            strict = True,
+
+            empty_lines_in_values = False,
+
+            default_section = "DEFAULT",
+
+            interpolation = None,
+
+            converters = {},
+            )
+
+def __apply_config_compiler_env(config, compiler_env):
+    try:
+        settings = config['settings']
+        for name in (
+                'macro_prefix',
+                'macro_suffix',
+                'statement_prefix',
+                'statement_suffix',
+                'comment_prefix',
+                'comment_suffix',
+                'variable_prefix',
+                'variable_suffix',
+                'evaluation_prefix',
+                'evaluation_suffix',
+                ):
+            setattr(
+                    compiler_env,
+                    name,
+                    settings.get(name, fallback=getattr(compiler_env, name)),
+                    )
+    except KeyError:
+        pass
+
+def __apply_config_filters(config, filters):
+    try:
+        filters = config['filters']
+    except KeyError:
+        pass
+
+# --- apply language & settings option ---
+
+def __apply_language(lang, compiler_env):
+    for key, value in __language_specifications[lang]:
+        setattr(compiler_env, key, value)
+
+def __apply_settings(key, value, compiler_env):
+    if key in ('mp', 'macro_prefix'):
+        compiler_env.macro_prefix = value
+
+    elif key in ('ms', 'macro_suffix'):
+        compiler_env.macro_suffix = value
+
+    elif key in ('sp', 'statement_prefix'):
+        compiler_env.statement_prefix = value
+
+    elif key in ('ss', 'statement_suffix'):
+        compiler_env.statement_suffix = value
+
+    elif key in ('cp', 'comment_prefix'):
+        compiler_env.comment_prefix = value
+
+    elif key in ('cs', 'comment_suffix'):
+        compiler_env.comment_suffix = value
+
+    elif key in ('vp', 'variable_prefix'):
+        compiler_env.variable_prefix = value
+
+    elif key in ('vs', 'variable_suffix'):
+        compiler_env.variable_suffix = value
+
+    elif key in ('ep', 'evaluation_prefix'):
+        compiler_env.evaluation_prefix = value
+
+    elif key in ('es', 'evaluation_suffix'):
+        compiler_env.evaluation_suffix = value
+
+    else:
+        raise KeyError('unknown keyword: {!r}'.format(key))
 
 # --- main functions ---
 
@@ -1871,7 +1968,10 @@ def __write_compiled_code_env(code_object, env, outfile):
 
     _write_code_object(outfile, code_object)
 
+# may raise: FileStructError, EOFError, or those may raise by file.read
+
 def __read_compiled_code(infile, env):
+
     if infile.read(len(_CACHE_FILE_MAGIC_NUMBER)) != _CACHE_FILE_MAGIC_NUMBER:
         raise FileStructError('file magic number mismatch')
 
@@ -1927,96 +2027,6 @@ def __compile_if_needed(code_path, cache_path, compiler_env):
 
     # return the result
     return code_object
-
-def __apply_language(lang, compiler_env):
-    for key, value in __language_specifications[lang]:
-        setattr(compiler_env, key, value)
-
-def __apply_settings(key, value, compiler_env):
-    if key in ('mp', 'macro_prefix'):
-        compiler_env.macro_prefix = value
-
-    elif key in ('ms', 'macro_suffix'):
-        compiler_env.macro_suffix = value
-
-    elif key in ('sp', 'statement_prefix'):
-        compiler_env.statement_prefix = value
-
-    elif key in ('ss', 'statement_suffix'):
-        compiler_env.statement_suffix = value
-
-    elif key in ('cp', 'comment_prefix'):
-        compiler_env.comment_prefix = value
-
-    elif key in ('cs', 'comment_suffix'):
-        compiler_env.comment_suffix = value
-
-    elif key in ('vp', 'variable_prefix'):
-        compiler_env.variable_prefix = value
-
-    elif key in ('vs', 'variable_suffix'):
-        compiler_env.variable_suffix = value
-
-    elif key in ('ep', 'evaluation_prefix'):
-        compiler_env.evaluation_prefix = value
-
-    elif key in ('es', 'evaluation_suffix'):
-        compiler_env.evaluation_suffix = value
-
-    else:
-        raise KeyError('unknown keyword: {!r}'.format(key))
-
-def __create_config_parser():
-    return configparser.ConfigParser(
-            defaults = None,
-
-            dict_type = dict,
-            allow_no_value = False,
-
-            delimiters = ('=', ),
-
-            comment_prefixes = ('#', ),
-            inline_comment_prefixes = None,
-
-            strict = True,
-
-            empty_lines_in_values = False,
-
-            default_section = "DEFAULT",
-
-            interpolation = None,
-
-            converters = {},
-            )
-
-def __apply_config_compiler_env(config, compiler_env):
-    try:
-        settings = config['settings']
-        for name in (
-                'macro_prefix',
-                'macro_suffix',
-                'statement_prefix',
-                'statement_suffix',
-                'comment_prefix',
-                'comment_suffix',
-                'variable_prefix',
-                'variable_suffix',
-                'evaluation_prefix',
-                'evaluation_suffix',
-                ):
-            setattr(
-                    compiler_env,
-                    name,
-                    settings.get(name, fallback=getattr(compiler_env, name)),
-                    )
-    except KeyError:
-        pass
-
-def __apply_config_filters(config, filters):
-    try:
-        filters = config['filters']
-    except KeyError:
-        pass
 
 def __compiler_worker(
         file_real_path,
@@ -2165,12 +2175,10 @@ def main(argv):
     #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] filtered by name, path
     #   [_INPUT_FLAG, sys.stdin]
 
-    ### debug code ###
     print_line('jobs')
     for item in options.jobs:
         print(item)
     sys.exit(1)
-    ### debug code ###
 
     if _ARRANGE_PROCESS_FLAG & options.switchs:
 
