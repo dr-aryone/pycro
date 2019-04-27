@@ -28,8 +28,8 @@ import3:
 
 .PHONY:
 commit-packages:
-	git add pycro.py package/
-	git commit -m "update everything!"
+	git add pycro.py package
+	git commit -m "update pycro.py"
 
 AUTO_COMMITS = makefile README.md _README.md misc .gitignore
 
