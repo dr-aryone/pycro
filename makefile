@@ -42,9 +42,10 @@ commit-all:
 
 .PHONY:
 clean:
-	rm -rd dist/
-	rm -rd build/
-	rm -rd pycro.egg-info/
+	rm -rdf dist/
+	rm -rdf build/
+	rm -rdf pycro.egg-info/
+	rm -rdf __pycache__/
 
 .PHONY:
 build: pycro.py
