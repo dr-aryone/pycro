@@ -491,6 +491,7 @@ def _read_string(infile):
 # --- Queue classes ---
 
 def __queue_maker(write_object, read_object):
+
     class Queue:
         def __init__(self):
             self._lock = multiprocessing.RLock()
@@ -1354,6 +1355,7 @@ _default_code_generators = {
         'undivert': _generate_undivert,
 
         'place': _generate_place,
+
         # TODO: add 'include' when ready
 
         'run': _generate_run,
@@ -1397,9 +1399,11 @@ class CompilerEnvironment:
             include_function_name = _DEFAULT_INCLUDE_FUNCTION_NAME,
             place_function_name = _DEFAULT_PLACE_FUNCTION_NAME,
 
+            # --- flags ---
             compile_flags = _COMPILE_FLAGS,
             optimize_level = _OPTIMIZE_LEVEL,
             ):
+
         """intialize code generator environment"""
 
         self.code_generators = \
@@ -1640,6 +1644,8 @@ class ExecutorEnvironment:
             command_variable_name = _DEFAULT_COMMAND_VARIABLE_NAME,
             ):
 
+
+        # --- variables ---
         if variables is None:
             variables = {}
 
@@ -1651,6 +1657,7 @@ class ExecutorEnvironment:
 
         self.variables = variables
 
+        # --- pipes ---
         self.pipes = pipes or collections.defaultdict(io.StringIO)
 
         # --- variable names ---
@@ -2227,10 +2234,27 @@ __all__ = [
         # default file names
         "CONFIG_FILE_NAME",
         "DEFAULT_STDIN_FILENAME",
-        
+
         # multiprocessing queues
         "MarshalQueue",
         "PickleQueue",
+
+        # compiler environment
+        "CompilerEnvironment",
+
+        # compiler functions
+        "generate_code",
+        "compile_generated_code",
+        "compile_file",
+
+        # executor environment
+        "ExecutorEnvironment",
+
+        # executor functions
+        "execute_code_object",
+
+        # module main function
+        "main",
 
         ]
 
