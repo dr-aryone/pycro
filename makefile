@@ -31,7 +31,12 @@ commit-packages:
 	git add pycro.py package
 	git commit -m "update pycro.py"
 
-AUTO_COMMITS = makefile README.md _README.md misc .gitignore
+.PHONY:
+commit-readme:
+	git add _README.md README.md
+	git commit -m "update readme's"
+
+AUTO_COMMITS = makefile misc .gitignore
 
 .PHONY:
 commit-all:
