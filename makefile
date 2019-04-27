@@ -13,6 +13,8 @@ package: pycro __init__.py __main__.py
 pycro.py: pycro
 	cp -f pycro pycro.py
 
+# --- generate README.md ---
+
 
 # --- making virtual environment ---
 venv:
