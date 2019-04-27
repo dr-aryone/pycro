@@ -13,6 +13,14 @@ package: pycro __init__.py __main__.py
 pycro.py: pycro
 	cp -f pycro pycro.py
 
+
+# --- making virtual environment ---
+venv:
+	python3 -m virtualenv -p python3 venv
+
+delete-venv:
+	rm -rdf venv
+
 # --- importing module ---
 
 # this import will failed
