@@ -47,7 +47,7 @@ _VersionType = collections.namedtuple(
         ['major', 'minor', 'micro'],
     )
 
-VERSION =  _VersionType(0, 0, 0)
+VERSION =  _VersionType(0, 0, 1)
 
 # --- exceptions ---
 
@@ -229,9 +229,10 @@ _SIZE_LEN = 4
 ################################################# debuging codes ###########
 
 if __debug__:
+
     from pprint import pprint
 
-    def print_line(title = None, fill='-', width=80, lside=' ', rside=' '):
+    def print_line(title = '', fill='-', width=80, lside=' ', rside=' '):
         if title:
             print('{:{fill}^{width}}'.format(
                     lside + title.strip() + rside,
