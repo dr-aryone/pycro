@@ -26,7 +26,7 @@ result, if we compile and execute that.
 ### module API
 
 ### command line interface
-__pycro --help__:
+`pycro --help`:
 ```
 esyscmd({./pycro --help}){}dnl
 ```

@@ -25,7 +25,7 @@ result, if we compile and execute that.
 ### module API
 
 ### command line interface
-__pycro --help__:
+`pycro --help`:
 ```
 usage: ./pycro [OPTION]... [[--] FILE | -]...
 Pycro FILEs to standard output. if no FILE or if FILE is '-', standard input is
