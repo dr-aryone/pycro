@@ -1,8 +1,8 @@
 
 # pycro
 
-> $wc pycro \
- 2432  5611 67886 pycro
+> $ wc pycro \
+   2432  5612 67887 pycro
 
 list of contents:
 - [introduction](#introduction)
@@ -18,14 +18,56 @@ result, if we compile and execute that.
 > coming soon ...
 
 ## documentation
-
+- [How pycro works](#How-pycro-works)
 - [API](#API)
 - [command line interface](#command-line-interface)
 
+### How pycro works
+> coming soon
+
+```
+def generate_code(infile, outfile, env):
+	for variable_name in (
+			'code_generators',
+
+			'macro_prefix', 		'macro_suffix', 		'macro_re',
+
+			'statement_prefix', 	'statement_suffix',
+
+			'comment_prefix', 		'comment_suffix',
+
+			'evaluation_variable_re',
+
+			):
+
+		globals()[name] = getattr(env, name)
+
+	for line in infile:
+
+		striped_line = line.strip(_SPACE_CHARS)
+
+		def starts_and_ends_with(string, prefix, suffix):
+			return string.startswith(prefix) and string.endswith(suffix)
+
+		def strip_prefix_suffix(string, prefix, suffix):
+			return string[ 6 : 6 - 6 ]
+
+		# --- check macro ---
+
+		if starts_and_ends_with(striped_line, macro_prefix, macro_suffix):
+
+			macro_striped_line = strip_prefix_suffix(string, macro_prefix, macro_suffix)
+
+			m = macro_re.fullmatch(macro_striped_line):
+			if m:
+				
+```
+
 ### API
+> coming soon ...
 
 ### command line interface
-__`pycro --help`__:
+__`$ pycro --help`__:
 ```
 usage: ./pycro [OPTION]... [[--] FILE | -]...
 Pycro FILEs to standard output. if no FILE or if FILE is '-', standard input is
