@@ -1961,7 +1961,13 @@ else:
         )
     )
 
-def __walk_files(root, name_ignores, path_ignores, sort_func):
+def __walk_files(
+        root,
+        name_filters,
+        path_filters,
+        name_ignores,
+        path_ignores,
+        sort_func):
     # root is a real path
     result = [root]
     i = 0
@@ -1975,25 +1981,45 @@ def __walk_files(root, name_ignores, path_ignores, sort_func):
             names = sort_func(os.listdir(path))
             for name in names:
 
+                continue_for_names = False
+
                 # filter file name
-                matched = False
-                for pattern in name_ignores:
-                    if fnmatch.fnmatch(name, pattern):
-                        matched = True
+                for pattern in name_filters:
+                    if not fnmatch.fnmatch(name, pattern):
+                        continue_for_names = True
                         break
 
-                if matched:
+                if continue_for_names:
+                    continue
+
+                # ignore file name
+                for pattern in name_ignores:
+                    if fnmatch.fnmatch(name, pattern):
+                        continue_for_names = True
+                        break
+
+                if continue_for_names:
                     continue # continue os.listdir
 
                 new_path = __joinpath(path, name)
-
+                
                 # filter file path
-                for pattern in path_ignores:
-                    if fnmatch.fnmatch(new_path, pattern):
-                        matched = True
+                for pattern in path_filters:
+                    if not fnmatch.fnmatch(new_path, pattern):
+                        continue_for_names = True
                         break
 
-                if matched:
+                if continue_for_names:
+                    continue
+
+
+                # ignore file path
+                for pattern in path_ignores:
+                    if fnmatch.fnmatch(new_path, pattern):
+                        continue_for_names = True
+                        break
+
+                if continue_for_names:
                     continue # continue os.listdir
 
                 new_result.append(new_path)
