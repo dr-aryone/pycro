@@ -1463,8 +1463,6 @@ class CompilerEnvironment:
             optimize_level = _OPTIMIZE_LEVEL,
             ):
 
-        """intialize code generator environment"""
-
         self.code_generators = \
             code_generators or _default_code_generators.copy()
 
@@ -1538,7 +1536,6 @@ class CompilerEnvironment:
         return self.tab * self.indent
 
 def generate_code(infile, outfile, env):
-    """read from infile and generats python code to outfile"""
 
     code_generators = env.code_generators
 
