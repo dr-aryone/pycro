@@ -2,7 +2,7 @@
 # pycro
 
 > $wc pycro
- 2432  5611 67886 pycro
+>  2432  5611 67886 pycro
 
 list of contents:
 - [introduction](#introduction)
@@ -15,14 +15,14 @@ and generates a corresponding python code that will generate the intended
 result, if we compile and execute that.
 
 ## usage example
-> TODO
+> coming soon ...
 
 ## documentation
 
 - [API](#API)
 - [command line interface](#command-line-interface)
 
-### module API
+### API
 
 ### command line interface
 __`pycro --help`__:
