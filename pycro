@@ -545,6 +545,10 @@ Sortable options:
                                       standard input)
 
 Common options:
+    -n, --filter-name PATTERN       filter input FILEs by its name match 
+                                      shell PATTERN
+    -p, --filter-path PATTERN       filter input FILEs by its path match
+                                      shell PATTERN
     -N, --ignore-name PATTERN       ignore any input FILEs that its name match
                                       shell PATTERN
     -P, --ignore-path PATTERN       ignore any input FILEs that its path match
@@ -702,12 +706,15 @@ _UNDEFINE_FLAG =            0x06
 _SETTING_FLAG =             0x07
 
 # used in __parse_argv:
-_IGNORE_NAME_FLAG =         0x0a
-_IGNORE_PATH_FLAG =         0x0b
+_FILTER_NAME_FLAG =         0x0a
+_FILTER_PATH_FLAG =         0x0b
+
+_IGNORE_NAME_FLAG =         0x0c
+_IGNORE_PATH_FLAG =         0x0d
 
 # used in __parse_argv:
-_OUTFILE_FLAG =             0x0c
-_OUTFOLDER_FLAG =           0x0d
+_OUTFILE_FLAG =             0x0e
+_OUTFOLDER_FLAG =           0x0f
 
 # *** argument parser ***
 
@@ -753,11 +760,23 @@ if __debug__:
         elif flag == _SETTING_FLAG:
             return '_SETTING_FLAG'
 
+        elif flag == _FILTER_NAME_FLAG:
+            return '_FILTER_NAME_FLAG'
+
+        elif flag == _FILTER_PATH_FLAG:
+            return '_FILTER_PATH_FLAG'
+
+        elif flag == _IGNORE_NAME_FLAG:
+            return '_IGNORE_NAME_FLAG'
+
+        elif flag == _IGNORE_PATH_FLAG:
+            return '_IGNORE_PATH_FLAG'
+
+        elif flag == _OUTFILE_FLAG:
+            return '_OUTFILE_FLAG'
+
         elif flag == _OUTFOLDER_FLAG:
             return '_OUTFOLDER_FLAG'
-
-        elif flag == '_IGNORE_NAME_FLAG':
-            return '_IGNORE_NAME_FLAG'
 
         else:
             raise ValueError('unknown flag: {}'.format(flag))
@@ -780,9 +799,15 @@ if __debug__:
 def __parse_argv(argv):
     result = dotdict(
             jobs = collections.deque(),
+
+            name_filters = collections.deque(),
+            path_filters = collections.deque(),
+
             name_ignores = collections.deque(),
             path_ignores = collections.deque(),
+
             switchs = 0,
+
             output = None,
             )
 
@@ -884,14 +909,24 @@ def __parse_argv(argv):
 
                 result.jobs.append((_SETTING_FLAG, arg))
 
+            elif next_arg[0] == _FILTER_NAME_FLAG:
+
+                # --- append file name filters ---
+                result.name_filters.append(arg)
+
+            elif next_arg[0] == _FILTER_PATH_FLAG:
+                
+                # --- append file path filters ---
+                result.path_filters.append(arg)
+
             elif next_arg[0] == _IGNORE_NAME_FLAG:
 
-                # --- append file name filter ---
+                # --- append file name ignores ---
                 result.name_ignores.append(arg)
 
             elif next_arg[0] == _IGNORE_PATH_FLAG:
 
-                # --- append file path filter ---
+                # --- append file path ignores ---
                 result.path_ignores.append(arg)
 
             else:
@@ -940,6 +975,14 @@ def __parse_argv(argv):
                 # arrange performances
                 elif option == 'arrange-process':
                     result.switchs |= _ARRANGE_PROCESS_FLAG
+
+                # filter file names
+                elif option == 'filter-name':
+                    next_args.append((_FILTER_NAME_FLAG, '--filter-name'))
+
+                # filter file paths
+                elif option == 'filter-path':
+                    next_args.append((_FILTER_PATH_FLAG, '--filter-path'))
 
                 # ignore file names
                 elif option == 'ignore-name':
@@ -1024,6 +1067,14 @@ def __parse_argv(argv):
                     elif ch == 'a':
                         result.switchs |= _ARRANGE_PROCESS_FLAG
 
+                    # filter file names
+                    elif ch == 'n':
+                        next_args.append((_FILTER_NAME_FLAG, '-n'))
+
+                    # filter file paths
+                    elif ch == 'p':
+                        next_args.append((_FILTER_PATH_FLAG, '-p'))
+
                     # ignore file names
                     elif ch == 'N':
                         next_args.append((_IGNORE_NAME_FLAG, '-N'))
@@ -1105,8 +1156,13 @@ def __parse_argv(argv):
         result.jobs.append( [_INPUT_FLAG, sys.stdin] )
 
     result.jobs = list(result.jobs)
+
+    result.name_filters = list(result.name_filters)
+    result.path_filters = list(result.path_filters)
+
     result.name_ignores = list(result.name_ignores)
     result.path_ignores = list(result.path_ignores)
+
     return result
 
 # *** errors ***
