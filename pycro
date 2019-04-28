@@ -2189,6 +2189,7 @@ def main(argv):
     #   [_INPUT_FLAG, sys.stdin]
 
     # --- append abs path & real path, filter files ---
+
     i = 0
     while i < len(options.jobs):
         item = options.jobs[i]
@@ -2199,14 +2200,6 @@ def main(argv):
             #   [_INPUT_FLAG, 'path']
             #   [_INPUT_FLAG, sys.stdin]
 
-            # remove input FILE names
-            for pattern in options.name_ignores:
-                if fnmatch.fnmatch(__splitpath(item[1])[1], pattern):
-
-                    # pop matched file name
-                    options.jobs.pop(i)
-                    continue
-
             # --- append abs path ---
             item.append(__abspath(item[1]))
 
@@ -2214,16 +2207,70 @@ def main(argv):
             #   [_INPUT_FLAG, 'path', 'abs_path']
             #   [_INPUT_FLAG, sys.stdin]
 
-            # remove input FILE paths
+            name = __splitpath(item[2])[1]
+
+            continue_while_loop = False
+
+            # --- filter input FILE names ---
+
+            for pattern in options.path_filters:
+                if not fnmatch.fnmatch(name, pattern):
+
+                    # pop un-matched file name
+                    options.jobs.pop(i)
+
+                    continue_while_loop = True
+                    break
+
+            if continue_while_loop:
+                continue
+
+            # --- ignore input FILE names ---
+
+            for pattern in options.name_ignores:
+                if fnmatch.fnmatch(name, pattern):
+
+                    # pop matched file name
+                    options.jobs.pop(i)
+
+                    continue_while_loop = True
+                    break
+
+            if continue_while_loop:
+                continue
+
+            # --- filter input FILE names ---
+
+            for pattern in options.path_filters:
+                if fnmatch.fnmatch(item[2], pattern):
+                    
+                    # pop un matched file path
+                    options.jobs.pop(i)
+
+                    continue_while_loop = True
+                    break
+
+            if continue_while_loop:
+                continue
+
+            # --- filter input FILE paths ---
+
             for pattern in options.path_ignores:
                 if fnmatch.fnmatch(item[2], pattern):
 
                     # pop matched file path
                     options.jobs.pop(i)
-                    continue
+
+                    continue_while_loop = True
+                    break
+
+            if continue_while_loop:
+                continue
 
             # --- append real path ---
+
             item.append(__realpath(item[2]))
+
         i += 1
 
     # options.jobs contains:
