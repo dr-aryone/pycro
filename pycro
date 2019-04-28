@@ -1883,17 +1883,22 @@ def __apply_config_compiler_env(config, compiler_env):
                 'evaluation_prefix',
                 'evaluation_suffix',
                 ):
+
             setattr(
                     compiler_env,
                     name,
                     settings.get(name, fallback=getattr(compiler_env, name)),
                     )
+
     except KeyError:
         pass
 
 def __apply_config_filters(config, filters):
     try:
         filters = config['filters']
+
+        # TODO: complete this function
+
     except KeyError:
         pass
 
@@ -2088,6 +2093,9 @@ def __compiler_worker(
         file_real_path,
         cache_folder_path,
         ):
+
+    # TODO: complete this function
+
     cache_file_path = \
         __get_cache_file_path(cache_folder_path, file_real_path)
 
@@ -2168,6 +2176,7 @@ def main(argv):
             # remove input FILE names
             for pattern in options.name_ignores:
                 if fnmatch.fnmatch(__splitpath(item[1])[1], pattern):
+
                     # pop matched file name
                     options.jobs.pop(i)
                     continue
@@ -2182,6 +2191,7 @@ def main(argv):
             # remove input FILE paths
             for pattern in options.path_ignores:
                 if fnmatch.fnmatch(item[2], pattern):
+
                     # pop matched file path
                     options.jobs.pop(i)
                     continue
@@ -2196,6 +2206,9 @@ def main(argv):
 
     # --- check directories ---
     if _RECURSIVE_FLAG & options.switchs:
+
+        # --- walk into directories ---
+
         i = 0
         while i < len(options.jobs):
             item = options.jobs[i]
@@ -2213,6 +2226,9 @@ def main(argv):
             i += 1
 
     else:
+
+        # --- remove directories ---
+
         _LINE = "pycro: -r not specified; omitting directory '{}'"
         i = 0
         while i < len(options.jobs):
