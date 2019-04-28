@@ -13,7 +13,8 @@ pycro.py: pycro
 	cp -f pycro pycro.py
 
 # --- generate README.md ---
-
+README.md: _README.in
+	m4 _README.in > README.md
 
 # --- making virtual environment ---
 venv:
@@ -38,12 +39,12 @@ import3:
 .PHONY:
 commit-packages:
 	git add pycro.py package
-	git commit -m "update pycro.py"
+	git commit -m "update packages"
 
 .PHONY:
-commit-readme:
-	git add _README.md README.md
-	git commit -m "update readme's"
+commit-readmes:
+	git add _README.md _README.in README.md 
+	git commit -m "update READMEs"
 
 AUTO_COMMITS = makefile misc .gitignore
 
