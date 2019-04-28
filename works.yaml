@@ -1,14 +1,15 @@
 
 TODOs:
-- '-n, --filter-name' and '-P, --filter-name' options.
 - '-o, --outfile', '-O, --outfolder' options functionalities.
-- add __argv__ variable
-- write compiler process
-
-DOING:
 - write main without multiprocessing
 
+DOING:
+- None
+
 DONEs:
+- '-n, --filter-name' and '-P, --filter-name' options.
+- add __argv__ variable
+- write __all__ variable
 - add __version__ variable
 - '-N, --ignore-name' and '-P, --ignore-path' options
 
@@ -17,7 +18,6 @@ INTERESTs:
 
 ON_RELEASE:
 - remove debuging codes
-
 
 Some notes:
 
