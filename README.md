@@ -2,7 +2,7 @@
 # pycro
 
 > $wc pycro
->  2435  5624 68001 pycro
+ 2432  5611 67886 pycro
 
 list of contents:
 - [introduction](#introduction)
@@ -14,16 +14,18 @@ Pycro is a python integrated macro preprocessor. It will interpret input texts
 and generates a corresponding python code that will generate the intended
 result, if we compile and execute that.
 
-## usage-example
+## usage example
+> TODO
 
 ## documentation
 
-- [module API](#API)
-- [pycro --help](#pycro---help)
+- [API](#API)
+- [command line interface](#command-line-interface)
 
 ### module API
 
-### pycro --help
+### command line interface
+__pycro --help__:
 ```
 usage: ./pycro [OPTION]... [[--] FILE | -]...
 Pycro FILEs to standard output. if no FILE or if FILE is '-', standard input is
