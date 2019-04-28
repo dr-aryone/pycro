@@ -193,6 +193,7 @@ _DEFAULT_PLACE_FUNCTION_NAME = '__place__'
 _DEFAULT_VERSION_VARIABLE_NAME = '__version__'
 
 _DEFAULT_COMMAND_VARIABLE_NAME = '__command__'
+_DEFAULT_ARGV_VARIABLE_NAME = '__argv__'
 
 
 # --- other settings ---
@@ -545,6 +546,10 @@ Sortable options:
                                       standard input)
 
 Common options:
+    -n, --filter-name PATTERN       filter input FILEs by its name match 
+                                      shell PATTERN
+    -p, --filter-path PATTERN       filter input FILEs by its path match
+                                      shell PATTERN
     -N, --ignore-name PATTERN       ignore any input FILEs that its name match
                                       shell PATTERN
     -P, --ignore-path PATTERN       ignore any input FILEs that its path match
@@ -702,12 +707,15 @@ _UNDEFINE_FLAG =            0x06
 _SETTING_FLAG =             0x07
 
 # used in __parse_argv:
-_IGNORE_NAME_FLAG =         0x0a
-_IGNORE_PATH_FLAG =         0x0b
+_FILTER_NAME_FLAG =         0x0a
+_FILTER_PATH_FLAG =         0x0b
+
+_IGNORE_NAME_FLAG =         0x0c
+_IGNORE_PATH_FLAG =         0x0d
 
 # used in __parse_argv:
-_OUTFILE_FLAG =             0x0c
-_OUTFOLDER_FLAG =           0x0d
+_OUTFILE_FLAG =             0x0e
+_OUTFOLDER_FLAG =           0x0f
 
 # *** argument parser ***
 
@@ -753,11 +761,23 @@ if __debug__:
         elif flag == _SETTING_FLAG:
             return '_SETTING_FLAG'
 
+        elif flag == _FILTER_NAME_FLAG:
+            return '_FILTER_NAME_FLAG'
+
+        elif flag == _FILTER_PATH_FLAG:
+            return '_FILTER_PATH_FLAG'
+
+        elif flag == _IGNORE_NAME_FLAG:
+            return '_IGNORE_NAME_FLAG'
+
+        elif flag == _IGNORE_PATH_FLAG:
+            return '_IGNORE_PATH_FLAG'
+
+        elif flag == _OUTFILE_FLAG:
+            return '_OUTFILE_FLAG'
+
         elif flag == _OUTFOLDER_FLAG:
             return '_OUTFOLDER_FLAG'
-
-        elif flag == '_IGNORE_NAME_FLAG':
-            return '_IGNORE_NAME_FLAG'
 
         else:
             raise ValueError('unknown flag: {}'.format(flag))
@@ -780,9 +800,15 @@ if __debug__:
 def __parse_argv(argv):
     result = dotdict(
             jobs = collections.deque(),
+
+            name_filters = collections.deque(),
+            path_filters = collections.deque(),
+
             name_ignores = collections.deque(),
             path_ignores = collections.deque(),
+
             switchs = 0,
+
             output = None,
             )
 
@@ -884,14 +910,24 @@ def __parse_argv(argv):
 
                 result.jobs.append((_SETTING_FLAG, arg))
 
+            elif next_arg[0] == _FILTER_NAME_FLAG:
+
+                # --- append file name filters ---
+                result.name_filters.append(arg)
+
+            elif next_arg[0] == _FILTER_PATH_FLAG:
+                
+                # --- append file path filters ---
+                result.path_filters.append(arg)
+
             elif next_arg[0] == _IGNORE_NAME_FLAG:
 
-                # --- append file name filter ---
+                # --- append file name ignores ---
                 result.name_ignores.append(arg)
 
             elif next_arg[0] == _IGNORE_PATH_FLAG:
 
-                # --- append file path filter ---
+                # --- append file path ignores ---
                 result.path_ignores.append(arg)
 
             else:
@@ -940,6 +976,14 @@ def __parse_argv(argv):
                 # arrange performances
                 elif option == 'arrange-process':
                     result.switchs |= _ARRANGE_PROCESS_FLAG
+
+                # filter file names
+                elif option == 'filter-name':
+                    next_args.append((_FILTER_NAME_FLAG, '--filter-name'))
+
+                # filter file paths
+                elif option == 'filter-path':
+                    next_args.append((_FILTER_PATH_FLAG, '--filter-path'))
 
                 # ignore file names
                 elif option == 'ignore-name':
@@ -1024,6 +1068,14 @@ def __parse_argv(argv):
                     elif ch == 'a':
                         result.switchs |= _ARRANGE_PROCESS_FLAG
 
+                    # filter file names
+                    elif ch == 'n':
+                        next_args.append((_FILTER_NAME_FLAG, '-n'))
+
+                    # filter file paths
+                    elif ch == 'p':
+                        next_args.append((_FILTER_PATH_FLAG, '-p'))
+
                     # ignore file names
                     elif ch == 'N':
                         next_args.append((_IGNORE_NAME_FLAG, '-N'))
@@ -1105,8 +1157,13 @@ def __parse_argv(argv):
         result.jobs.append( [_INPUT_FLAG, sys.stdin] )
 
     result.jobs = list(result.jobs)
+
+    result.name_filters = list(result.name_filters)
+    result.path_filters = list(result.path_filters)
+
     result.name_ignores = list(result.name_ignores)
     result.path_ignores = list(result.path_ignores)
+
     return result
 
 # *** errors ***
@@ -1362,6 +1419,8 @@ _default_code_generators = {
 
         # TODO: add 'load' when ready
 }
+
+# --- compiler environment & functions ---
 
 class CompilerEnvironment:
     def __init__(
@@ -1621,6 +1680,8 @@ def compile_file(infile, env):
 
 _default_builtins = builtins
 
+# --- executor environment & functions ---
+
 class ExecutorEnvironment:
     def __init__(self,
             variables = None,
@@ -1642,6 +1703,7 @@ class ExecutorEnvironment:
 
             version_variable_name = _DEFAULT_VERSION_VARIABLE_NAME,
             command_variable_name = _DEFAULT_COMMAND_VARIABLE_NAME,
+            argv_variable_name = _DEFAULT_ARGV_VARIABLE_NAME,
             ):
 
 
@@ -1674,6 +1736,7 @@ class ExecutorEnvironment:
 
         self.version_variable_name = version_variable_name
         self.command_variable_name = command_variable_name
+        self.argv_variable_name = argv_variable_name
 
 def execute_code_object(
         code_object,
@@ -1681,8 +1744,12 @@ def execute_code_object(
         env,
 
         working_directory = '.',
+
         command = None,
+        argv = None,
         ):
+
+    # --- set up variables & pipes ---
 
     variables = env.variables
 
@@ -1706,6 +1773,11 @@ def execute_code_object(
 
     if command is not None:
         variables[env.command_variable_name] = command
+
+    # --- argv variable ---
+
+    if argv is not None:
+        variables[env.argv_variable_name] = argv
 
     # --- divert function ---
 
@@ -1783,6 +1855,104 @@ def execute_code_object(
 
     return exec(code_object, variables)
 
+# --- config parser ---
+
+def __create_config_parser():
+    return configparser.ConfigParser(
+            defaults = None,
+
+            dict_type = dict,
+            allow_no_value = False,
+
+            delimiters = ('=', ),
+
+            comment_prefixes = ('#', ),
+            inline_comment_prefixes = None,
+
+            strict = True,
+
+            empty_lines_in_values = False,
+
+            default_section = "DEFAULT",
+
+            interpolation = None,
+
+            converters = {},
+            )
+
+def __apply_config_compiler_env(config, compiler_env):
+    try:
+        settings = config['settings']
+        for name in (
+                'macro_prefix',
+                'macro_suffix',
+                'statement_prefix',
+                'statement_suffix',
+                'comment_prefix',
+                'comment_suffix',
+                'variable_prefix',
+                'variable_suffix',
+                'evaluation_prefix',
+                'evaluation_suffix',
+                ):
+
+            setattr(
+                    compiler_env,
+                    name,
+                    settings.get(name, fallback=getattr(compiler_env, name)),
+                    )
+
+    except KeyError:
+        pass
+
+def __apply_config_filters(config, filters):
+    try:
+        filters = config['filters']
+
+        # TODO: complete this function
+
+    except KeyError:
+        pass
+
+# --- apply language & settings option ---
+
+def __apply_language(lang, compiler_env):
+    for key, value in __language_specifications[lang]:
+        setattr(compiler_env, key, value)
+
+def __apply_settings(key, value, compiler_env):
+    if key in ('mp', 'macro_prefix'):
+        compiler_env.macro_prefix = value
+
+    elif key in ('ms', 'macro_suffix'):
+        compiler_env.macro_suffix = value
+
+    elif key in ('sp', 'statement_prefix'):
+        compiler_env.statement_prefix = value
+
+    elif key in ('ss', 'statement_suffix'):
+        compiler_env.statement_suffix = value
+
+    elif key in ('cp', 'comment_prefix'):
+        compiler_env.comment_prefix = value
+
+    elif key in ('cs', 'comment_suffix'):
+        compiler_env.comment_suffix = value
+
+    elif key in ('vp', 'variable_prefix'):
+        compiler_env.variable_prefix = value
+
+    elif key in ('vs', 'variable_suffix'):
+        compiler_env.variable_suffix = value
+
+    elif key in ('ep', 'evaluation_prefix'):
+        compiler_env.evaluation_prefix = value
+
+    elif key in ('es', 'evaluation_suffix'):
+        compiler_env.evaluation_suffix = value
+
+    else:
+        raise KeyError('unknown keyword: {!r}'.format(key))
 
 # --- main functions ---
 
@@ -1803,7 +1973,13 @@ else:
         )
     )
 
-def __walk_files(root, name_ignores, path_ignores, sort_func):
+def __walk_files(
+        root,
+        name_filters,
+        path_filters,
+        name_ignores,
+        path_ignores,
+        sort_func):
     # root is a real path
     result = [root]
     i = 0
@@ -1817,25 +1993,45 @@ def __walk_files(root, name_ignores, path_ignores, sort_func):
             names = sort_func(os.listdir(path))
             for name in names:
 
+                continue_for_names = False
+
                 # filter file name
-                matched = False
-                for pattern in name_ignores:
-                    if fnmatch.fnmatch(name, pattern):
-                        matched = True
+                for pattern in name_filters:
+                    if not fnmatch.fnmatch(name, pattern):
+                        continue_for_names = True
                         break
 
-                if matched:
+                if continue_for_names:
+                    continue
+
+                # ignore file name
+                for pattern in name_ignores:
+                    if fnmatch.fnmatch(name, pattern):
+                        continue_for_names = True
+                        break
+
+                if continue_for_names:
                     continue # continue os.listdir
 
                 new_path = __joinpath(path, name)
-
+                
                 # filter file path
-                for pattern in path_ignores:
-                    if fnmatch.fnmatch(new_path, pattern):
-                        matched = True
+                for pattern in path_filters:
+                    if not fnmatch.fnmatch(new_path, pattern):
+                        continue_for_names = True
                         break
 
-                if matched:
+                if continue_for_names:
+                    continue
+
+
+                # ignore file path
+                for pattern in path_ignores:
+                    if fnmatch.fnmatch(new_path, pattern):
+                        continue_for_names = True
+                        break
+
+                if continue_for_names:
                     continue # continue os.listdir
 
                 new_result.append(new_path)
@@ -1871,7 +2067,10 @@ def __write_compiled_code_env(code_object, env, outfile):
 
     _write_code_object(outfile, code_object)
 
+# may raise: FileStructError, EOFError, or those may raise by file.read
+
 def __read_compiled_code(infile, env):
+
     if infile.read(len(_CACHE_FILE_MAGIC_NUMBER)) != _CACHE_FILE_MAGIC_NUMBER:
         raise FileStructError('file magic number mismatch')
 
@@ -1928,100 +2127,13 @@ def __compile_if_needed(code_path, cache_path, compiler_env):
     # return the result
     return code_object
 
-def __apply_language(lang, compiler_env):
-    for key, value in __language_specifications[lang]:
-        setattr(compiler_env, key, value)
-
-def __apply_settings(key, value, compiler_env):
-    if key in ('mp', 'macro_prefix'):
-        compiler_env.macro_prefix = value
-
-    elif key in ('ms', 'macro_suffix'):
-        compiler_env.macro_suffix = value
-
-    elif key in ('sp', 'statement_prefix'):
-        compiler_env.statement_prefix = value
-
-    elif key in ('ss', 'statement_suffix'):
-        compiler_env.statement_suffix = value
-
-    elif key in ('cp', 'comment_prefix'):
-        compiler_env.comment_prefix = value
-
-    elif key in ('cs', 'comment_suffix'):
-        compiler_env.comment_suffix = value
-
-    elif key in ('vp', 'variable_prefix'):
-        compiler_env.variable_prefix = value
-
-    elif key in ('vs', 'variable_suffix'):
-        compiler_env.variable_suffix = value
-
-    elif key in ('ep', 'evaluation_prefix'):
-        compiler_env.evaluation_prefix = value
-
-    elif key in ('es', 'evaluation_suffix'):
-        compiler_env.evaluation_suffix = value
-
-    else:
-        raise KeyError('unknown keyword: {!r}'.format(key))
-
-def __create_config_parser():
-    return configparser.ConfigParser(
-            defaults = None,
-
-            dict_type = dict,
-            allow_no_value = False,
-
-            delimiters = ('=', ),
-
-            comment_prefixes = ('#', ),
-            inline_comment_prefixes = None,
-
-            strict = True,
-
-            empty_lines_in_values = False,
-
-            default_section = "DEFAULT",
-
-            interpolation = None,
-
-            converters = {},
-            )
-
-def __apply_config_compiler_env(config, compiler_env):
-    try:
-        settings = config['settings']
-        for name in (
-                'macro_prefix',
-                'macro_suffix',
-                'statement_prefix',
-                'statement_suffix',
-                'comment_prefix',
-                'comment_suffix',
-                'variable_prefix',
-                'variable_suffix',
-                'evaluation_prefix',
-                'evaluation_suffix',
-                ):
-            setattr(
-                    compiler_env,
-                    name,
-                    settings.get(name, fallback=getattr(compiler_env, name)),
-                    )
-    except KeyError:
-        pass
-
-def __apply_config_filters(config, filters):
-    try:
-        filters = config['filters']
-    except KeyError:
-        pass
-
 def __compiler_worker(
         file_real_path,
         cache_folder_path,
         ):
+
+    # TODO: complete this function
+
     cache_file_path = \
         __get_cache_file_path(cache_folder_path, file_real_path)
 
@@ -2089,6 +2201,7 @@ def main(argv):
     #   [_INPUT_FLAG, sys.stdin]
 
     # --- append abs path & real path, filter files ---
+
     i = 0
     while i < len(options.jobs):
         item = options.jobs[i]
@@ -2099,13 +2212,6 @@ def main(argv):
             #   [_INPUT_FLAG, 'path']
             #   [_INPUT_FLAG, sys.stdin]
 
-            # remove input FILE names
-            for pattern in options.name_ignores:
-                if fnmatch.fnmatch(__splitpath(item[1])[1], pattern):
-                    # pop matched file name
-                    options.jobs.pop(i)
-                    continue
-
             # --- append abs path ---
             item.append(__abspath(item[1]))
 
@@ -2113,23 +2219,82 @@ def main(argv):
             #   [_INPUT_FLAG, 'path', 'abs_path']
             #   [_INPUT_FLAG, sys.stdin]
 
-            # remove input FILE paths
+            name = __splitpath(item[2])[1]
+
+            continue_while_loop = False
+
+            # --- filter input FILE names ---
+
+            for pattern in options.path_filters:
+                if not fnmatch.fnmatch(name, pattern):
+
+                    # pop un-matched file name
+                    options.jobs.pop(i)
+
+                    continue_while_loop = True
+                    break
+
+            if continue_while_loop:
+                continue
+
+            # --- ignore input FILE names ---
+
+            for pattern in options.name_ignores:
+                if fnmatch.fnmatch(name, pattern):
+
+                    # pop matched file name
+                    options.jobs.pop(i)
+
+                    continue_while_loop = True
+                    break
+
+            if continue_while_loop:
+                continue
+
+            # --- filter input FILE names ---
+
+            for pattern in options.path_filters:
+                if fnmatch.fnmatch(item[2], pattern):
+                    
+                    # pop un matched file path
+                    options.jobs.pop(i)
+
+                    continue_while_loop = True
+                    break
+
+            if continue_while_loop:
+                continue
+
+            # --- ignore input FILE paths ---
+
             for pattern in options.path_ignores:
                 if fnmatch.fnmatch(item[2], pattern):
+
                     # pop matched file path
                     options.jobs.pop(i)
-                    continue
+
+                    continue_while_loop = True
+                    break
+
+            if continue_while_loop:
+                continue
 
             # --- append real path ---
+
             item.append(__realpath(item[2]))
+
         i += 1
 
     # options.jobs contains:
-    #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] filtered by name, path
+    #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] ignored, filtered by \
+    #       name, path
     #   [_INPUT_FLAG, sys.stdin]
 
     # --- check directories ---
     if _RECURSIVE_FLAG & options.switchs:
+
+        # --- walk into directories ---
+
         i = 0
         while i < len(options.jobs):
             item = options.jobs[i]
@@ -2137,16 +2302,24 @@ def main(argv):
                     item[0] == _INPUT_FLAG and \
                     isinstance(item[1], str) and \
                     __isdir(item[3]):
+
+                # call __walk_files
                 files = __walk_files(
                     item[3],
+                    options.name_filters,
+                    options.path_filters,
                     options.name_ignores,
                     options.path_ignores,
                     sorted,
                     )
+
                 options.jobs[i] = [_INPUT_FLAG, files]
             i += 1
 
     else:
+
+        # --- remove directories ---
+
         _LINE = "pycro: -r not specified; omitting directory '{}'"
         i = 0
         while i < len(options.jobs):
@@ -2161,16 +2334,15 @@ def main(argv):
             i += 1
 
     # options.jobs contains:
-    #   [_INPUT_FLAG, [walked files]] filtered by name, path
-    #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] filtered by name, path
+    #   [_INPUT_FLAG, [walked files]] filtered, ignored by name, path
+    #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] filtered, ignored by \
+    #       name, path
     #   [_INPUT_FLAG, sys.stdin]
 
-    ### debug code ###
     print_line('jobs')
     for item in options.jobs:
         print(item)
     sys.exit(1)
-    ### debug code ###
 
     if _ARRANGE_PROCESS_FLAG & options.switchs:
 
