@@ -1,10 +1,20 @@
+# some other packages
+misc/pycro
+misc/preprocessor
+
+# vim
 *.swp
 
+# python cache
 __pycache__/
 *.pyc
 
+# vs code
 .vscode/*
 
-misc/pycro
-misc/preprocessor
+# python build directories
+build/
+dist/
+*.egg-info/
+venv/
 

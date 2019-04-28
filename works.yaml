@@ -1,22 +1,29 @@
 
-todos:
-- add __check_version__ function & version macro
-- add __argv__ variable if interpreted in pycro environment
+TODOs:
+- '-n, --filter-name' and '-P, --filter-name' options.
+- '-o, --outfile', '-O, --outfolder' options functionalities.
+- add __argv__ variable
+- write compiler process
+
+DOING:
+- write main without multiprocessing
+
+DONEs:
+- add __version__ variable
+- '-N, --ignore-name' and '-P, --ignore-path' options
+
+INTERESTs:
+- None
+
+ON_RELEASE:
+- remove debuging codes
 
 
-dons:
-- nothing
+Some notes:
 
-
-interests:
-- may be need to add ( '--help-all' or '--full-help' ) option.
-
---- some temporary codes
-
-```python
 # NOTE: '(?=(...))\1' works like atomic groups in other languages,
 #       e.g: in perl: '(?>...)'.
-
+#
 # TODO: using re for matching for macros, statement, ... is slow, may be we
 #       can do something like this:
 #
@@ -27,5 +34,6 @@ interests:
 # WARNING: if we use the above mechanism, evey line that startswith(prefix) and
 #          endswith(suffix) will treated as macros, statement, ...
 #
-# TODO: test speed of both ways.
-```
+# DONE: test speed of both ways:
+#       speed of using str.startswith & str.endswith is faster.
+

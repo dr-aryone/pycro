@@ -9,11 +9,66 @@ package: pycro __init__.py __main__.py
 	cp __init__.py $(PYCRO_FOLDER)/__init__.py
 	cp __main__.py $(PYCRO_FOLDER)/__main__.py
 
-import: 
+pycro.py: pycro
+	cp -f pycro pycro.py
+
+# --- generate README.md ---
+README.md: _README.in
+	m4 _README.in > README.md
+
+# --- making virtual environment ---
+venv:
+	python3 -m virtualenv -p python3 venv
+
+delete-venv:
+	rm -rdf venv
+
+# --- importing module ---
+
+# this import will failed
+import:
 	$(MAKE) package
 	(cd $(PACKAGE_FOLDER) && python -ic "import pycro" -OO)
 
 import3:
 	$(MAKE) package
 	(cd $(PACKAGE_FOLDER) && python3 -ic "import pycro" -OO)
+
+# --- for commiters ---
+
+.PHONY:
+commit-packages:
+	git add pycro.py package
+	git commit -m "update packages"
+
+.PHONY:
+commit-readmes:
+	git add _README.md _README.in README.md 
+	git commit -m "update READMEs"
+
+AUTO_COMMITS = makefile misc .gitignore
+
+.PHONY:
+commit-all:
+	git add $(AUTO_COMMITS)
+	git commit -m "update everything!"
+
+# --- building & publishing ---
+
+.PHONY:
+clean:
+	rm -rdf dist/
+	rm -rdf build/
+	rm -rdf pycro.egg-info/
+	rm -rdf __pycache__/
+
+.PHONY:
+build: pycro.py
+	python3 setup.py sdist bdist_wheel
+
+.PHONY:
+test-publish: build
+	python3 -m twine upload \
+		--repository-url https://test.pypi.org/legacy/ \
+		dist/*
 
