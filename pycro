@@ -193,6 +193,7 @@ _DEFAULT_PLACE_FUNCTION_NAME = '__place__'
 _DEFAULT_VERSION_VARIABLE_NAME = '__version__'
 
 _DEFAULT_COMMAND_VARIABLE_NAME = '__command__'
+_DEFAULT_ARGV_VARIABLE_NAME = '__argv__'
 
 
 # --- other settings ---
@@ -1702,6 +1703,7 @@ class ExecutorEnvironment:
 
             version_variable_name = _DEFAULT_VERSION_VARIABLE_NAME,
             command_variable_name = _DEFAULT_COMMAND_VARIABLE_NAME,
+            argv_variable_name = _DEFAULT_ARGV_VARIABLE_NAME,
             ):
 
 
@@ -1734,6 +1736,7 @@ class ExecutorEnvironment:
 
         self.version_variable_name = version_variable_name
         self.command_variable_name = command_variable_name
+        self.argv_variable_name = argv_variable_name
 
 def execute_code_object(
         code_object,
@@ -1741,8 +1744,12 @@ def execute_code_object(
         env,
 
         working_directory = '.',
+
         command = None,
+        argv = None,
         ):
+
+    # --- set up variables & pipes ---
 
     variables = env.variables
 
@@ -1766,6 +1773,11 @@ def execute_code_object(
 
     if command is not None:
         variables[env.command_variable_name] = command
+
+    # --- argv variable ---
+
+    if argv is not None:
+        variables[env.argv_variable_name] = argv
 
     # --- divert function ---
 
