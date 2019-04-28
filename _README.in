@@ -3,7 +3,7 @@ changequote(`{', `}'){}dnl
 # pycro
 
 > $wc pycro
-> esyscmd({wc pycro}){}dnl
+esyscmd({wc pycro}){}dnl
 
 list of contents:
 - [introduction](#introduction)

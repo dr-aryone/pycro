@@ -2,7 +2,7 @@
 # pycro
 
 > $wc pycro
->  2435  5624 68001 pycro
+ 2435  5624 68001 pycro
 
 list of contents:
 - [introduction](#introduction)
