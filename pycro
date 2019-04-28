@@ -2253,7 +2253,7 @@ def main(argv):
             if continue_while_loop:
                 continue
 
-            # --- filter input FILE paths ---
+            # --- ignore input FILE paths ---
 
             for pattern in options.path_ignores:
                 if fnmatch.fnmatch(item[2], pattern):
@@ -2274,7 +2274,8 @@ def main(argv):
         i += 1
 
     # options.jobs contains:
-    #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] filtered by name, path
+    #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] ignored, filtered by \
+    #       name, path
     #   [_INPUT_FLAG, sys.stdin]
 
     # --- check directories ---
@@ -2289,12 +2290,17 @@ def main(argv):
                     item[0] == _INPUT_FLAG and \
                     isinstance(item[1], str) and \
                     __isdir(item[3]):
+
+                # call __walk_files
                 files = __walk_files(
                     item[3],
+                    options.name_filters,
+                    options.path_filters,
                     options.name_ignores,
                     options.path_ignores,
                     sorted,
                     )
+
                 options.jobs[i] = [_INPUT_FLAG, files]
             i += 1
 
@@ -2316,8 +2322,9 @@ def main(argv):
             i += 1
 
     # options.jobs contains:
-    #   [_INPUT_FLAG, [walked files]] filtered by name, path
-    #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] filtered by name, path
+    #   [_INPUT_FLAG, [walked files]] filtered, ignored by name, path
+    #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] filtered, ignored by \
+    #       name, path
     #   [_INPUT_FLAG, sys.stdin]
 
     print_line('jobs')
