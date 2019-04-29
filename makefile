@@ -16,6 +16,15 @@ pycro.py: pycro
 README.md: _README.in
 	m4 _README.in > README.md
 
+# --- generate todos.md ---
+todos.md: pycro
+	@echo making $@
+	@echo 'in `pycro`:' > $@
+	@echo '```' >> $@
+	@grep "\s*#\s*TODO" -n pycro | \
+			sed -E 's/([0-9]+):\s*(.*?)\s*$$/\1: \2/g' >> $@
+	@echo '```' >> $@
+
 # --- making virtual environment ---
 venv:
 	python3 -m virtualenv -p python3 venv
@@ -44,6 +53,11 @@ commit-packages:
 .PHONY:
 commit-readmes:
 	git add _README.md _README.in README.md 
+	git commit -m "update READMEs"
+
+.PHONY:
+commit-makefile:
+	git add makefile
 	git commit -m "update READMEs"
 
 AUTO_COMMITS = makefile misc .gitignore
