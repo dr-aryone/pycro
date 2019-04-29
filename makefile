@@ -59,11 +59,11 @@ commit-readmes:
 	git add $(READMES)
 	git commit -m "update READMEs"
 
-AUTO_COMMITS = makefile misc .gitignore
+AUTO_COMMITS = makefile misc .gitignore todos.md
 
 .PHONY:
 commit-all:
-	git add $(PACKAGES) $(READMES) $(AUTO_COMMITS)
+	git add $(AUTO_COMMITS)
 	git commit -m "update everything!"
 
 # --- building & publishing ---
