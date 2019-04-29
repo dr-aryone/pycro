@@ -45,23 +45,26 @@ import3:
 
 # --- for commiters ---
 
+PACKAGES = pycro.py package
+
 .PHONY:
 commit-packages:
-	git add pycro.py package
+	git add $(PACKAGES)
 	git commit -m "update packages"
+
+READMES = _README.md _README.in README.md
 
 .PHONY:
 commit-readmes:
-	git add _README.md _README.in README.md 
+	git add $(READMES)
 	git commit -m "update READMEs"
 
 AUTO_COMMITS = makefile misc .gitignore
 
 .PHONY:
 commit-all:
-	git add $(AUTO_COMMITS)
+	git add $(PACKAGES) $(READMES) $(AUTO_COMMITS)
 	git commit -m "update everything!"
-
 
 # --- building & publishing ---
 
