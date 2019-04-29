@@ -1846,7 +1846,7 @@ def execute_code_object(
     # load json file and update variables, same as '-l, --load JSONFILE'
     # option.
 
-    # TODO: write load function
+    # TODO: write _load_function
 
     # --- executing code_object ---
 
@@ -1906,7 +1906,7 @@ def __apply_config_filters(config, filters):
     try:
         filters = config['filters']
 
-        # TODO: complete this function
+        # TODO: complete __apply_config_filters
 
     except KeyError:
         pass
@@ -2129,7 +2129,7 @@ def __compiler_worker(
         cache_folder_path,
         ):
 
-    # TODO: complete this function
+    # TODO: complete __compiler_worker
 
     cache_file_path = \
         __get_cache_file_path(cache_folder_path, file_real_path)
