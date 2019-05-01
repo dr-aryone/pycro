@@ -9,6 +9,6 @@ in `pycro`:
 1810: # TODO: write _include_function
 1849: # TODO: write _load_function
 1909: # TODO: complete __apply_config_filters
-2132: # TODO: complete __compiler_worker
-2381: # TODO: complete here
+2384: # TODO: complete arranged performace
+2421: # TODO: complete multiprocessing functionality
 ```
