@@ -524,8 +524,8 @@ PickleQueue = __queue_maker(_write_pickle_object, _read_pickle_object)
 
 __USAGE = "usage: {} [OPTION]... [[--] FILE | -]..."
 __HELP = """\
-Pycro FILEs to standard output. if no FILE or if FILE is '-', standard input is
-read.
+Pycro FILEs. if no FILE or if FILE is '-', standard input is read. write to
+standard output if no output specified.
 
 Operation modes:
     -h, --help                      display this help and exit
@@ -597,8 +597,6 @@ __VERSION = "pycro v{}.{}.{}"
 
 def __print_version():
     print(__VERSION.format(*VERSION))
-
-# TODO: write '--outfile', '--outfolder' functionality
 
 __setting_keys = {
     'mp', 'macro_prefix'
@@ -1976,7 +1974,9 @@ def __walk_files(
         path_filters,
         name_ignores,
         path_ignores,
-        sort_func):
+        sort_func,
+        ):
+
     # root is a real path
     result = [root]
     i = 0
@@ -2008,10 +2008,10 @@ def __walk_files(
                         break
 
                 if continue_for_names:
-                    continue # continue os.listdir
+                    continue
 
-                new_path = __joinpath(path, name)
-                
+                new_path = __realpath(__joinpath(path, name))
+
                 # filter file path
                 for pattern in path_filters:
                     if not fnmatch.fnmatch(new_path, pattern):
@@ -2029,7 +2029,7 @@ def __walk_files(
                         break
 
                 if continue_for_names:
-                    continue # continue os.listdir
+                    continue
 
                 new_result.append(new_path)
 
@@ -2087,11 +2087,13 @@ def __read_compiled_code(infile, env):
 
     return None
 
-# __compile_if_needed() will call the following functions:
+# function below will call the following functions:
 #   os.stat
 #   open
 
-def __compile_if_needed(code_path, cache_path, compiler_env):
+# this function will return compiled code object
+
+def __compile_code_file(code_path, cache_path, compiler_env):
     code_stat = os.stat(code_path)
     try:
         # may raise FileNotFoundError
@@ -2124,15 +2126,24 @@ def __compile_if_needed(code_path, cache_path, compiler_env):
     # return the result
     return code_object
 
-def __compiler_worker(
-        file_real_path,
+def __cache_code_file(
+        code_file_real_path,
         cache_folder_path,
+        compiler_env,
         ):
 
-    # TODO: complete __compiler_worker
+    cache_file_path = __get_cache_file_path(
+            cache_folder_path, 
+            code_file_real_path,
+            )
 
-    cache_file_path = \
-        __get_cache_file_path(cache_folder_path, file_real_path)
+    code_object = __compile_code_file(
+            code_file_real_path, 
+            cache_file_path, 
+            compiler_env,
+            )
+    
+    return cache_file_path, code_object
 
 def main(argv):
 
@@ -2210,6 +2221,7 @@ def main(argv):
             #   [_INPUT_FLAG, sys.stdin]
 
             # --- append abs path ---
+
             item.append(__abspath(item[1]))
 
             # options.jobs contains:
@@ -2248,10 +2260,10 @@ def main(argv):
             if continue_while_loop:
                 continue
 
-            # --- filter input FILE names ---
+            # --- filter input FILE paths ---
 
             for pattern in options.path_filters:
-                if fnmatch.fnmatch(item[2], pattern):
+                if not fnmatch.fnmatch(item[2], pattern):
                     
                     # pop un matched file path
                     options.jobs.pop(i)
@@ -2300,7 +2312,6 @@ def main(argv):
                     isinstance(item[1], str) and \
                     __isdir(item[3]):
 
-                # call __walk_files
                 files = __walk_files(
                     item[3],
                     options.name_filters,
@@ -2336,14 +2347,13 @@ def main(argv):
     #       name, path
     #   [_INPUT_FLAG, sys.stdin]
 
-    print_line('jobs')
-    for item in options.jobs:
-        print(item)
-    sys.exit(1)
+    # TODO: write '--outfile', '--outfolder' functionality
 
     if _ARRANGE_PROCESS_FLAG & options.switchs:
 
         # --- arranged performace ---
+
+        # TODO: complete arranged performace
         raise FatalError('unimplemented code')
 
     else: # not (_ARRANGE_PROCESS_FLAG & options.switchs)
@@ -2378,7 +2388,16 @@ def main(argv):
         #   [_INPUT_FLAG, sys.stdin]
 
         # --- first compile the inputs ---
-        # TODO: complete here
+        if _MULTIPROCESSING_ENABLED:
+
+            # TODO: complete multiprocessing
+            raise FatalError('unimplemented code')
+
+        else:
+
+
+
+            pass
 
 __all__ = [
 
