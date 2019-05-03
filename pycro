@@ -2208,6 +2208,31 @@ def main(argv):
     #   [_INPUT_FLAG, 'path']
     #   [_INPUT_FLAG, sys.stdin]
 
+    # --- filter, ignore lambda ---
+    def filter_ignore_files(name, path):
+
+        # --- name filters ---
+        for pattern in options.name_filters:
+            if not fnmatch.fnmatch(name, pattern):
+                return False
+
+        # --- name ignores ---
+        for pattern in options.name_ignores:
+            if fnmatch.fnmatch(path, pattern):
+                return False
+
+        # --- path filters ---
+        for pattern in options.path_filters:
+            if not fnmatch.fnmatch(path, pattern):
+                return False
+
+        # --- path ignores ---
+        for pattern in options.path_ignores:
+            if fnmatch.fnmatch(path, pattern):
+                return False
+
+        return True
+
     # --- append abs path & real path, filter files ---
 
     i = 0
@@ -2387,7 +2412,7 @@ def main(argv):
         #       filtered by name, path
         #   [_INPUT_FLAG, sys.stdin]
 
-        # --- first compile the inputs ---
+        # --- compile the inputs ---
         if _MULTIPROCESSING_ENABLED:
 
             # TODO: complete multiprocessing
@@ -2395,8 +2420,7 @@ def main(argv):
 
         else:
 
-
-
+            # --- compile input FILEs ---
             pass
 
 __all__ = [
