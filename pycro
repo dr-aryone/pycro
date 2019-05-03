@@ -524,8 +524,8 @@ PickleQueue = __queue_maker(_write_pickle_object, _read_pickle_object)
 
 __USAGE = "usage: {} [OPTION]... [[--] FILE | -]..."
 __HELP = """\
-Pycro FILEs to standard output. if no FILE or if FILE is '-', standard input is
-read.
+Pycro FILEs. if no FILE or if FILE is '-', standard input is read. write to
+standard output if no output specified.
 
 Operation modes:
     -h, --help                      display this help and exit
@@ -1976,7 +1976,9 @@ def __walk_files(
         path_filters,
         name_ignores,
         path_ignores,
-        sort_func):
+        sort_func,
+        ):
+
     # root is a real path
     result = [root]
     i = 0
@@ -2008,10 +2010,10 @@ def __walk_files(
                         break
 
                 if continue_for_names:
-                    continue # continue os.listdir
+                    continue
 
-                new_path = __joinpath(path, name)
-                
+                new_path = __realpath(__joinpath(path, name))
+
                 # filter file path
                 for pattern in path_filters:
                     if not fnmatch.fnmatch(new_path, pattern):
@@ -2029,7 +2031,7 @@ def __walk_files(
                         break
 
                 if continue_for_names:
-                    continue # continue os.listdir
+                    continue
 
                 new_result.append(new_path)
 
