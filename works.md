@@ -2,6 +2,7 @@
 TODOs:
 - '-o, --outfile', '-O, --outfolder' options functionalities.
 - write main without multiprocessing
+- write __walk_files function
 
 DOING:
 - None
@@ -19,8 +20,9 @@ INTERESTs:
 ON_RELEASE:
 - remove debuging codes
 
-Some notes:
 
+
+# Some notes:
 # NOTE: '(?=(...))\1' works like atomic groups in other languages,
 #       e.g: in perl: '(?>...)'.
 #
@@ -36,4 +38,53 @@ Some notes:
 #
 # DONE: test speed of both ways:
 #       speed of using str.startswith & str.endswith is faster.
+
+
+# if '-O, --outfolder OUTFOLDER' specified:
+
+#   if there is just one input folder:
+#       pycro input folder to output folder
+
+#       example:
+
+#       $ tree src
+#       src
+#       +--- main.c
+#       +--- buffer.c
+#
+#       $pycro src/ -O new_src/
+#
+#       $ tree new_src/
+#       new_src
+#       +--- main.c
+#       +--- buffer.c
+
+#   if there is more than one input folder or file:
+#       pycro inputs to output folder
+
+#       example:
+
+#       $ tree src
+#       src
+#       +--- main.c
+#       +--- buffer.c
+#
+#       $ tree lib
+#       lib
+#       +--- lib.c
+#       +--- lib.h
+#
+#       $pycro src/ -O new_src/
+#
+#       $ tree new_src/
+#       new_src
+#       +--- src
+#            +--- main.c
+#            +--- buffer.c
+#       +--- lib
+#            +--- lib.c
+#            +--- lib.h
+
+# if '-o, --outfile OUTFILE' specified:
+#   pycro all files into OUTFILE
 
