@@ -344,8 +344,9 @@ __abspath = os.path.abspath
 __normpath = os.path.normpath
 __realpath = os.path.realpath
 __splitpath = os.path.split
-__isdir = os.path.isdir
 __isfile = os.path.isfile
+__isdir = os.path.isdir
+__islink = os.path.islink
 
 if sys.version_info >= (3, 4):
     __fullmatch = re._pattern_type.fullmatch
