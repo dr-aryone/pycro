@@ -558,6 +558,7 @@ Common options:
     -f, --force                     overwrite existing files
     -r, --recursive                 pycro directories recursively
     -C, --clear-cache               first clear compiler cache
+    -L, --dereference               follow symbolic links
     -o, --outfile OUTFILE           set output file to OUTFILE
     -O, --outfolder OUTFOLDER       set output folder to OUTFOLDER
 
@@ -691,6 +692,7 @@ _ARRANGE_PROCESS_FLAG =     0x01
 _RECURSIVE_FLAG =           0x02
 _CLEAR_CACHE_FLAG =         0x04
 _FORCE_FLAG =               0x08
+_DEREFERENCE_FLAG =         0x10
 
 # --- jobs unique flags ---
 
@@ -1004,6 +1006,10 @@ def __parse_argv(argv):
                 elif option == 'clear-cache':
                     result.switchs |= _CLEAR_CACHE_FLAG
 
+                # dereference
+                elif option == 'dereference':
+                    result.switchs |= _DEREFERENCE_FLAG
+
                 # set output file
                 elif option == 'outfile':
                     if has_output:
@@ -1094,6 +1100,10 @@ def __parse_argv(argv):
                     # clear cache
                     elif ch == 'C':
                         result.switchs |= _CLEAR_CACHE_FLAG
+
+                    # dereference
+                    elif ch == 'L':
+                        result.switchs |= _DEREFERENCE_FLAG
 
                     # set output file
                     elif ch == 'o':
