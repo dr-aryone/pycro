@@ -43,7 +43,7 @@ import signal
 # --- version ---
 
 _VersionType = collections.namedtuple(
-        'VersionType', 
+        'VersionType',
         ['major', 'minor', 'micro'],
     )
 
@@ -76,9 +76,9 @@ def __print_error(line, file = sys.stdout):
 # --- better main exception handling ---
 
 def __print_source(
-        index = 0, 
-        context = 1, 
-        number=True, 
+        index = 0,
+        context = 1,
+        number=True,
         file = sys.stdout,
         ):
 
@@ -91,14 +91,14 @@ def __print_source(
         num_width = len(str(frame_info.lineno + ((context + 1) // 2)))
         for n, line in enumerate(frame_info.code_context):
             print(
-                '{0:>{2}} {1}'.format(n + start_lnum, line, num_width), 
+                '{0:>{2}} {1}'.format(n + start_lnum, line, num_width),
                 end='',
             )
 
     else:
         for line in frame_info.code_context:
             print(
-                line, 
+                line,
                 end='',
             )
 
@@ -374,7 +374,7 @@ def _create_pipe(read_mode = 'rt', write_mode = 'wt'):
     return itertools.starmap(
         _fdopen,
         zip(
-            os.pipe(), 
+            os.pipe(),
             (read_mode, write_mode),
         ),
     )
@@ -547,7 +547,7 @@ Sortable options:
                                       standard input)
 
 Common options:
-    -n, --filter-name PATTERN       filter input FILEs by its name match 
+    -n, --filter-name PATTERN       filter input FILEs by its name match
                                       shell PATTERN
     -p, --filter-path PATTERN       filter input FILEs by its path match
                                       shell PATTERN
@@ -917,7 +917,7 @@ def __parse_argv(argv):
                 result.name_filters.append(arg)
 
             elif next_arg[0] == _FILTER_PATH_FLAG:
-                
+
                 # --- append file path filters ---
                 result.path_filters.append(arg)
 
@@ -2144,16 +2144,16 @@ def __cache_code_file(
         ):
 
     cache_file_path = __get_cache_file_path(
-            cache_folder_path, 
+            cache_folder_path,
             code_file_real_path,
             )
 
     code_object = __compile_code_file(
-            code_file_real_path, 
-            cache_file_path, 
+            code_file_real_path,
+            cache_file_path,
             compiler_env,
             )
-    
+
     return cache_file_path, code_object
 
 def main(argv):
@@ -2322,6 +2322,7 @@ def main(argv):
                     item[0] == _INPUT_FLAG and \
                     isinstance(item[1], str) and \
                     __isdir(item[3]):
+
                 print(_LINE.format(item[1]), file=sys.stderr)
                 options.jobs.pop(i)
                 continue
