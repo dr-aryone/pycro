@@ -737,6 +737,9 @@ if __debug__:
         elif flag == _FORCE_FLAG:
             return '_FORCE_FLAG'
 
+        elif flag == _DEREFERENCE_FLAG:
+            return '_DEREFERENCE_FLAG'
+
         else:
             raise ValueError('unknown flag: {}'.format(flag))
 
