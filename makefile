@@ -15,8 +15,8 @@ pycro.py: pycro
 
 # *** generate README.md ***
 
-README.md: _README.in
-	m4 _README.in > README.md
+README.md: README.m4.md
+	m4 $< > $@
 
 
 # *** generate todos.md ***
