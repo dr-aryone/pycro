@@ -43,7 +43,7 @@ import signal
 # --- version ---
 
 _VersionType = collections.namedtuple(
-        'VersionType', 
+        'VersionType',
         ['major', 'minor', 'micro'],
     )
 
@@ -76,9 +76,9 @@ def __print_error(line, file = sys.stdout):
 # --- better main exception handling ---
 
 def __print_source(
-        index = 0, 
-        context = 1, 
-        number=True, 
+        index = 0,
+        context = 1,
+        number=True,
         file = sys.stdout,
         ):
 
@@ -91,14 +91,14 @@ def __print_source(
         num_width = len(str(frame_info.lineno + ((context + 1) // 2)))
         for n, line in enumerate(frame_info.code_context):
             print(
-                '{0:>{2}} {1}'.format(n + start_lnum, line, num_width), 
+                '{0:>{2}} {1}'.format(n + start_lnum, line, num_width),
                 end='',
             )
 
     else:
         for line in frame_info.code_context:
             print(
-                line, 
+                line,
                 end='',
             )
 
@@ -344,8 +344,9 @@ __abspath = os.path.abspath
 __normpath = os.path.normpath
 __realpath = os.path.realpath
 __splitpath = os.path.split
-__isdir = os.path.isdir
 __isfile = os.path.isfile
+__isdir = os.path.isdir
+__islink = os.path.islink
 
 if sys.version_info >= (3, 4):
     __fullmatch = re._pattern_type.fullmatch
@@ -373,7 +374,7 @@ def _create_pipe(read_mode = 'rt', write_mode = 'wt'):
     return itertools.starmap(
         _fdopen,
         zip(
-            os.pipe(), 
+            os.pipe(),
             (read_mode, write_mode),
         ),
     )
@@ -524,8 +525,8 @@ PickleQueue = __queue_maker(_write_pickle_object, _read_pickle_object)
 
 __USAGE = "usage: {} [OPTION]... [[--] FILE | -]..."
 __HELP = """\
-Pycro FILEs to standard output. if no FILE or if FILE is '-', standard input is
-read.
+Pycro FILEs. if no FILE or if FILE is '-', standard input is read. write to
+standard output if no output specified.
 
 Operation modes:
     -h, --help                      display this help and exit
@@ -546,7 +547,7 @@ Sortable options:
                                       standard input)
 
 Common options:
-    -n, --filter-name PATTERN       filter input FILEs by its name match 
+    -n, --filter-name PATTERN       filter input FILEs by its name match
                                       shell PATTERN
     -p, --filter-path PATTERN       filter input FILEs by its path match
                                       shell PATTERN
@@ -557,6 +558,7 @@ Common options:
     -f, --force                     overwrite existing files
     -r, --recursive                 pycro directories recursively
     -C, --clear-cache               first clear compiler cache
+    -L, --dereference               follow symbolic links
     -o, --outfile OUTFILE           set output file to OUTFILE
     -O, --outfolder OUTFOLDER       set output folder to OUTFOLDER
 
@@ -597,8 +599,6 @@ __VERSION = "pycro v{}.{}.{}"
 
 def __print_version():
     print(__VERSION.format(*VERSION))
-
-# TODO: write '--outfile', '--outfolder' functionality
 
 __setting_keys = {
     'mp', 'macro_prefix'
@@ -692,6 +692,7 @@ _ARRANGE_PROCESS_FLAG =     0x01
 _RECURSIVE_FLAG =           0x02
 _CLEAR_CACHE_FLAG =         0x04
 _FORCE_FLAG =               0x08
+_DEREFERENCE_FLAG =         0x10
 
 # --- jobs unique flags ---
 
@@ -735,6 +736,9 @@ if __debug__:
 
         elif flag == _FORCE_FLAG:
             return '_FORCE_FLAG'
+
+        elif flag == _DEREFERENCE_FLAG:
+            return '_DEREFERENCE_FLAG'
 
         else:
             raise ValueError('unknown flag: {}'.format(flag))
@@ -916,7 +920,7 @@ def __parse_argv(argv):
                 result.name_filters.append(arg)
 
             elif next_arg[0] == _FILTER_PATH_FLAG:
-                
+
                 # --- append file path filters ---
                 result.path_filters.append(arg)
 
@@ -1004,6 +1008,10 @@ def __parse_argv(argv):
                 # clear cache
                 elif option == 'clear-cache':
                     result.switchs |= _CLEAR_CACHE_FLAG
+
+                # dereference
+                elif option == 'dereference':
+                    result.switchs |= _DEREFERENCE_FLAG
 
                 # set output file
                 elif option == 'outfile':
@@ -1095,6 +1103,10 @@ def __parse_argv(argv):
                     # clear cache
                     elif ch == 'C':
                         result.switchs |= _CLEAR_CACHE_FLAG
+
+                    # dereference
+                    elif ch == 'L':
+                        result.switchs |= _DEREFERENCE_FLAG
 
                     # set output file
                     elif ch == 'o':
@@ -1846,7 +1858,7 @@ def execute_code_object(
     # load json file and update variables, same as '-l, --load JSONFILE'
     # option.
 
-    # TODO: write load function
+    # TODO: write _load_function
 
     # --- executing code_object ---
 
@@ -1906,7 +1918,7 @@ def __apply_config_filters(config, filters):
     try:
         filters = config['filters']
 
-        # TODO: complete this function
+        # TODO: complete __apply_config_filters
 
     except KeyError:
         pass
@@ -1976,7 +1988,9 @@ def __walk_files(
         path_filters,
         name_ignores,
         path_ignores,
-        sort_func):
+        sort_func,
+        ):
+
     # root is a real path
     result = [root]
     i = 0
@@ -2008,10 +2022,10 @@ def __walk_files(
                         break
 
                 if continue_for_names:
-                    continue # continue os.listdir
+                    continue
 
-                new_path = __joinpath(path, name)
-                
+                new_path = __realpath(__joinpath(path, name))
+
                 # filter file path
                 for pattern in path_filters:
                     if not fnmatch.fnmatch(new_path, pattern):
@@ -2029,7 +2043,7 @@ def __walk_files(
                         break
 
                 if continue_for_names:
-                    continue # continue os.listdir
+                    continue
 
                 new_result.append(new_path)
 
@@ -2087,11 +2101,13 @@ def __read_compiled_code(infile, env):
 
     return None
 
-# __compile_if_needed() will call the following functions:
+# function below will call the following functions:
 #   os.stat
 #   open
 
-def __compile_if_needed(code_path, cache_path, compiler_env):
+# this function will return compiled code object
+
+def __compile_code_file(code_path, cache_path, compiler_env):
     code_stat = os.stat(code_path)
     try:
         # may raise FileNotFoundError
@@ -2124,15 +2140,24 @@ def __compile_if_needed(code_path, cache_path, compiler_env):
     # return the result
     return code_object
 
-def __compiler_worker(
-        file_real_path,
+def __cache_code_file(
+        code_file_real_path,
         cache_folder_path,
+        compiler_env,
         ):
 
-    # TODO: complete this function
+    cache_file_path = __get_cache_file_path(
+            cache_folder_path,
+            code_file_real_path,
+            )
 
-    cache_file_path = \
-        __get_cache_file_path(cache_folder_path, file_real_path)
+    code_object = __compile_code_file(
+            code_file_real_path,
+            cache_file_path,
+            compiler_env,
+            )
+
+    return cache_file_path, code_object
 
 def main(argv):
 
@@ -2197,6 +2222,32 @@ def main(argv):
     #   [_INPUT_FLAG, 'path']
     #   [_INPUT_FLAG, sys.stdin]
 
+    # --- filter, ignore lambda ---
+
+    def filter_ignore_files(name, path):
+
+        # --- name filters ---
+        for pattern in options.name_filters:
+            if not fnmatch.fnmatch(name, pattern):
+                return True
+
+        # --- name ignores ---
+        for pattern in options.name_ignores:
+            if fnmatch.fnmatch(path, pattern):
+                return True
+
+        # --- path filters ---
+        for pattern in options.path_filters:
+            if not fnmatch.fnmatch(path, pattern):
+                return True
+
+        # --- path ignores ---
+        for pattern in options.path_ignores:
+            if fnmatch.fnmatch(path, pattern):
+                return True
+
+        return False
+
     # --- append abs path & real path, filter files ---
 
     i = 0
@@ -2210,6 +2261,7 @@ def main(argv):
             #   [_INPUT_FLAG, sys.stdin]
 
             # --- append abs path ---
+
             item.append(__abspath(item[1]))
 
             # options.jobs contains:
@@ -2218,62 +2270,10 @@ def main(argv):
 
             name = __splitpath(item[2])[1]
 
-            continue_while_loop = False
+            # --- filter, ignore files ---
 
-            # --- filter input FILE names ---
-
-            for pattern in options.path_filters:
-                if not fnmatch.fnmatch(name, pattern):
-
-                    # pop un-matched file name
-                    options.jobs.pop(i)
-
-                    continue_while_loop = True
-                    break
-
-            if continue_while_loop:
-                continue
-
-            # --- ignore input FILE names ---
-
-            for pattern in options.name_ignores:
-                if fnmatch.fnmatch(name, pattern):
-
-                    # pop matched file name
-                    options.jobs.pop(i)
-
-                    continue_while_loop = True
-                    break
-
-            if continue_while_loop:
-                continue
-
-            # --- filter input FILE names ---
-
-            for pattern in options.path_filters:
-                if fnmatch.fnmatch(item[2], pattern):
-                    
-                    # pop un matched file path
-                    options.jobs.pop(i)
-
-                    continue_while_loop = True
-                    break
-
-            if continue_while_loop:
-                continue
-
-            # --- ignore input FILE paths ---
-
-            for pattern in options.path_ignores:
-                if fnmatch.fnmatch(item[2], pattern):
-
-                    # pop matched file path
-                    options.jobs.pop(i)
-
-                    continue_while_loop = True
-                    break
-
-            if continue_while_loop:
+            if filter_ignore_files(name, item[2]):
+                options.jobs.pop(i)
                 continue
 
             # --- append real path ---
@@ -2300,7 +2300,6 @@ def main(argv):
                     isinstance(item[1], str) and \
                     __isdir(item[3]):
 
-                # call __walk_files
                 files = __walk_files(
                     item[3],
                     options.name_filters,
@@ -2321,10 +2320,12 @@ def main(argv):
         i = 0
         while i < len(options.jobs):
             item = options.jobs[i]
+
             if \
                     item[0] == _INPUT_FLAG and \
                     isinstance(item[1], str) and \
                     __isdir(item[3]):
+
                 print(_LINE.format(item[1]), file=sys.stderr)
                 options.jobs.pop(i)
                 continue
@@ -2336,14 +2337,13 @@ def main(argv):
     #       name, path
     #   [_INPUT_FLAG, sys.stdin]
 
-    print_line('jobs')
-    for item in options.jobs:
-        print(item)
-    sys.exit(1)
+    # TODO: write '--outfile', '--outfolder' functionality
 
     if _ARRANGE_PROCESS_FLAG & options.switchs:
 
         # --- arranged performace ---
+
+        # TODO: complete arranged performace
         raise FatalError('unimplemented code')
 
     else: # not (_ARRANGE_PROCESS_FLAG & options.switchs)
@@ -2377,8 +2377,16 @@ def main(argv):
         #       filtered by name, path
         #   [_INPUT_FLAG, sys.stdin]
 
-        # --- first compile the inputs ---
-        # TODO: complete here
+        # --- compile the inputs ---
+        if _MULTIPROCESSING_ENABLED:
+
+            # TODO: complete multiprocessing
+            raise FatalError('unimplemented code')
+
+        else:
+
+            # --- compile input FILEs ---
+            pass
 
 __all__ = [
 
