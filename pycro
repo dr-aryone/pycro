@@ -2159,7 +2159,7 @@ def __cache_code_file(
 
     return cache_file_path, code_object
 
-def main(argv):
+def _main(argv):
 
     options = __parse_argv(argv)
     if isinstance(options, int):
@@ -2429,9 +2429,6 @@ __all__ = [
 
         # executor functions
         "execute_code_object",
-
-        # module main function
-        "main",
 
         ]
 
