@@ -348,10 +348,7 @@ __splitpath = os.path.split
 __isfile = os.path.isfile
 __isdir = os.path.isdir
 __islink = os.path.islink
-<<<<<<< HEAD
-=======
 __exists = os.path.exists
->>>>>>> mak12776-master
 
 if sys.version_info >= (3, 4):
     __fullmatch = re._pattern_type.fullmatch
@@ -563,11 +560,7 @@ Common options:
     -f, --force                     overwrite existing files
     -r, --recursive                 pycro directories recursively
     -C, --clear-cache               first clear compiler cache
-<<<<<<< HEAD
-    -L, --dereference               follow symbolic links
-=======
     -d, --dereference               follow symbolic links
->>>>>>> mak12776-master
     -o, --outfile OUTFILE           set output file to OUTFILE
     -O, --outfolder OUTFOLDER       set output folder to OUTFOLDER
 
@@ -1114,11 +1107,7 @@ def __parse_argv(argv):
                         result.switchs |= _CLEAR_CACHE_FLAG
 
                     # dereference
-<<<<<<< HEAD
-                    elif ch == 'L':
-=======
                     elif ch == 'd':
->>>>>>> mak12776-master
                         result.switchs |= _DEREFERENCE_FLAG
 
                     # set output file
@@ -1995,83 +1984,6 @@ else:
         )
     )
 
-<<<<<<< HEAD
-def __walk_files(
-        root,
-        name_filters,
-        path_filters,
-        name_ignores,
-        path_ignores,
-        sort_func,
-        ):
-
-    # root is a real path
-    result = [root]
-    i = 0
-    while i < len(result):
-        path = result[i]
-
-        if __isdir(path):
-            new_result = collections.deque()
-
-            # walk into directory
-            names = sort_func(os.listdir(path))
-            for name in names:
-
-                continue_for_names = False
-
-                # filter file name
-                for pattern in name_filters:
-                    if not fnmatch.fnmatch(name, pattern):
-                        continue_for_names = True
-                        break
-
-                if continue_for_names:
-                    continue
-
-                # ignore file name
-                for pattern in name_ignores:
-                    if fnmatch.fnmatch(name, pattern):
-                        continue_for_names = True
-                        break
-
-                if continue_for_names:
-                    continue
-
-                new_path = __realpath(__joinpath(path, name))
-
-                # filter file path
-                for pattern in path_filters:
-                    if not fnmatch.fnmatch(new_path, pattern):
-                        continue_for_names = True
-                        break
-
-                if continue_for_names:
-                    continue
-
-
-                # ignore file path
-                for pattern in path_ignores:
-                    if fnmatch.fnmatch(new_path, pattern):
-                        continue_for_names = True
-                        break
-
-                if continue_for_names:
-                    continue
-
-                new_result.append(new_path)
-
-            # pop the path
-            result.pop(i)
-
-            # now extend result
-            result.extend(new_result)
-
-            continue
-        i += 1
-    return result
-=======
->>>>>>> mak12776-master
 
 def __write_compiled_code_env(code_object, env, outfile):
     # --- writing to file ---
@@ -2318,19 +2230,6 @@ def _main(argv):
                     __isdir(item[3]):
                 pass
 
-<<<<<<< HEAD
-                files = __walk_files(
-                    item[3],
-                    options.name_filters,
-                    options.path_filters,
-                    options.name_ignores,
-                    options.path_ignores,
-                    sorted,
-                    )
-
-                options.jobs[i] = [_INPUT_FLAG, files]
-=======
->>>>>>> mak12776-master
             i += 1
 
     else:
