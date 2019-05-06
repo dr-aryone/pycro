@@ -39,6 +39,7 @@ import itertools
 import queue
 import multiprocessing
 import signal
+import pathlib
 
 # --- version ---
 
@@ -347,6 +348,10 @@ __splitpath = os.path.split
 __isfile = os.path.isfile
 __isdir = os.path.isdir
 __islink = os.path.islink
+<<<<<<< HEAD
+=======
+__exists = os.path.exists
+>>>>>>> mak12776-master
 
 if sys.version_info >= (3, 4):
     __fullmatch = re._pattern_type.fullmatch
@@ -558,7 +563,11 @@ Common options:
     -f, --force                     overwrite existing files
     -r, --recursive                 pycro directories recursively
     -C, --clear-cache               first clear compiler cache
+<<<<<<< HEAD
     -L, --dereference               follow symbolic links
+=======
+    -d, --dereference               follow symbolic links
+>>>>>>> mak12776-master
     -o, --outfile OUTFILE           set output file to OUTFILE
     -O, --outfolder OUTFOLDER       set output folder to OUTFOLDER
 
@@ -1105,7 +1114,11 @@ def __parse_argv(argv):
                         result.switchs |= _CLEAR_CACHE_FLAG
 
                     # dereference
+<<<<<<< HEAD
                     elif ch == 'L':
+=======
+                    elif ch == 'd':
+>>>>>>> mak12776-master
                         result.switchs |= _DEREFERENCE_FLAG
 
                     # set output file
@@ -1982,6 +1995,7 @@ else:
         )
     )
 
+<<<<<<< HEAD
 def __walk_files(
         root,
         name_filters,
@@ -2056,6 +2070,8 @@ def __walk_files(
             continue
         i += 1
     return result
+=======
+>>>>>>> mak12776-master
 
 def __write_compiled_code_env(code_object, env, outfile):
     # --- writing to file ---
@@ -2159,7 +2175,7 @@ def __cache_code_file(
 
     return cache_file_path, code_object
 
-def main(argv):
+def _main(argv):
 
     options = __parse_argv(argv)
     if isinstance(options, int):
@@ -2295,11 +2311,14 @@ def main(argv):
         i = 0
         while i < len(options.jobs):
             item = options.jobs[i]
+
             if \
                     item[0] == _INPUT_FLAG and \
                     isinstance(item[1], str) and \
                     __isdir(item[3]):
+                pass
 
+<<<<<<< HEAD
                 files = __walk_files(
                     item[3],
                     options.name_filters,
@@ -2310,6 +2329,8 @@ def main(argv):
                     )
 
                 options.jobs[i] = [_INPUT_FLAG, files]
+=======
+>>>>>>> mak12776-master
             i += 1
 
     else:
@@ -2329,6 +2350,7 @@ def main(argv):
                 print(_LINE.format(item[1]), file=sys.stderr)
                 options.jobs.pop(i)
                 continue
+
             i += 1
 
     # options.jobs contains:
@@ -2429,9 +2451,6 @@ __all__ = [
 
         # executor functions
         "execute_code_object",
-
-        # module main function
-        "main",
 
         ]
 
