@@ -18,16 +18,16 @@ def __walk_files(
 
         path = walk_dirs.popleft()
 
-        for name in os.listdir(path):
+        for name in sorted(os.listdir(path)):
             new_path = __joinpath(path, name)
 
             if __isdir(new_path):
 
-                if dirs and filter_function(new_path):
-                    yield new_path
-
                 if __islink(new_path) and not follow_symlinks:
                     continue
+
+                if dirs and filter_function(new_path):
+                    yield new_path
 
                 walk_dirs.append(new_path)
 
