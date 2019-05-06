@@ -12,11 +12,14 @@ package: pycro __init__.py __main__.py
 pycro.py: pycro
 	cp -f pycro pycro.py
 
-# --- generate README.md ---
-README.md: _README.in
+# *** generate README.md ***
+
+README.md: README.m4.md
 	m4 $< > $@
 
-# --- generate todos.md ---
+
+# *** generate todos.md ***
+
 todos.md: pycro
 	@echo making $@
 	@echo 'in `pycro`:' > $@
@@ -25,14 +28,19 @@ todos.md: pycro
 			sed -E 's/([0-9]+):\s*(.*?)\s*$$/\1: \2/g' >> $@
 	@echo '```' >> $@
 
-# --- making virtual environment ---
+
+
+# *** making virtual environment ***
+
 venv:
 	python3 -m virtualenv -p python3 venv
 
 delete-venv:
 	rm -rdf venv
 
-# --- importing module ---
+
+
+# *** importing module ***
 
 # this import will failed
 import:
@@ -43,7 +51,9 @@ import3:
 	$(MAKE) package
 	(cd $(PACKAGE_FOLDER) && python3 -ic "import pycro" -OO)
 
-# --- for commiters ---
+
+
+# *** for commiters ***
 
 PACKAGES = pycro.py package
 
@@ -52,7 +62,7 @@ commit-packages:
 	git add $(PACKAGES)
 	git commit -m "update packages"
 
-READMES = _README.md _README.in README.md
+READMES = README.*
 
 .PHONY:
 commit-readmes:
@@ -66,7 +76,9 @@ commit-all:
 	git add $(AUTO_COMMITS)
 	git commit -m "update everything!"
 
-# --- building & publishing ---
+
+
+# *** building & publishing ***
 
 .PHONY:
 clean:
