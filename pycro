@@ -558,7 +558,7 @@ Common options:
     -f, --force                     overwrite existing files
     -r, --recursive                 pycro directories recursively
     -C, --clear-cache               first clear compiler cache
-    -L, --dereference               follow symbolic links
+    -d, --dereference               follow symbolic links
     -o, --outfile OUTFILE           set output file to OUTFILE
     -O, --outfolder OUTFOLDER       set output folder to OUTFOLDER
 
@@ -1105,7 +1105,7 @@ def __parse_argv(argv):
                         result.switchs |= _CLEAR_CACHE_FLAG
 
                     # dereference
-                    elif ch == 'L':
+                    elif ch == 'd':
                         result.switchs |= _DEREFERENCE_FLAG
 
                     # set output file
