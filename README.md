@@ -69,6 +69,7 @@ __notes:__
 - first take look at the [makefile](makefile).
 
 __todos:__
+
 in `pycro`:
 ```
 229: # TODO: remove debugging codes on final release
@@ -84,6 +85,5 @@ in `pycro`:
 2258: # TODO: complete arranged performace
 2294: # TODO: complete multiprocessing
 ```
-
 
 
