@@ -11,7 +11,6 @@ list of contents:
 - [introduction](#introduction)
 - [usage example](#usage-example)
 - [documentation](#documentation)
-- [contributing](#contributing)
 
 ## introduction
 Pycro is a python integrated macro preprocessor. It will interpret input texts
@@ -19,8 +18,9 @@ and generates a corresponding python code that will generate the intended
 result, if we compile and execute that.
 
 ## usage example
-
-```
+imagine we have this `main.c`:
+```python
+esyscmd({cat examples/sumtests/main.py}){}dnl
 ```
 
 ## documentation
@@ -42,5 +42,5 @@ esyscmd({./pycro --help}){}dnl
 
 ## contributing
 __notes:__
-- first look at makefile.
+- first take look at the [makefile](makefile).
 
