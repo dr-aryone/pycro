@@ -2219,18 +2219,9 @@ def _main(argv):
     if _RECURSIVE_FLAG & options.switchs:
 
         # --- walk into directories ---
-
-        i = 0
-        while i < len(options.jobs):
-            item = options.jobs[i]
-
-            if \
-                    item[0] == _INPUT_FLAG and \
-                    isinstance(item[1], str) and \
-                    __isdir(item[3]):
-                pass
-
-            i += 1
+        
+        # TODO: walk into directories
+        raise FatalError('unimplemented code')
 
     else:
 
