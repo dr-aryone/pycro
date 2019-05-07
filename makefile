@@ -14,7 +14,7 @@ pycro.py: pycro
 
 # *** generate README.md ***
 
-README.md: README.m4.md
+README.md: README.m4.md todos.md
 	m4 $< > $@
 
 
@@ -27,7 +27,6 @@ todos.md: pycro
 	@grep "\s*#\s*TODO" -n pycro | \
 			sed -E 's/([0-9]+):\s*(.*?)\s*$$/\1: \2/g' >> $@
 	@echo '```' >> $@
-
 
 
 # *** making virtual environment ***
