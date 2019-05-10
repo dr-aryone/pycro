@@ -19,9 +19,11 @@ result, if we compile and execute that.
 
 ## usage example
 imagine we have this `main.c`:
-```python
-esyscmd({cat examples/sumtests/main.py}){}dnl
+```c
+esyscmd({cat examples/hello-world/main.c}){}dnl
 ```
+then 
+
 
 ## documentation
 - [How pycro works](#How-pycro-works)
@@ -46,5 +48,4 @@ __notes:__
 
 __todos:__
 
-esyscmd({cat todos.md})
-
+esyscmd({cat todos.md}){}dnl

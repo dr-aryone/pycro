@@ -1678,7 +1678,7 @@ def compile_generated_code(
         optimize = _OPTIMIZE_LEVEL,
         ):
 
-    return compile(code, infile_name, 'exec', compile_flags, True, optimize)
+    return compile(code, infile_name, 'exec', flags, True, optimize)
 
 def compile_file(infile, env):
 
@@ -1716,7 +1716,6 @@ class ExecutorEnvironment:
             command_variable_name = _DEFAULT_COMMAND_VARIABLE_NAME,
             argv_variable_name = _DEFAULT_ARGV_VARIABLE_NAME,
             ):
-
 
         # --- variables ---
         if variables is None:
@@ -1756,7 +1755,6 @@ def execute_code_object(
 
         working_directory = '.',
 
-        command = None,
         argv = None,
         ):
 
@@ -1782,8 +1780,9 @@ def execute_code_object(
 
     # --- command variable ---
 
-    if command is not None:
-        variables[env.command_variable_name] = command
+    if argv is not None:
+        variables[env.argv_variable_name] = argv
+        variables[env.command_variable_name] = ' '.join(argv)
 
     # --- argv variable ---
 

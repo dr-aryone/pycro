@@ -1678,7 +1678,7 @@ def compile_generated_code(
         optimize = _OPTIMIZE_LEVEL,
         ):
 
-    return compile(code, infile_name, 'exec', compile_flags, True, optimize)
+    return compile(code, infile_name, 'exec', flags, True, optimize)
 
 def compile_file(infile, env):
 
@@ -1716,7 +1716,6 @@ class ExecutorEnvironment:
             command_variable_name = _DEFAULT_COMMAND_VARIABLE_NAME,
             argv_variable_name = _DEFAULT_ARGV_VARIABLE_NAME,
             ):
-
 
         # --- variables ---
         if variables is None:
@@ -1756,7 +1755,6 @@ def execute_code_object(
 
         working_directory = '.',
 
-        command = None,
         argv = None,
         ):
 
@@ -1782,8 +1780,9 @@ def execute_code_object(
 
     # --- command variable ---
 
-    if command is not None:
-        variables[env.command_variable_name] = command
+    if argv is not None:
+        variables[env.argv_variable_name] = argv
+        variables[env.command_variable_name] = ' '.join(argv)
 
     # --- argv variable ---
 
@@ -2219,18 +2218,9 @@ def _main(argv):
     if _RECURSIVE_FLAG & options.switchs:
 
         # --- walk into directories ---
-
-        i = 0
-        while i < len(options.jobs):
-            item = options.jobs[i]
-
-            if \
-                    item[0] == _INPUT_FLAG and \
-                    isinstance(item[1], str) and \
-                    __isdir(item[3]):
-                pass
-
-            i += 1
+        
+        # TODO: walk into directories
+        raise FatalError('unimplemented code')
 
     else:
 
@@ -2293,7 +2283,6 @@ def _main(argv):
                 __apply_language(lang, compiler_env)
 
         # options.jobs contains:
-        #   [_INPUT_FLAG, [walked files]] filtered by name, path
         #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] \
         #       filtered by name, path
         #   [_INPUT_FLAG, sys.stdin]
