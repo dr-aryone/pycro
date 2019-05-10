@@ -4,7 +4,7 @@
 # pycro
 
 > $ wc pycro \
-   2347  5455 65506 pycro
+   2347  5456 65512 pycro
 
 list of contents:
 - [introduction](#introduction)
@@ -18,7 +18,7 @@ result, if we compile and execute that.
 
 ## usage example
 imagine we have this `main.c`:
-```python
+```c
 
 #include <stdio.h>
 
@@ -71,3 +71,4 @@ in `pycro`:
 2257: # TODO: complete arranged performace
 2293: # TODO: complete multiprocessing
 ```
+

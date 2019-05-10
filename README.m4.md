@@ -22,8 +22,6 @@ imagine we have this `main.c`:
 ```c
 esyscmd({cat examples/hello-world/main.c}){}dnl
 ```
-then 
-
 
 ## documentation
 - [How pycro works](#How-pycro-works)
@@ -49,3 +47,4 @@ __notes:__
 __todos:__
 
 esyscmd({cat todos.md}){}dnl
+
