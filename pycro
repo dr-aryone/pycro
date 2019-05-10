@@ -2288,7 +2288,7 @@ def _main(argv):
         #       filtered by name, path
         #   [_INPUT_FLAG, sys.stdin]
 
-        # --- compile the inputs ---
+        # --- first compile the inputs ---
         if _MULTIPROCESSING_ENABLED:
 
             # TODO: complete multiprocessing
