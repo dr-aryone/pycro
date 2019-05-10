@@ -10,6 +10,7 @@ list of contents:
 - [introduction](#introduction)
 - [usage example](#usage-example)
 - [documentation](#documentation)
+- [contributing](#contributing)
 
 ## introduction
 Pycro is a python integrated macro preprocessor. It will interpret input texts
@@ -40,18 +41,23 @@ int main()
 - [command line interface](#command-line-interface)
 
 ### How pycro works
+
 > coming soon
 
 ### API
+
 > coming soon ...
 
 ### command line interface
+
 __`$ pycro --help`__:
 ```
 ```
 
 ## contributing
+
 __notes:__
+
 - first take look at the [makefile](makefile).
 
 __todos:__
