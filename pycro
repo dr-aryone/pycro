@@ -619,10 +619,9 @@ __setting_keys = {
     'es', 'evaluation_suffix',
 }
 
-__language_specifications = dict()
+__language_specifications = dict(
 
-__language_specifications.update(
-    dict.fromkeys(
+    **dict.fromkeys(
         ['c', 'cpp', 'java', 'javascript'],
         dotdict(
             macro_prefix =          '//@',
@@ -641,10 +640,8 @@ __language_specifications.update(
             evaluation_suffix =     '}}',
         ),
     ),
-)
 
-__language_specifications.update(
-    dict.fromkeys(
+    **dict.fromkeys(
         ['perl', 'python'],
         dotdict(
             macro_prefix =          '#@',
@@ -663,10 +660,8 @@ __language_specifications.update(
             evaluation_suffix =     '}}',
         ),
     ),
-)
 
-__language_specifications.update(
-    dict.fromkeys(
+    **dict.fromkeys(
         ['html'],
         dotdict(
             macro_prefix =          '<!--@',
@@ -685,6 +680,7 @@ __language_specifications.update(
             evaluation_suffix =     '}}',
         ),
     ),
+
 )
 
 # --- switchs bit flags ---
@@ -829,9 +825,24 @@ def __parse_argv(argv):
         # ---------------------
 
         if next_args:
+
             next_arg = next_args.popleft()
-            if next_arg[0] in (_IMPORT_FLAG, _LANG_FLAG, _JSONFILE_FLAG):
+            if next_arg[0] in (_IMPORT_FLAG, _JSONFILE_FLAG):
                 result.jobs.append((next_arg[0], arg))
+
+            elif next_arg[0] == _LANG_FLAG:
+
+                # --- checking language specifications ---
+                if arg not in __language_specifications:
+                    __print_error(
+                        "unknown language specification: {!r}".format(
+                            arg
+                        )
+                    )
+                    __print_try(argv[0])
+                    return 1
+
+                result.jobs.append((_LANG_FLAG, arg))
 
             elif next_arg[0] == _INPUT_FLAG:
                 result.jobs.append( [_INPUT_FLAG, arg] )
@@ -1682,12 +1693,12 @@ def compile_generated_code(
 
 def compile_file(infile, env):
 
-    string_buffer = io.StringIO()
-    with string_buffer:
+    with io.StringIO() as string_buffer:
+
         generate_code(infile, string_buffer, env)
 
-    return compile(string_buffer.getvalue(), infile.name, 'exec',
-            env.compile_flags, True, env.optimize_level)
+        return compile(string_buffer.getvalue(), infile.name, 'exec',
+                env.compile_flags, True, env.optimize_level)
 
 _default_builtins = builtins
 
@@ -1927,7 +1938,7 @@ def __apply_config_filters(config, filters):
 # --- apply language & settings option ---
 
 def __apply_language(lang, compiler_env):
-    for key, value in __language_specifications[lang]:
+    for key, value in __language_specifications[lang].items():
         setattr(compiler_env, key, value)
 
 def __apply_settings(key, value, compiler_env):
@@ -2077,6 +2088,8 @@ def __cache_code_file(
             cache_folder_path,
             code_file_real_path,
             )
+
+    os.makedirs(__splitpath(cache_file_path)[0], exist_ok = True)
 
     code_object = __compile_code_file(
             code_file_real_path,
@@ -2280,7 +2293,7 @@ def _main(argv):
                 # --- apply language
 
                 # item is language specification
-                __apply_language(lang, compiler_env)
+                __apply_language(item, compiler_env)
 
         # options.jobs contains:
         #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] \
@@ -2303,7 +2316,6 @@ def _main(argv):
             # --- compile input FILEs ---
             for item in options.jobs:
 
-
                 if \
                         item[0] == _INPUT_FLAG and \
                         isinstance(item[1], str):
@@ -2325,6 +2337,24 @@ def _main(argv):
 
             # --- initialize executor environment ---
             executor_env = ExecutorEnvironment()
+
+
+            for item in options.jobs:
+
+                if \
+                        item[0] == _INPUT_FLAG and \
+                        isinstance(item[1], str):
+
+                    execute_code_object(
+                        code_object,
+                        sys.stdout,
+                        executor_env,
+
+                        argv = argv,
+                    )
+
+def main(argv):
+    return _main(argv)
 
 __all__ = [
 
