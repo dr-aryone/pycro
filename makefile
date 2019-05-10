@@ -18,6 +18,12 @@ README.md: README.m4.md todos.md
 	m4 $< > $@
 
 
+# *** copy to pylibs
+
+copy-to-pylibs: pycro.py
+	cp -f pycro.py ~/pylibs/
+
+
 # *** generate todos.md ***
 
 todos.md: pycro
