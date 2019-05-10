@@ -532,7 +532,7 @@ standard output if no output specified.
 
 Operation modes:
     -h, --help                      display this help and exit
-    --version                       display version and exit
+    --version                       display pycro version and exit
     -a, --arrange-process           perform Sortable OPTIONs and FILEs
                                       according to their orders
 
@@ -2295,8 +2295,36 @@ def _main(argv):
 
         else:
 
+            # options.jobs contains:
+            #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] \
+            #       filtered by name, path
+            #   [_INPUT_FLAG, sys.stdin]
+
             # --- compile input FILEs ---
-            pass
+            for item in options.jobs:
+
+
+                if \
+                        item[0] == _INPUT_FLAG and \
+                        isinstance(item[1], str):
+
+                    cache_file_path, code_object = \
+                        __cache_code_file(
+                            item[3],
+                            cache_folder_path,
+                            compiler_env,
+                        )
+
+                    item.append(cache_file_path)
+                    item.append(code_object)
+
+            # options.jobs contains:
+            #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path', \
+            #       'cache_file_path', code_object] filtered by name, path
+            #   [_INPUT_FLAG, sys.stdin]
+
+            # --- initialize executor environment ---
+            executor_env = ExecutorEnvironment()
 
 __all__ = [
 
