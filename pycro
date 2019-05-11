@@ -664,15 +664,15 @@ __language_specifications = dict(
     ),
 
     **dict.fromkeys(
-        ['html'],
+        ['html', 'markdown'],
         dotdict(
-            macro_prefix =          '<!--@',
+            macro_prefix =          '<!-- @',
             macro_suffix =          '-->',
 
-            statement_prefix =      '<!--#',
+            statement_prefix =      '<!-- #',
             statement_suffix =      '-->',
 
-            comment_prefix =        '<!--%',
+            comment_prefix =        '<!-- %',
             comment_suffix =        '-->',
 
             variable_prefix =       '${',
@@ -1527,6 +1527,12 @@ class CompilerEnvironment:
             raise ValueError(
                     "evaluation_prefix & evaluation_suffix can't be empty")
 
+        self.variable_prefix = variable_prefix
+        self.variable_suffix = variable_suffix
+
+        self.evaluation_prefix = evaluation_prefix
+        self.evaluation_suffix = evaluation_suffix
+
         self.evaluation_variable_re = re.compile(
             _EVALUATION_PATTERN.format(
                 prefix = re.escape(evaluation_prefix),
@@ -1849,8 +1855,10 @@ def execute_code_object(
 
         if stdin is None:
             _input = ''
+
         elif isinstance(stdin, (str, int)):
             _input = pipes[stdin].getvalue()
+
         else:
             raise TypeError(
                     "run stdin argument must be type of str or int")
@@ -1867,7 +1875,16 @@ def execute_code_object(
             raise TypeError(
                     "run stderr argument must be None or type of str or int")
 
-        subprocess.run(command, input=_input, stdout=stdout, stderr=stderr)
+        outfile.flush()
+
+        subprocess.run(
+                command, 
+                input = _input, 
+                stdout = stdout, 
+                stderr = stderr,
+                check = check,
+                shell = True,
+        )
 
     variables[env.run_function_name] = _run_function
 
@@ -1983,7 +2000,7 @@ def __apply_settings(key, value, compiler_env):
 # --- main functions ---
 
 def __import_module(name, env):
-    env.variables = \
+    env.variables[name] = \
             importlib.__import__(name, env.variables, env.variables, (), 0)
 
 def __load_jsonfile(filename):
@@ -2153,15 +2170,17 @@ def __create_filter_ignore_files_function(
 
         return False
 
+    return filter_ignore_files
+
 def _main(argv):
 
     options = __parse_argv(argv)
     if isinstance(options, int):
         return options
 
-    if __debug__:
-        print_options(options)
-        print_line(fill='=')
+    # if __debug__:
+    #     print_options(options)
+    #     print_line(fill='=')
 
     # in dir(options):
 
