@@ -2308,6 +2308,8 @@ def _main(argv):
 
     else: # not (_ARRANGE_PROCESS_FLAG & options.switchs)
 
+        # --- extract information from options.jobs ---
+
         # --- apply config ---
         if config is not None:
             __apply_config_compiler_env(config, compiler_env)
