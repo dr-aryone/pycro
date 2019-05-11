@@ -2359,8 +2359,8 @@ def _main(argv):
             executor_env = ExecutorEnvironment()
 
             # --- import modules ---
-            for job in jobs:
-
+            for job in options.jobs:
+                pass
 
             for item in options.jobs:
                 if item[0] == _INPUT_FLAG:
