@@ -2370,6 +2370,8 @@ def _main(argv):
                     #       'cache_file_path', code_object] **
                     #   [_INPUT_FLAG, sys.stdin, code_object]
 
+                    # ** filtered, ignored
+
                     if isinstance(item[1], str):
 
                         execute_code_object(
