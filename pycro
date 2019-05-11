@@ -1453,6 +1453,7 @@ class CompilerEnvironment:
 
             code_generators = None,
 
+            # --- suffixes & prefixes ---
             macro_prefix = '@',
             macro_suffix = '',
 
@@ -1468,6 +1469,7 @@ class CompilerEnvironment:
             evaluation_prefix = '$${{',
             evaluation_suffix = '}}',
 
+            # --- misc ---
             tab = '\t',
             indent = 0,
 
@@ -2314,18 +2316,7 @@ def _main(argv):
 
             # --- compile and cache input FILEs ---
             for item in options.jobs:
-
-                if item[0] == _INPUT_FLAG and isinstance(item[1], str):
-
-                    # this function will return code_object, but we can load 
-                    # cached file.
-
-                    cache_file_path, code_object = \
-                        __cache_code_file(
-                            item[3],
-                            cache_folder_path,
-                            compiler_env,
-                        )
+                if item[0] == _INPUT_FLAG:
 
                     # options.jobs contains:
                     #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] **
@@ -2333,13 +2324,31 @@ def _main(argv):
 
                     # ** filtered, ignored
 
-                    item.append(cache_file_path)
-                    item.append(code_object)
+                    if isinstance(item[1], str):
+
+                        # this function will return code_object, but we can
+                        # load cached file.
+
+                        cache_file_path, code_object = \
+                            __cache_code_file(
+                                item[3],
+                                cache_folder_path,
+                                compiler_env,
+                            )
+
+                        item.append(cache_file_path)
+                        item.append(code_object)
+
+                    else: # item == [_INPUT_FLAG, sys.stdin]
+
+                        code_object = compile_file(sys.stdin, compiler_env)
+
+                        item.append(code_object)
 
                     # options.jobs contains:
                     #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path',
                     #       'cache_file_path', code_object] **
-                    #   [_INPUT_FLAG, sys.stdin]
+                    #   [_INPUT_FLAG, sys.stdin, code_object]
 
                     # ** filtered, ignored
 
@@ -2348,6 +2357,7 @@ def _main(argv):
             # --- initialize executor environment ---
             executor_env = ExecutorEnvironment()
 
+            # --- import modules ---
             for job in jobs:
 
 
