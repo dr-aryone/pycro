@@ -37,7 +37,6 @@ import types
 import itertools
 import importlib
 import json
-
 import queue
 import multiprocessing
 import signal
@@ -73,7 +72,7 @@ EXIT_ARGUMENT_ERROR = -1
 
 # --- some initial utilities ---
 
-def __print_error(line, file = sys.stdout):
+def __print_error(line, file = sys.stderr):
     print('pycro: error:', line, file=file)
 
 # --- better main exception handling ---
@@ -1331,6 +1330,15 @@ def _generate_def(args, outfile, env):
 
     env.macro_stack.append('def')
 
+def _generate_class(args, outfile, env):
+    if not args:
+        raise CompilerError(_MACRO_REQUIRES, 'class', 'a class definition')
+
+    outfile.write('{}{} {}\n'.format(env.tabs(), 'class', args))
+    env.indent += 1
+    
+    env.macro_stack.append('class')
+
 # --- end macro ---
 
 def _generate_end(args, outfile, env):
@@ -1434,6 +1442,7 @@ _default_code_generators = {
         'with': _generate_with,
 
         'def': _generate_def,
+        'class': _generate_class,
         'end': _generate_end,
 
         'divert': _generate_divert,
