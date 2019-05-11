@@ -2099,23 +2099,60 @@ def __cache_code_file(
 
     return cache_file_path, code_object
 
+def __create_filter_ignore_files_function(
+        name_filters,
+        name_ignores,
+
+        path_filters,
+        path_ignores,
+        ):
+
+    def filter_ignore_files(name, path):
+
+        # --- name filters ---
+        for pattern in name_filters:
+            if not fnmatch.fnmatch(name, pattern):
+                return True
+
+        # --- name ignores ---
+        for pattern in name_ignores:
+            if fnmatch.fnmatch(path, pattern):
+                return True
+
+        # --- path filters ---
+        for pattern in path_filters:
+            if not fnmatch.fnmatch(path, pattern):
+                return True
+
+        # --- path ignores ---
+        for pattern in path_ignores:
+            if fnmatch.fnmatch(path, pattern):
+                return True
+
+        return False
+
+
 def _main(argv):
 
     options = __parse_argv(argv)
     if isinstance(options, int):
         return options
 
+    if __debug__:
+        print_options(options)
+        print_line(fill='=')
+
     # in dir(options):
 
     #   jobs:
     #       in (tup[0] for tup in options.jobs):
+    #           _INPUT_FLAG                     misc
     #           _LANG_FLAG                      compile-time job
     #           _SETTING_FLAG                   compile-time job
     #           _IMPORT_FLAG                    execution-time job
     #           _JSONFILE_FLAG                  execution-time job
     #           _DEFINE_FLAG                    execution-time job
     #           _UNDEFINE_FLAG                  execution-time job
-    #           _INPUT_FLAG                     misc
 
     #   name_filters
     #   path_filters
@@ -2136,9 +2173,8 @@ def _main(argv):
     #           _OUTFILE_FLAG
     #           _OUTFOLDER_FLAG
 
-    if __debug__:
-        print_options(options)
-        print_line(fill='=')
+
+    # *** initialize variables ***
 
     # --- join cache folder path ---
     cache_folder_path = __joinpath(HOME_DIRECTORY, CACHE_FOLDER_NAME)
@@ -2159,35 +2195,18 @@ def _main(argv):
     # config can be:
     #   None or ConfigParser
 
-    # options.jobs contains:
-    #   [_INPUT_FLAG, 'path']
-    #   [_INPUT_FLAG, sys.stdin]
+    # --- create filter, ignore files function ---
 
-    # --- filter, ignore lambda ---
+    filter_ignore_files = __create_filter_ignore_files_function(
+            options.name_filters,
+            options.name_ignores,
 
-    def filter_ignore_files(name, path):
+            options.path_filters,
+            options.path_ignores,
+            )
 
-        # --- name filters ---
-        for pattern in options.name_filters:
-            if not fnmatch.fnmatch(name, pattern):
-                return True
 
-        # --- name ignores ---
-        for pattern in options.name_ignores:
-            if fnmatch.fnmatch(path, pattern):
-                return True
-
-        # --- path filters ---
-        for pattern in options.path_filters:
-            if not fnmatch.fnmatch(path, pattern):
-                return True
-
-        # --- path ignores ---
-        for pattern in options.path_ignores:
-            if fnmatch.fnmatch(path, pattern):
-                return True
-
-        return False
+    # *** intermediate process ***
 
     # --- append abs path & real path, filter files ---
 
@@ -2195,11 +2214,12 @@ def _main(argv):
     while i < len(options.jobs):
         item = options.jobs[i]
 
-        if item[0] == _INPUT_FLAG and isinstance(item[1], str):
+        # options.jobs contains:
+        #   [_INPUT_FLAG, 'path']
+        #   [_INPUT_FLAG, sys.stdin]
 
-            # options.jobs contains:
-            #   [_INPUT_FLAG, 'path']
-            #   [_INPUT_FLAG, sys.stdin]
+
+        if item[0] == _INPUT_FLAG and isinstance(item[1], str):
 
             # --- append abs path ---
 
@@ -2221,12 +2241,12 @@ def _main(argv):
 
             item.append(__realpath(item[2]))
 
+            # options.jobs contains:
+            #   [_INPUT_FLAG, 'path', 'abs_path'] filtered, ignored
+            #   [_INPUT_FLAG, sys.stdin]
+
         i += 1
 
-    # options.jobs contains:
-    #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] ignored, filtered by \
-    #       name, path
-    #   [_INPUT_FLAG, sys.stdin]
 
     # --- check directories ---
     if _RECURSIVE_FLAG & options.switchs:
