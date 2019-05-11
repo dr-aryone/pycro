@@ -4,7 +4,7 @@
 # pycro
 
 > $ wc pycro \
-   2347  5456 65512 pycro
+   2503  5721 70090 pycro
 
 list of contents:
 - [introduction](#introduction)
@@ -52,6 +52,62 @@ int main()
 
 __`$ pycro --help`__:
 ```
+usage: ./pycro [OPTION]... [[--] FILE | -]...
+Pycro FILEs. if no FILE or if FILE is '-', standard input is read. write to
+standard output if no output specified.
+
+Operation modes:
+    -h, --help                      display this help and exit
+    --version                       display pycro version and exit
+    -a, --arrange-process           perform Sortable OPTIONs and FILEs
+                                      according to their orders
+
+Sortable options:
+    -D, --define NAME[=VAR]         define NAME variable as having VALUE, or
+                                      None
+    -U, --undefine NAME             undefine NAME variable
+    -S, --set KEY=VALUE             set KEY setting to VALUE
+    -L, --lang LANGUAGE             set prefixes and suffixes for LANGUAGE
+                                      specification
+    -l, --load JSONFILE             load JSONFILE and update variables
+    -I, --import MODULE             import MODULE to interpreter environment
+    -- FILE                         read input FILE (don't treats '-' as
+                                      standard input)
+
+Common options:
+    -n, --filter-name PATTERN       filter input FILEs by its name match
+                                      shell PATTERN
+    -p, --filter-path PATTERN       filter input FILEs by its path match
+                                      shell PATTERN
+    -N, --ignore-name PATTERN       ignore any input FILEs that its name match
+                                      shell PATTERN
+    -P, --ignore-path PATTERN       ignore any input FILEs that its path match
+                                      shell PATTERN
+    -f, --force                     overwrite existing files
+    -r, --recursive                 pycro directories recursively
+    -C, --clear-cache               first clear compiler cache
+    -d, --dereference               follow symbolic links
+    -o, --outfile OUTFILE           set output file to OUTFILE
+    -O, --outfolder OUTFOLDER       set output folder to OUTFOLDER
+
+Known language specifications:
+    c, cpp, html, java, javascript, markdown, perl, python
+
+Setting keys:
+    mp, macro_prefix                macro line prefix
+    ms, macro_suffix                macro line suffix
+
+    sp, statement_prefix            statement line prefix
+    ss, statement_suffix            statement line suffix
+
+    cp, comment_prefix              comment line prefix
+    cs, comment_suffix              comment line suffix
+
+    vp, variable_prefix             variable substitution prefix
+    vs, variable_suffix             variable substitution suffix
+
+    ep, evaluation_prefix           evaluation substitution prefix
+    es, evaluation_suffix           evaluation substitution suffix
 ```
 
 ## contributing
@@ -64,17 +120,17 @@ __todos:__
 
 in `pycro`:
 ```
-229: # TODO: remove debugging codes on final release
-1372: # TODO: complete _generator_include()
-1403: # TODO: write _generate_load()
-1430: # TODO: add 'include' when ready
-1434: # TODO: add 'load' when ready
-1823: # TODO: write _include_function
-1862: # TODO: write _load_function
-1922: # TODO: complete __apply_config_filters
-2222: # TODO: walk into directories
-2251: # TODO: write '--outfile', '--outfolder' functionality
-2257: # TODO: complete arranged performace
-2293: # TODO: complete multiprocessing
+231: # TODO: remove debugging codes on final release
+1386: # TODO: complete _generator_include()
+1417: # TODO: write _generate_load()
+1444: # TODO: add 'include' when ready
+1448: # TODO: add 'load' when ready
+1845: # TODO: write _include_function
+1895: # TODO: write _load_function
+1955: # TODO: complete __apply_config_filters
+2299: # TODO: walk into directories
+2325: # TODO: complete arranged performace
+2354: # TODO: complete multiprocessing
+2397: # TODO: write '--outfile', '--outfolder' functionality
 ```
 
