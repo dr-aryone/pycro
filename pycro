@@ -2427,6 +2427,32 @@ def _main(argv):
 
                     __undefine_variable(item[1], executor_env)
 
+            if options.output is None:
+
+                outfile = sys.stdout
+                close_outfile = True
+
+            elif options.output[0] == _OUTFILE_FLAG:
+
+                try:
+                    outfile = open(options.output[1], 'wt')
+
+                except IsADirectoryError as e:
+                    __print_error(
+                        "can't open '{}': {}".format(
+                            options.output[1],
+                            e.args[0],
+                        )
+                    )
+                    return EXIT_ERROR
+
+                close_outfile = True
+
+            elif options.output[0] == _OUTFOLDER_FLAG:
+
+                # TODO: complete _OUTFOLDER_FLAG
+                raise FatalError('unimplemented code')
+
             for item in options.jobs:
                 if item[0] == _INPUT_FLAG:
 
@@ -2439,23 +2465,31 @@ def _main(argv):
 
                     if isinstance(item[1], str):
 
-                        execute_code_object(
-                            code_object,
-                            sys.stdout,
-                            executor_env,
+                        try:
+                            execute_code_object(
+                                code_object,
+                                outfile,
+                                executor_env,
 
-                            argv = argv,
-                        )
+                                argv = argv,
+                            )
+                        finally:
+                            if close_outfile:
+                                outfile.close()
 
                     else: # item is [_INPUT_FLAG, sys.stdin, code_object]
 
-                        execute_code_object(
-                            item[2],
-                            sys.stdout,
-                            executor_env,
+                        try:
+                            execute_code_object(
+                                item[2],
+                                outfile,
+                                executor_env,
 
-                            argv = argv,
-                        )
+                                argv = argv,
+                            )
+                        finally:
+                            if close_outfile:
+                                outfile.close()
 
 def main(argv):
     return _main(argv)
