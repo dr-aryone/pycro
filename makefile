@@ -14,9 +14,8 @@ pycro.py: pycro
 
 # *** generate README.md ***
 
-README.md: README.m4.md todos.md
-	m4 $< > $@
-
+README.md: README.pycro.md todos.md
+	./pycro -L markdown $< > $@
 
 # *** copy to pylibs ***
 
