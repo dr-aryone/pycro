@@ -35,6 +35,8 @@ import shutil
 import fnmatch
 import types
 import itertools
+import importlib
+import json
 
 import queue
 import multiprocessing
@@ -1980,6 +1982,24 @@ def __apply_settings(key, value, compiler_env):
 
 # --- main functions ---
 
+def __import_module(name, env):
+    env.variables = \
+            importlib.__import__(name, env.variables, env.variables, (), 0)
+
+def __load_jsonfile(filename):
+    with open(file_name) as infile:
+        return json.load(infile)
+
+def __define_variable(name, value, env):
+    env.variables[name] = eval(variable)
+
+def __undefine_variable(name, env):
+
+    try:
+        env.variables.pop(name)
+    except KeyError:
+        pass
+
 if sys.platform.startswith('linux') or sys.platform.startswith('freebsd'):
     def __get_cache_file_path(cache_folder_path, file_real_path):
         parts = file_real_path.split(os.sep)
@@ -2358,9 +2378,24 @@ def _main(argv):
             # --- initialize executor environment ---
             executor_env = ExecutorEnvironment()
 
-            # --- import modules ---
-            for job in options.jobs:
-                pass
+            # --- execution-time jobs ---
+            for item in options.jobs:
+                if item[0] == _IMPORT_FLAG:
+
+                    __import_module(item[1], executor_env)
+
+                elif item[0] == _JSONFILE_FLAG:
+
+                    json_object = __load_jsonfile(item[1])
+                    executor_env.variables.update(json_object)
+
+                elif item[0] == _DEFINE_FLAG:
+
+                    __define_variable(*item[1], executor_env)
+
+                elif item[0] == _UNDEFINE_FLAG:
+
+                    __undefine_variable(item[1], executor_env)
 
             for item in options.jobs:
                 if item[0] == _INPUT_FLAG:
