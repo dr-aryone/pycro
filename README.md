@@ -113,7 +113,7 @@ Setting keys:
 
 __notes:__
 
-- first take look at the [makefile](makefile).
+- first take a look at [makefile](makefile).
 
 __todos:__
 
