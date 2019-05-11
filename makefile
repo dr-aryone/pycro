@@ -17,10 +17,14 @@ pycro.py: pycro
 README.md: README.pycro.md todos.md
 	./pycro -L markdown $< > $@
 
-# *** copy to pylibs ***
+# *** tiny copys ***
 
 copy-to-pylibs: pycro.py
 	cp -f pycro.py ~/pylibs/
+
+copy-to-bin: pycro
+	cp -f pycro ~/bin/
+
 
 # *** generate todos.md ***
 
