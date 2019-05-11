@@ -3,10 +3,12 @@
 
 # pycro
 
-> $ wc pycro \
+```
+$ wc pycro \
  2503  5724 70096 pycro
+```
 
-list of contents:
+contents:
 - [introduction](#introduction)
 - [usage example](#usage-example)
 - [documentation](#documentation)
