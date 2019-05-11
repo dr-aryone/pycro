@@ -532,7 +532,7 @@ standard output if no output specified.
 
 Operation modes:
     -h, --help                      display this help and exit
-    --version                       display version and exit
+    --version                       display pycro version and exit
     -a, --arrange-process           perform Sortable OPTIONs and FILEs
                                       according to their orders
 
@@ -619,10 +619,9 @@ __setting_keys = {
     'es', 'evaluation_suffix',
 }
 
-__language_specifications = dict()
+__language_specifications = dict(
 
-__language_specifications.update(
-    dict.fromkeys(
+    **dict.fromkeys(
         ['c', 'cpp', 'java', 'javascript'],
         dotdict(
             macro_prefix =          '//@',
@@ -641,10 +640,8 @@ __language_specifications.update(
             evaluation_suffix =     '}}',
         ),
     ),
-)
 
-__language_specifications.update(
-    dict.fromkeys(
+    **dict.fromkeys(
         ['perl', 'python'],
         dotdict(
             macro_prefix =          '#@',
@@ -663,10 +660,8 @@ __language_specifications.update(
             evaluation_suffix =     '}}',
         ),
     ),
-)
 
-__language_specifications.update(
-    dict.fromkeys(
+    **dict.fromkeys(
         ['html'],
         dotdict(
             macro_prefix =          '<!--@',
@@ -685,6 +680,7 @@ __language_specifications.update(
             evaluation_suffix =     '}}',
         ),
     ),
+
 )
 
 # --- switchs bit flags ---
@@ -829,9 +825,24 @@ def __parse_argv(argv):
         # ---------------------
 
         if next_args:
+
             next_arg = next_args.popleft()
-            if next_arg[0] in (_IMPORT_FLAG, _LANG_FLAG, _JSONFILE_FLAG):
+            if next_arg[0] in (_IMPORT_FLAG, _JSONFILE_FLAG):
                 result.jobs.append((next_arg[0], arg))
+
+            elif next_arg[0] == _LANG_FLAG:
+
+                # --- checking language specifications ---
+                if arg not in __language_specifications:
+                    __print_error(
+                        "unknown language specification: {!r}".format(
+                            arg
+                        )
+                    )
+                    __print_try(argv[0])
+                    return 1
+
+                result.jobs.append((_LANG_FLAG, arg))
 
             elif next_arg[0] == _INPUT_FLAG:
                 result.jobs.append( [_INPUT_FLAG, arg] )
@@ -1678,16 +1689,16 @@ def compile_generated_code(
         optimize = _OPTIMIZE_LEVEL,
         ):
 
-    return compile(code, infile_name, 'exec', compile_flags, True, optimize)
+    return compile(code, infile_name, 'exec', flags, True, optimize)
 
 def compile_file(infile, env):
 
-    string_buffer = io.StringIO()
-    with string_buffer:
+    with io.StringIO() as string_buffer:
+
         generate_code(infile, string_buffer, env)
 
-    return compile(string_buffer.getvalue(), infile.name, 'exec',
-            env.compile_flags, True, env.optimize_level)
+        return compile(string_buffer.getvalue(), infile.name, 'exec',
+                env.compile_flags, True, env.optimize_level)
 
 _default_builtins = builtins
 
@@ -1716,7 +1727,6 @@ class ExecutorEnvironment:
             command_variable_name = _DEFAULT_COMMAND_VARIABLE_NAME,
             argv_variable_name = _DEFAULT_ARGV_VARIABLE_NAME,
             ):
-
 
         # --- variables ---
         if variables is None:
@@ -1756,7 +1766,6 @@ def execute_code_object(
 
         working_directory = '.',
 
-        command = None,
         argv = None,
         ):
 
@@ -1782,8 +1791,9 @@ def execute_code_object(
 
     # --- command variable ---
 
-    if command is not None:
-        variables[env.command_variable_name] = command
+    if argv is not None:
+        variables[env.argv_variable_name] = argv
+        variables[env.command_variable_name] = ' '.join(argv)
 
     # --- argv variable ---
 
@@ -1928,7 +1938,7 @@ def __apply_config_filters(config, filters):
 # --- apply language & settings option ---
 
 def __apply_language(lang, compiler_env):
-    for key, value in __language_specifications[lang]:
+    for key, value in __language_specifications[lang].items():
         setattr(compiler_env, key, value)
 
 def __apply_settings(key, value, compiler_env):
@@ -2079,6 +2089,8 @@ def __cache_code_file(
             code_file_real_path,
             )
 
+    os.makedirs(__splitpath(cache_file_path)[0], exist_ok = True)
+
     code_object = __compile_code_file(
             code_file_real_path,
             cache_file_path,
@@ -2093,35 +2105,36 @@ def _main(argv):
     if isinstance(options, int):
         return options
 
-    # ['jobs', 'switchs', 'output'] is in dir(options)
+    # in dir(options):
 
-    # possible values that can be found in (tup[0] for tup in options.jobs):
-    #   _LANG_FLAG, _IMPORT_FLAG, _JSONFILE_FLAG,
-    #   _INPUT_FLAG,
-    #   _DEFINE_FLAG, _UNDEFINE_FLAG, _SETTING_FLAG
+    #   jobs:
+    #       in (tup[0] for tup in options.jobs):
+    #           _LANG_FLAG                      compile-time job
+    #           _SETTING_FLAG                   compile-time job
+    #           _IMPORT_FLAG                    execution-time job
+    #           _JSONFILE_FLAG                  execution-time job
+    #           _DEFINE_FLAG                    execution-time job
+    #           _UNDEFINE_FLAG                  execution-time job
+    #           _INPUT_FLAG                     misc
 
-    # options.switchs ORed values:
-    #   _ARRANGE_PROCESS_FLAG
-    #   _RECURSIVE_FLAG
-    #   _CLEAR_CACHE_FLAG
-    #   _FORCE_FLAG
+    #   name_filters
+    #   path_filters
 
-    # (tup[0] for tup in options.output) possible values:
-    #   _OUTFILE_FLAG, _OUTFOLDER_FLAG
+    #   name_ignores
+    #   path_ignores
 
+    #   switchs:
+    #       options.switchs ORed values:
+    #           _ARRANGE_PROCESS_FLAG
+    #           _RECURSIVE_FLAG
+    #           _CLEAR_CACHE_FLAG
+    #           _FORCE_FLAG
+    #           _DEREFERENCE_FLAG
 
-    # other notes:
-
-    # compile-time jobs:
-    #   _LANG_FLAG
-    #   _SETTING_FLAG
-
-    # execution-time jobs:
-    #   _IMPORT_FLAG
-    #   _JSONFILE_FLAG
-    #
-    #   _DEFINE_FLAG
-    #   _UNDEFINE_FLAG
+    #   output
+    #       in (tup[0] for tup in options.output):
+    #           _OUTFILE_FLAG
+    #           _OUTFOLDER_FLAG
 
     if __debug__:
         print_options(options)
@@ -2219,18 +2232,9 @@ def _main(argv):
     if _RECURSIVE_FLAG & options.switchs:
 
         # --- walk into directories ---
-
-        i = 0
-        while i < len(options.jobs):
-            item = options.jobs[i]
-
-            if \
-                    item[0] == _INPUT_FLAG and \
-                    isinstance(item[1], str) and \
-                    __isdir(item[3]):
-                pass
-
-            i += 1
+        
+        # TODO: walk into directories
+        raise FatalError('unimplemented code')
 
     else:
 
@@ -2290,15 +2294,14 @@ def _main(argv):
                 # --- apply language
 
                 # item is language specification
-                __apply_language(lang, compiler_env)
+                __apply_language(item, compiler_env)
 
         # options.jobs contains:
-        #   [_INPUT_FLAG, [walked files]] filtered by name, path
         #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] \
         #       filtered by name, path
         #   [_INPUT_FLAG, sys.stdin]
 
-        # --- compile the inputs ---
+        # --- first compile the inputs ---
         if _MULTIPROCESSING_ENABLED:
 
             # TODO: complete multiprocessing
@@ -2306,8 +2309,55 @@ def _main(argv):
 
         else:
 
+            # options.jobs contains:
+            #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] \
+            #       filtered by name, path
+            #   [_INPUT_FLAG, sys.stdin]
+
             # --- compile input FILEs ---
-            pass
+            for item in options.jobs:
+
+                if \
+                        item[0] == _INPUT_FLAG and \
+                        isinstance(item[1], str):
+
+                    # this function will return code_object, but we can load 
+                    # cached file.
+
+                    cache_file_path, code_object = \
+                        __cache_code_file(
+                            item[3],
+                            cache_folder_path,
+                            compiler_env,
+                        )
+
+                    item.append(cache_file_path)
+                    item.append(code_object)
+
+            # options.jobs contains:
+            #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path', \
+            #       'cache_file_path', code_object] filtered by name, path
+            #   [_INPUT_FLAG, sys.stdin]
+
+            # --- initialize executor environment ---
+            executor_env = ExecutorEnvironment()
+
+            for item in options.jobs:
+
+                if \
+                        item[0] == _INPUT_FLAG and \
+                        isinstance(item[1], str):
+
+                    execute_code_object(
+                        code_object,
+                        sys.stdout,
+                        executor_env,
+
+                        argv = argv,
+                    )
+
+def main(argv):
+    return _main(argv)
 
 __all__ = [
 
@@ -2350,6 +2400,9 @@ __all__ = [
 
         # executor functions
         "execute_code_object",
+
+        # main function
+        "main",
 
         ]
 
