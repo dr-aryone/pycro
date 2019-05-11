@@ -2105,35 +2105,36 @@ def _main(argv):
     if isinstance(options, int):
         return options
 
-    # ['jobs', 'switchs', 'output'] is in dir(options)
+    # in dir(options):
 
-    # possible values that can be found in (tup[0] for tup in options.jobs):
-    #   _LANG_FLAG, _IMPORT_FLAG, _JSONFILE_FLAG,
-    #   _INPUT_FLAG,
-    #   _DEFINE_FLAG, _UNDEFINE_FLAG, _SETTING_FLAG
+    #   jobs:
+    #       in (tup[0] for tup in options.jobs):
+    #           _LANG_FLAG                      compile-time job
+    #           _SETTING_FLAG                   compile-time job
+    #           _IMPORT_FLAG                    execution-time job
+    #           _JSONFILE_FLAG                  execution-time job
+    #           _DEFINE_FLAG                    execution-time job
+    #           _UNDEFINE_FLAG                  execution-time job
+    #           _INPUT_FLAG                     misc
 
-    # options.switchs ORed values:
-    #   _ARRANGE_PROCESS_FLAG
-    #   _RECURSIVE_FLAG
-    #   _CLEAR_CACHE_FLAG
-    #   _FORCE_FLAG
+    #   name_filters
+    #   path_filters
 
-    # (tup[0] for tup in options.output) possible values:
-    #   _OUTFILE_FLAG, _OUTFOLDER_FLAG
+    #   name_ignores
+    #   path_ignores
 
+    #   switchs:
+    #       options.switchs ORed values:
+    #           _ARRANGE_PROCESS_FLAG
+    #           _RECURSIVE_FLAG
+    #           _CLEAR_CACHE_FLAG
+    #           _FORCE_FLAG
+    #           _DEREFERENCE_FLAG
 
-    # other notes:
-
-    # compile-time jobs:
-    #   _LANG_FLAG
-    #   _SETTING_FLAG
-
-    # execution-time jobs:
-    #   _IMPORT_FLAG
-    #   _JSONFILE_FLAG
-    #
-    #   _DEFINE_FLAG
-    #   _UNDEFINE_FLAG
+    #   output
+    #       in (tup[0] for tup in options.output):
+    #           _OUTFILE_FLAG
+    #           _OUTFOLDER_FLAG
 
     if __debug__:
         print_options(options)
@@ -2320,6 +2321,9 @@ def _main(argv):
                         item[0] == _INPUT_FLAG and \
                         isinstance(item[1], str):
 
+                    # this function will return code_object, but we can load 
+                    # cached file.
+
                     cache_file_path, code_object = \
                         __cache_code_file(
                             item[3],
@@ -2337,7 +2341,6 @@ def _main(argv):
 
             # --- initialize executor environment ---
             executor_env = ExecutorEnvironment()
-
 
             for item in options.jobs:
 
@@ -2397,6 +2400,9 @@ __all__ = [
 
         # executor functions
         "execute_code_object",
+
+        # main function
+        "main",
 
         ]
 
