@@ -14,15 +14,13 @@ pycro.py: pycro
 
 # *** generate README.md ***
 
-README.md: README.m4.md todos.md
-	m4 $< > $@
+README.md: README.pycro.md todos.md
+	./pycro -L markdown $< > $@
 
-
-# *** copy to pylibs
+# *** copy to pylibs ***
 
 copy-to-pylibs: pycro.py
 	cp -f pycro.py ~/pylibs/
-
 
 # *** generate todos.md ***
 
@@ -34,7 +32,6 @@ todos.md: pycro
 			sed -E 's/([0-9]+):\s*(.*?)\s*$$/\1: \2/g' >> $@
 	@echo '```' >> $@
 
-
 # *** making virtual environment ***
 
 venv:
@@ -42,8 +39,6 @@ venv:
 
 delete-venv:
 	rm -rdf venv
-
-
 
 # *** importing module ***
 

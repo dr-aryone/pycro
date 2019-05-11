@@ -35,6 +35,8 @@ import shutil
 import fnmatch
 import types
 import itertools
+import importlib
+import json
 
 import queue
 import multiprocessing
@@ -532,7 +534,7 @@ standard output if no output specified.
 
 Operation modes:
     -h, --help                      display this help and exit
-    --version                       display version and exit
+    --version                       display pycro version and exit
     -a, --arrange-process           perform Sortable OPTIONs and FILEs
                                       according to their orders
 
@@ -619,10 +621,9 @@ __setting_keys = {
     'es', 'evaluation_suffix',
 }
 
-__language_specifications = dict()
+__language_specifications = dict(
 
-__language_specifications.update(
-    dict.fromkeys(
+    **dict.fromkeys(
         ['c', 'cpp', 'java', 'javascript'],
         dotdict(
             macro_prefix =          '//@',
@@ -641,10 +642,8 @@ __language_specifications.update(
             evaluation_suffix =     '}}',
         ),
     ),
-)
 
-__language_specifications.update(
-    dict.fromkeys(
+    **dict.fromkeys(
         ['perl', 'python'],
         dotdict(
             macro_prefix =          '#@',
@@ -663,19 +662,17 @@ __language_specifications.update(
             evaluation_suffix =     '}}',
         ),
     ),
-)
 
-__language_specifications.update(
-    dict.fromkeys(
-        ['html'],
+    **dict.fromkeys(
+        ['html', 'markdown'],
         dotdict(
-            macro_prefix =          '<!--@',
+            macro_prefix =          '<!-- @',
             macro_suffix =          '-->',
 
-            statement_prefix =      '<!--#',
+            statement_prefix =      '<!-- #',
             statement_suffix =      '-->',
 
-            comment_prefix =        '<!--%',
+            comment_prefix =        '<!-- %',
             comment_suffix =        '-->',
 
             variable_prefix =       '${',
@@ -685,6 +682,7 @@ __language_specifications.update(
             evaluation_suffix =     '}}',
         ),
     ),
+
 )
 
 # --- switchs bit flags ---
@@ -829,9 +827,24 @@ def __parse_argv(argv):
         # ---------------------
 
         if next_args:
+
             next_arg = next_args.popleft()
-            if next_arg[0] in (_IMPORT_FLAG, _LANG_FLAG, _JSONFILE_FLAG):
+            if next_arg[0] in (_IMPORT_FLAG, _JSONFILE_FLAG):
                 result.jobs.append((next_arg[0], arg))
+
+            elif next_arg[0] == _LANG_FLAG:
+
+                # --- checking language specifications ---
+                if arg not in __language_specifications:
+                    __print_error(
+                        "unknown language specification: {!r}".format(
+                            arg
+                        )
+                    )
+                    __print_try(argv[0])
+                    return 1
+
+                result.jobs.append((_LANG_FLAG, arg))
 
             elif next_arg[0] == _INPUT_FLAG:
                 result.jobs.append( [_INPUT_FLAG, arg] )
@@ -1180,7 +1193,8 @@ def __parse_argv(argv):
 
     return result
 
-# *** errors ***
+
+# *** compiler & executor errors ***
 
 # NOTE: cross-python-version error values
 _MACRO_REQUIRES = 1
@@ -1442,6 +1456,7 @@ class CompilerEnvironment:
 
             code_generators = None,
 
+            # --- suffixes & prefixes ---
             macro_prefix = '@',
             macro_suffix = '',
 
@@ -1457,6 +1472,7 @@ class CompilerEnvironment:
             evaluation_prefix = '$${{',
             evaluation_suffix = '}}',
 
+            # --- misc ---
             tab = '\t',
             indent = 0,
 
@@ -1510,6 +1526,12 @@ class CompilerEnvironment:
         if (not evaluation_prefix) or (not evaluation_suffix):
             raise ValueError(
                     "evaluation_prefix & evaluation_suffix can't be empty")
+
+        self.variable_prefix = variable_prefix
+        self.variable_suffix = variable_suffix
+
+        self.evaluation_prefix = evaluation_prefix
+        self.evaluation_suffix = evaluation_suffix
 
         self.evaluation_variable_re = re.compile(
             _EVALUATION_PATTERN.format(
@@ -1682,12 +1704,12 @@ def compile_generated_code(
 
 def compile_file(infile, env):
 
-    string_buffer = io.StringIO()
-    with string_buffer:
+    with io.StringIO() as string_buffer:
+
         generate_code(infile, string_buffer, env)
 
-    return compile(string_buffer.getvalue(), infile.name, 'exec',
-            env.compile_flags, True, env.optimize_level)
+        return compile(string_buffer.getvalue(), infile.name, 'exec',
+                env.compile_flags, True, env.optimize_level)
 
 _default_builtins = builtins
 
@@ -1833,8 +1855,10 @@ def execute_code_object(
 
         if stdin is None:
             _input = ''
+
         elif isinstance(stdin, (str, int)):
             _input = pipes[stdin].getvalue()
+
         else:
             raise TypeError(
                     "run stdin argument must be type of str or int")
@@ -1851,7 +1875,16 @@ def execute_code_object(
             raise TypeError(
                     "run stderr argument must be None or type of str or int")
 
-        subprocess.run(command, input=_input, stdout=stdout, stderr=stderr)
+        outfile.flush()
+
+        subprocess.run(
+                command, 
+                input = _input, 
+                stdout = stdout, 
+                stderr = stderr,
+                check = check,
+                shell = True,
+        )
 
     variables[env.run_function_name] = _run_function
 
@@ -1927,7 +1960,7 @@ def __apply_config_filters(config, filters):
 # --- apply language & settings option ---
 
 def __apply_language(lang, compiler_env):
-    for key, value in __language_specifications[lang]:
+    for key, value in __language_specifications[lang].items():
         setattr(compiler_env, key, value)
 
 def __apply_settings(key, value, compiler_env):
@@ -1966,6 +1999,24 @@ def __apply_settings(key, value, compiler_env):
 
 # --- main functions ---
 
+def __import_module(name, env):
+    env.variables[name] = \
+            importlib.__import__(name, env.variables, env.variables, (), 0)
+
+def __load_jsonfile(filename):
+    with open(file_name) as infile:
+        return json.load(infile)
+
+def __define_variable(name, value, env):
+    env.variables[name] = eval(variable)
+
+def __undefine_variable(name, env):
+
+    try:
+        env.variables.pop(name)
+    except KeyError:
+        pass
+
 if sys.platform.startswith('linux') or sys.platform.startswith('freebsd'):
     def __get_cache_file_path(cache_folder_path, file_real_path):
         parts = file_real_path.split(os.sep)
@@ -1982,7 +2033,6 @@ else:
             sys.platform
         )
     )
-
 
 def __write_compiled_code_env(code_object, env, outfile):
     # --- writing to file ---
@@ -2078,6 +2128,8 @@ def __cache_code_file(
             code_file_real_path,
             )
 
+    os.makedirs(__splitpath(cache_file_path)[0], exist_ok = True)
+
     code_object = __compile_code_file(
             code_file_real_path,
             cache_file_path,
@@ -2086,45 +2138,83 @@ def __cache_code_file(
 
     return cache_file_path, code_object
 
+def __create_filter_ignore_files_function(
+        name_filters,
+        name_ignores,
+
+        path_filters,
+        path_ignores,
+        ):
+
+    def filter_ignore_files(name, path):
+
+        # --- name filters ---
+        for pattern in name_filters:
+            if not fnmatch.fnmatch(name, pattern):
+                return True
+
+        # --- name ignores ---
+        for pattern in name_ignores:
+            if fnmatch.fnmatch(path, pattern):
+                return True
+
+        # --- path filters ---
+        for pattern in path_filters:
+            if not fnmatch.fnmatch(path, pattern):
+                return True
+
+        # --- path ignores ---
+        for pattern in path_ignores:
+            if fnmatch.fnmatch(path, pattern):
+                return True
+
+        return False
+
+    return filter_ignore_files
+
 def _main(argv):
 
     options = __parse_argv(argv)
     if isinstance(options, int):
         return options
 
-    # ['jobs', 'switchs', 'output'] is in dir(options)
+    # if __debug__:
+    #     print_options(options)
+    #     print_line(fill='=')
 
-    # possible values that can be found in (tup[0] for tup in options.jobs):
-    #   _LANG_FLAG, _IMPORT_FLAG, _JSONFILE_FLAG,
-    #   _INPUT_FLAG,
-    #   _DEFINE_FLAG, _UNDEFINE_FLAG, _SETTING_FLAG
+    # in dir(options):
 
-    # options.switchs ORed values:
-    #   _ARRANGE_PROCESS_FLAG
-    #   _RECURSIVE_FLAG
-    #   _CLEAR_CACHE_FLAG
-    #   _FORCE_FLAG
+    #   jobs:
+    #       in (tup[0] for tup in options.jobs):
+    #           _INPUT_FLAG                     misc
+    #           _LANG_FLAG                      compile-time job
+    #           _SETTING_FLAG                   compile-time job
+    #           _IMPORT_FLAG                    execution-time job
+    #           _JSONFILE_FLAG                  execution-time job
+    #           _DEFINE_FLAG                    execution-time job
+    #           _UNDEFINE_FLAG                  execution-time job
 
-    # (tup[0] for tup in options.output) possible values:
-    #   _OUTFILE_FLAG, _OUTFOLDER_FLAG
+    #   name_filters
+    #   path_filters
+
+    #   name_ignores
+    #   path_ignores
+
+    #   switchs:
+    #       options.switchs ORed values:
+    #           _ARRANGE_PROCESS_FLAG
+    #           _RECURSIVE_FLAG
+    #           _CLEAR_CACHE_FLAG
+    #           _FORCE_FLAG
+    #           _DEREFERENCE_FLAG
+
+    #   output
+    #       in (tup[0] for tup in options.output):
+    #           _OUTFILE_FLAG
+    #           _OUTFOLDER_FLAG
 
 
-    # other notes:
-
-    # compile-time jobs:
-    #   _LANG_FLAG
-    #   _SETTING_FLAG
-
-    # execution-time jobs:
-    #   _IMPORT_FLAG
-    #   _JSONFILE_FLAG
-    #
-    #   _DEFINE_FLAG
-    #   _UNDEFINE_FLAG
-
-    if __debug__:
-        print_options(options)
-        print_line(fill='=')
+    # *** initialize variables ***
 
     # --- join cache folder path ---
     cache_folder_path = __joinpath(HOME_DIRECTORY, CACHE_FOLDER_NAME)
@@ -2145,35 +2235,18 @@ def _main(argv):
     # config can be:
     #   None or ConfigParser
 
-    # options.jobs contains:
-    #   [_INPUT_FLAG, 'path']
-    #   [_INPUT_FLAG, sys.stdin]
+    # --- create filter, ignore files function ---
 
-    # --- filter, ignore lambda ---
+    filter_ignore_files = __create_filter_ignore_files_function(
+            options.name_filters,
+            options.name_ignores,
 
-    def filter_ignore_files(name, path):
+            options.path_filters,
+            options.path_ignores,
+            )
 
-        # --- name filters ---
-        for pattern in options.name_filters:
-            if not fnmatch.fnmatch(name, pattern):
-                return True
 
-        # --- name ignores ---
-        for pattern in options.name_ignores:
-            if fnmatch.fnmatch(path, pattern):
-                return True
-
-        # --- path filters ---
-        for pattern in options.path_filters:
-            if not fnmatch.fnmatch(path, pattern):
-                return True
-
-        # --- path ignores ---
-        for pattern in options.path_ignores:
-            if fnmatch.fnmatch(path, pattern):
-                return True
-
-        return False
+    # *** intermediate process ***
 
     # --- append abs path & real path, filter files ---
 
@@ -2181,11 +2254,12 @@ def _main(argv):
     while i < len(options.jobs):
         item = options.jobs[i]
 
-        if item[0] == _INPUT_FLAG and isinstance(item[1], str):
+        # options.jobs contains:
+        #   [_INPUT_FLAG, 'path']
+        #   [_INPUT_FLAG, sys.stdin]
 
-            # options.jobs contains:
-            #   [_INPUT_FLAG, 'path']
-            #   [_INPUT_FLAG, sys.stdin]
+
+        if item[0] == _INPUT_FLAG and isinstance(item[1], str):
 
             # --- append abs path ---
 
@@ -2207,18 +2281,21 @@ def _main(argv):
 
             item.append(__realpath(item[2]))
 
+            # options.jobs contains:
+            #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] **
+            #   [_INPUT_FLAG, sys.stdin]
+
+            # ** filtered, ignored
+
         i += 1
 
-    # options.jobs contains:
-    #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] ignored, filtered by \
-    #       name, path
-    #   [_INPUT_FLAG, sys.stdin]
 
     # --- check directories ---
+
     if _RECURSIVE_FLAG & options.switchs:
 
         # --- walk into directories ---
-        
+
         # TODO: walk into directories
         raise FatalError('unimplemented code')
 
@@ -2231,9 +2308,7 @@ def _main(argv):
         while i < len(options.jobs):
             item = options.jobs[i]
 
-            if \
-                    item[0] == _INPUT_FLAG and \
-                    isinstance(item[1], str) and \
+            if item[0] == _INPUT_FLAG and isinstance(item[1], str) and \
                     __isdir(item[3]):
 
                 print(_LINE.format(item[1]), file=sys.stderr)
@@ -2242,13 +2317,6 @@ def _main(argv):
 
             i += 1
 
-    # options.jobs contains:
-    #   [_INPUT_FLAG, [walked files]] filtered, ignored by name, path
-    #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] filtered, ignored by \
-    #       name, path
-    #   [_INPUT_FLAG, sys.stdin]
-
-    # TODO: write '--outfile', '--outfolder' functionality
 
     if _ARRANGE_PROCESS_FLAG & options.switchs:
 
@@ -2259,6 +2327,8 @@ def _main(argv):
 
     else: # not (_ARRANGE_PROCESS_FLAG & options.switchs)
 
+        # --- extract information from options.jobs ---
+
         # --- apply config ---
         if config is not None:
             __apply_config_compiler_env(config, compiler_env)
@@ -2267,27 +2337,18 @@ def _main(argv):
         compiler_env = CompilerEnvironment()
 
         # --- apply settings & languages ---
-        for item in ( tup[1] for tup in options.jobs if tup[0] in \
-                (_SETTING_FLAG, _LANG_FLAG) ):
+        for item in (tup[1] for tup in options.jobs if tup[0] in 
+                (_SETTING_FLAG, _LANG_FLAG)):
 
             if isinstance(item, tuple):
-                # --- apply settings ---
-
                 # item is a (Key, Value)
                 __apply_settings(item[0].lower(), item[1], compiler_env)
 
             else:
-                # --- apply language
-
                 # item is language specification
-                __apply_language(lang, compiler_env)
+                __apply_language(item, compiler_env)
 
-        # options.jobs contains:
-        #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] \
-        #       filtered by name, path
-        #   [_INPUT_FLAG, sys.stdin]
-
-        # --- compile the inputs ---
+        # --- first compile the inputs ---
         if _MULTIPROCESSING_ENABLED:
 
             # TODO: complete multiprocessing
@@ -2295,8 +2356,100 @@ def _main(argv):
 
         else:
 
-            # --- compile input FILEs ---
-            pass
+            # --- compile and cache input FILEs ---
+            for item in options.jobs:
+                if item[0] == _INPUT_FLAG:
+
+                    # options.jobs contains:
+                    #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] **
+                    #   [_INPUT_FLAG, sys.stdin]
+
+                    # ** filtered, ignored
+
+                    if isinstance(item[1], str):
+
+                        # this function will return code_object, but we can
+                        # load cached file.
+
+                        cache_file_path, code_object = \
+                            __cache_code_file(
+                                item[3],
+                                cache_folder_path,
+                                compiler_env,
+                            )
+
+                        item.append(cache_file_path)
+                        item.append(code_object)
+
+                    else: # item == [_INPUT_FLAG, sys.stdin]
+
+                        code_object = compile_file(sys.stdin, compiler_env)
+
+                        item.append(code_object)
+
+                    # options.jobs contains:
+                    #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path',
+                    #       'cache_file_path', code_object] **
+                    #   [_INPUT_FLAG, sys.stdin, code_object]
+
+                    # ** filtered, ignored
+
+            # TODO: write '--outfile', '--outfolder' functionality
+
+            # --- initialize executor environment ---
+            executor_env = ExecutorEnvironment()
+
+            # --- execution-time jobs ---
+            for item in options.jobs:
+                if item[0] == _IMPORT_FLAG:
+
+                    __import_module(item[1], executor_env)
+
+                elif item[0] == _JSONFILE_FLAG:
+
+                    json_object = __load_jsonfile(item[1])
+                    executor_env.variables.update(json_object)
+
+                elif item[0] == _DEFINE_FLAG:
+
+                    __define_variable(*item[1], executor_env)
+
+                elif item[0] == _UNDEFINE_FLAG:
+
+                    __undefine_variable(item[1], executor_env)
+
+            for item in options.jobs:
+                if item[0] == _INPUT_FLAG:
+
+                    # options.jobs contains:
+                    #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path',
+                    #       'cache_file_path', code_object] **
+                    #   [_INPUT_FLAG, sys.stdin, code_object]
+
+                    # ** filtered, ignored
+
+                    if isinstance(item[1], str):
+
+                        execute_code_object(
+                            code_object,
+                            sys.stdout,
+                            executor_env,
+
+                            argv = argv,
+                        )
+
+                    else: # item is [_INPUT_FLAG, sys.stdin, code_object]
+
+                        execute_code_object(
+                            item[2],
+                            sys.stdout,
+                            executor_env,
+
+                            argv = argv,
+                        )
+
+def main(argv):
+    return _main(argv)
 
 __all__ = [
 
@@ -2339,6 +2492,9 @@ __all__ = [
 
         # executor functions
         "execute_code_object",
+
+        # main function
+        "main",
 
         ]
 
