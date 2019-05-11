@@ -1191,7 +1191,8 @@ def __parse_argv(argv):
 
     return result
 
-# *** errors ***
+
+# *** compiler & executor errors ***
 
 # NOTE: cross-python-version error values
 _MACRO_REQUIRES = 1
@@ -2362,18 +2363,32 @@ def _main(argv):
 
 
             for item in options.jobs:
+                if item[0] == _INPUT_FLAG:
 
-                if \
-                        item[0] == _INPUT_FLAG and \
-                        isinstance(item[1], str):
+                    # options.jobs contains:
+                    #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path',
+                    #       'cache_file_path', code_object] **
+                    #   [_INPUT_FLAG, sys.stdin, code_object]
 
-                    execute_code_object(
-                        code_object,
-                        sys.stdout,
-                        executor_env,
+                    if isinstance(item[1], str):
 
-                        argv = argv,
-                    )
+                        execute_code_object(
+                            code_object,
+                            sys.stdout,
+                            executor_env,
+
+                            argv = argv,
+                        )
+
+                    else: # item is [_INPUT_FLAG, sys.stdin, code_object]
+
+                        execute_code_object(
+                            item[2],
+                            sys.stdout,
+                            executor_env,
+
+                            argv = argv,
+                        )
 
 def main(argv):
     return _main(argv)
