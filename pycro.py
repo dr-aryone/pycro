@@ -35,6 +35,8 @@ import shutil
 import fnmatch
 import types
 import itertools
+import importlib
+import json
 
 import queue
 import multiprocessing
@@ -662,7 +664,7 @@ __language_specifications = dict(
     ),
 
     **dict.fromkeys(
-        ['html'],
+        ['html', 'markdown'],
         dotdict(
             macro_prefix =          '<!--@',
             macro_suffix =          '-->',
@@ -1525,6 +1527,12 @@ class CompilerEnvironment:
             raise ValueError(
                     "evaluation_prefix & evaluation_suffix can't be empty")
 
+        self.variable_prefix = variable_prefix
+        self.variable_suffix = variable_suffix
+
+        self.evaluation_prefix = evaluation_prefix
+        self.evaluation_suffix = evaluation_suffix
+
         self.evaluation_variable_re = re.compile(
             _EVALUATION_PATTERN.format(
                 prefix = re.escape(evaluation_prefix),
@@ -1847,8 +1855,10 @@ def execute_code_object(
 
         if stdin is None:
             _input = ''
+
         elif isinstance(stdin, (str, int)):
             _input = pipes[stdin].getvalue()
+
         else:
             raise TypeError(
                     "run stdin argument must be type of str or int")
@@ -1865,7 +1875,14 @@ def execute_code_object(
             raise TypeError(
                     "run stderr argument must be None or type of str or int")
 
-        subprocess.run(command, input=_input, stdout=stdout, stderr=stderr)
+        subprocess.run(
+                command, 
+                input = _input, 
+                stdout = stdout, 
+                stderr = stderr,
+                check = check,
+                shell = True,
+        )
 
     variables[env.run_function_name] = _run_function
 
@@ -1979,6 +1996,24 @@ def __apply_settings(key, value, compiler_env):
         raise KeyError('unknown keyword: {!r}'.format(key))
 
 # --- main functions ---
+
+def __import_module(name, env):
+    env.variables[name] = \
+            importlib.__import__(name, env.variables, env.variables, (), 0)
+
+def __load_jsonfile(filename):
+    with open(file_name) as infile:
+        return json.load(infile)
+
+def __define_variable(name, value, env):
+    env.variables[name] = eval(variable)
+
+def __undefine_variable(name, env):
+
+    try:
+        env.variables.pop(name)
+    except KeyError:
+        pass
 
 if sys.platform.startswith('linux') or sys.platform.startswith('freebsd'):
     def __get_cache_file_path(cache_folder_path, file_real_path):
@@ -2132,6 +2167,8 @@ def __create_filter_ignore_files_function(
                 return True
 
         return False
+
+    return filter_ignore_files
 
 def _main(argv):
 
@@ -2288,6 +2325,8 @@ def _main(argv):
 
     else: # not (_ARRANGE_PROCESS_FLAG & options.switchs)
 
+        # --- extract information from options.jobs ---
+
         # --- apply config ---
         if config is not None:
             __apply_config_compiler_env(config, compiler_env)
@@ -2358,9 +2397,24 @@ def _main(argv):
             # --- initialize executor environment ---
             executor_env = ExecutorEnvironment()
 
-            # --- import modules ---
-            for job in options.jobs:
-                pass
+            # --- execution-time jobs ---
+            for item in options.jobs:
+                if item[0] == _IMPORT_FLAG:
+
+                    __import_module(item[1], executor_env)
+
+                elif item[0] == _JSONFILE_FLAG:
+
+                    json_object = __load_jsonfile(item[1])
+                    executor_env.variables.update(json_object)
+
+                elif item[0] == _DEFINE_FLAG:
+
+                    __define_variable(*item[1], executor_env)
+
+                elif item[0] == _UNDEFINE_FLAG:
+
+                    __undefine_variable(item[1], executor_env)
 
             for item in options.jobs:
                 if item[0] == _INPUT_FLAG:
