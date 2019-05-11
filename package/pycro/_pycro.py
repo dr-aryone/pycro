@@ -1191,7 +1191,8 @@ def __parse_argv(argv):
 
     return result
 
-# *** errors ***
+
+# *** compiler & executor errors ***
 
 # NOTE: cross-python-version error values
 _MACRO_REQUIRES = 1
@@ -1453,6 +1454,7 @@ class CompilerEnvironment:
 
             code_generators = None,
 
+            # --- suffixes & prefixes ---
             macro_prefix = '@',
             macro_suffix = '',
 
@@ -1468,6 +1470,7 @@ class CompilerEnvironment:
             evaluation_prefix = '$${{',
             evaluation_suffix = '}}',
 
+            # --- misc ---
             tab = '\t',
             indent = 0,
 
@@ -1994,7 +1997,6 @@ else:
         )
     )
 
-
 def __write_compiled_code_env(code_object, env, outfile):
     # --- writing to file ---
     outfile.write(_CACHE_FILE_MAGIC_NUMBER)
@@ -2099,23 +2101,59 @@ def __cache_code_file(
 
     return cache_file_path, code_object
 
+def __create_filter_ignore_files_function(
+        name_filters,
+        name_ignores,
+
+        path_filters,
+        path_ignores,
+        ):
+
+    def filter_ignore_files(name, path):
+
+        # --- name filters ---
+        for pattern in name_filters:
+            if not fnmatch.fnmatch(name, pattern):
+                return True
+
+        # --- name ignores ---
+        for pattern in name_ignores:
+            if fnmatch.fnmatch(path, pattern):
+                return True
+
+        # --- path filters ---
+        for pattern in path_filters:
+            if not fnmatch.fnmatch(path, pattern):
+                return True
+
+        # --- path ignores ---
+        for pattern in path_ignores:
+            if fnmatch.fnmatch(path, pattern):
+                return True
+
+        return False
+
 def _main(argv):
 
     options = __parse_argv(argv)
     if isinstance(options, int):
         return options
 
+    if __debug__:
+        print_options(options)
+        print_line(fill='=')
+
     # in dir(options):
 
     #   jobs:
     #       in (tup[0] for tup in options.jobs):
+    #           _INPUT_FLAG                     misc
     #           _LANG_FLAG                      compile-time job
     #           _SETTING_FLAG                   compile-time job
     #           _IMPORT_FLAG                    execution-time job
     #           _JSONFILE_FLAG                  execution-time job
     #           _DEFINE_FLAG                    execution-time job
     #           _UNDEFINE_FLAG                  execution-time job
-    #           _INPUT_FLAG                     misc
 
     #   name_filters
     #   path_filters
@@ -2136,9 +2174,8 @@ def _main(argv):
     #           _OUTFILE_FLAG
     #           _OUTFOLDER_FLAG
 
-    if __debug__:
-        print_options(options)
-        print_line(fill='=')
+
+    # *** initialize variables ***
 
     # --- join cache folder path ---
     cache_folder_path = __joinpath(HOME_DIRECTORY, CACHE_FOLDER_NAME)
@@ -2159,35 +2196,18 @@ def _main(argv):
     # config can be:
     #   None or ConfigParser
 
-    # options.jobs contains:
-    #   [_INPUT_FLAG, 'path']
-    #   [_INPUT_FLAG, sys.stdin]
+    # --- create filter, ignore files function ---
 
-    # --- filter, ignore lambda ---
+    filter_ignore_files = __create_filter_ignore_files_function(
+            options.name_filters,
+            options.name_ignores,
 
-    def filter_ignore_files(name, path):
+            options.path_filters,
+            options.path_ignores,
+            )
 
-        # --- name filters ---
-        for pattern in options.name_filters:
-            if not fnmatch.fnmatch(name, pattern):
-                return True
 
-        # --- name ignores ---
-        for pattern in options.name_ignores:
-            if fnmatch.fnmatch(path, pattern):
-                return True
-
-        # --- path filters ---
-        for pattern in options.path_filters:
-            if not fnmatch.fnmatch(path, pattern):
-                return True
-
-        # --- path ignores ---
-        for pattern in options.path_ignores:
-            if fnmatch.fnmatch(path, pattern):
-                return True
-
-        return False
+    # *** intermediate process ***
 
     # --- append abs path & real path, filter files ---
 
@@ -2195,11 +2215,12 @@ def _main(argv):
     while i < len(options.jobs):
         item = options.jobs[i]
 
-        if item[0] == _INPUT_FLAG and isinstance(item[1], str):
+        # options.jobs contains:
+        #   [_INPUT_FLAG, 'path']
+        #   [_INPUT_FLAG, sys.stdin]
 
-            # options.jobs contains:
-            #   [_INPUT_FLAG, 'path']
-            #   [_INPUT_FLAG, sys.stdin]
+
+        if item[0] == _INPUT_FLAG and isinstance(item[1], str):
 
             # --- append abs path ---
 
@@ -2221,18 +2242,21 @@ def _main(argv):
 
             item.append(__realpath(item[2]))
 
+            # options.jobs contains:
+            #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] **
+            #   [_INPUT_FLAG, sys.stdin]
+
+            # ** filtered, ignored
+
         i += 1
 
-    # options.jobs contains:
-    #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] ignored, filtered by \
-    #       name, path
-    #   [_INPUT_FLAG, sys.stdin]
 
     # --- check directories ---
+
     if _RECURSIVE_FLAG & options.switchs:
 
         # --- walk into directories ---
-        
+
         # TODO: walk into directories
         raise FatalError('unimplemented code')
 
@@ -2245,9 +2269,7 @@ def _main(argv):
         while i < len(options.jobs):
             item = options.jobs[i]
 
-            if \
-                    item[0] == _INPUT_FLAG and \
-                    isinstance(item[1], str) and \
+            if item[0] == _INPUT_FLAG and isinstance(item[1], str) and \
                     __isdir(item[3]):
 
                 print(_LINE.format(item[1]), file=sys.stderr)
@@ -2256,13 +2278,6 @@ def _main(argv):
 
             i += 1
 
-    # options.jobs contains:
-    #   [_INPUT_FLAG, [walked files]] filtered, ignored by name, path
-    #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] filtered, ignored by \
-    #       name, path
-    #   [_INPUT_FLAG, sys.stdin]
-
-    # TODO: write '--outfile', '--outfolder' functionality
 
     if _ARRANGE_PROCESS_FLAG & options.switchs:
 
@@ -2281,25 +2296,16 @@ def _main(argv):
         compiler_env = CompilerEnvironment()
 
         # --- apply settings & languages ---
-        for item in ( tup[1] for tup in options.jobs if tup[0] in \
-                (_SETTING_FLAG, _LANG_FLAG) ):
+        for item in (tup[1] for tup in options.jobs if tup[0] in 
+                (_SETTING_FLAG, _LANG_FLAG)):
 
             if isinstance(item, tuple):
-                # --- apply settings ---
-
                 # item is a (Key, Value)
                 __apply_settings(item[0].lower(), item[1], compiler_env)
 
             else:
-                # --- apply language
-
                 # item is language specification
                 __apply_language(item, compiler_env)
-
-        # options.jobs contains:
-        #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] \
-        #       filtered by name, path
-        #   [_INPUT_FLAG, sys.stdin]
 
         # --- first compile the inputs ---
         if _MULTIPROCESSING_ENABLED:
@@ -2309,52 +2315,80 @@ def _main(argv):
 
         else:
 
-            # options.jobs contains:
-            #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] \
-            #       filtered by name, path
-            #   [_INPUT_FLAG, sys.stdin]
-
-            # --- compile input FILEs ---
+            # --- compile and cache input FILEs ---
             for item in options.jobs:
+                if item[0] == _INPUT_FLAG:
 
-                if \
-                        item[0] == _INPUT_FLAG and \
-                        isinstance(item[1], str):
+                    # options.jobs contains:
+                    #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path'] **
+                    #   [_INPUT_FLAG, sys.stdin]
 
-                    # this function will return code_object, but we can load 
-                    # cached file.
+                    # ** filtered, ignored
 
-                    cache_file_path, code_object = \
-                        __cache_code_file(
-                            item[3],
-                            cache_folder_path,
-                            compiler_env,
-                        )
+                    if isinstance(item[1], str):
 
-                    item.append(cache_file_path)
-                    item.append(code_object)
+                        # this function will return code_object, but we can
+                        # load cached file.
 
-            # options.jobs contains:
-            #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path', \
-            #       'cache_file_path', code_object] filtered by name, path
-            #   [_INPUT_FLAG, sys.stdin]
+                        cache_file_path, code_object = \
+                            __cache_code_file(
+                                item[3],
+                                cache_folder_path,
+                                compiler_env,
+                            )
+
+                        item.append(cache_file_path)
+                        item.append(code_object)
+
+                    else: # item == [_INPUT_FLAG, sys.stdin]
+
+                        code_object = compile_file(sys.stdin, compiler_env)
+
+                        item.append(code_object)
+
+                    # options.jobs contains:
+                    #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path',
+                    #       'cache_file_path', code_object] **
+                    #   [_INPUT_FLAG, sys.stdin, code_object]
+
+                    # ** filtered, ignored
+
+            # TODO: write '--outfile', '--outfolder' functionality
 
             # --- initialize executor environment ---
             executor_env = ExecutorEnvironment()
 
+            # --- import modules ---
+            for job in options.jobs:
+                pass
+
             for item in options.jobs:
+                if item[0] == _INPUT_FLAG:
 
-                if \
-                        item[0] == _INPUT_FLAG and \
-                        isinstance(item[1], str):
+                    # options.jobs contains:
+                    #   [_INPUT_FLAG, 'path', 'abs_path', 'real_path',
+                    #       'cache_file_path', code_object] **
+                    #   [_INPUT_FLAG, sys.stdin, code_object]
 
-                    execute_code_object(
-                        code_object,
-                        sys.stdout,
-                        executor_env,
+                    if isinstance(item[1], str):
 
-                        argv = argv,
-                    )
+                        execute_code_object(
+                            code_object,
+                            sys.stdout,
+                            executor_env,
+
+                            argv = argv,
+                        )
+
+                    else: # item is [_INPUT_FLAG, sys.stdin, code_object]
+
+                        execute_code_object(
+                            item[2],
+                            sys.stdout,
+                            executor_env,
+
+                            argv = argv,
+                        )
 
 def main(argv):
     return _main(argv)
