@@ -19,10 +19,12 @@ __`$ ${command}`__:
 
 # pycro
 
-> $ wc pycro \
+```
+$ wc pycro \
 <!-- @ run "wc pycro", stdout=None -->
+```
 
-list of contents:
+contents:
 - [introduction](#introduction)
 - [usage example](#usage-example)
 - [documentation](#documentation)
