@@ -20,7 +20,7 @@ __`$ ${command}`__:
 # pycro
 
 ```
-$ wc pycro \
+$ wc pycro
 <!-- @ run "wc pycro", stdout=None -->
 ```
 

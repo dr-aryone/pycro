@@ -4,7 +4,7 @@
 # pycro
 
 ```
-$ wc pycro \
+$ wc pycro
  2503  5724 70096 pycro
 ```
 
