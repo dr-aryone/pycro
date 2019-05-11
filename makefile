@@ -77,6 +77,11 @@ commit-all:
 	git commit -m "update everything!"
 
 
+# *** for pushers ***
+.PHONY:
+pull-all:
+	git push --all
+
 
 # *** building & publishing ***
 
