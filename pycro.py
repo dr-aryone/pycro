@@ -666,13 +666,13 @@ __language_specifications = dict(
     **dict.fromkeys(
         ['html', 'markdown'],
         dotdict(
-            macro_prefix =          '<!--@',
+            macro_prefix =          '<!-- @',
             macro_suffix =          '-->',
 
-            statement_prefix =      '<!--#',
+            statement_prefix =      '<!-- #',
             statement_suffix =      '-->',
 
-            comment_prefix =        '<!--%',
+            comment_prefix =        '<!-- %',
             comment_suffix =        '-->',
 
             variable_prefix =       '${',
@@ -1875,6 +1875,8 @@ def execute_code_object(
             raise TypeError(
                     "run stderr argument must be None or type of str or int")
 
+        outfile.flush()
+
         subprocess.run(
                 command, 
                 input = _input, 
@@ -2176,9 +2178,9 @@ def _main(argv):
     if isinstance(options, int):
         return options
 
-    if __debug__:
-        print_options(options)
-        print_line(fill='=')
+    # if __debug__:
+    #     print_options(options)
+    #     print_line(fill='=')
 
     # in dir(options):
 

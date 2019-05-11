@@ -2178,9 +2178,9 @@ def _main(argv):
     if isinstance(options, int):
         return options
 
-    if __debug__:
-        print_options(options)
-        print_line(fill='=')
+    # if __debug__:
+    #     print_options(options)
+    #     print_line(fill='=')
 
     # in dir(options):
 
