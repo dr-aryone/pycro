@@ -1336,7 +1336,7 @@ def _generate_class(args, outfile, env):
 
     outfile.write('{}{} {}\n'.format(env.tabs(), 'class', args))
     env.indent += 1
-    
+
     env.macro_stack.append('class')
 
 # --- end macro ---
@@ -1482,6 +1482,9 @@ class CompilerEnvironment:
             evaluation_suffix = '}}',
 
             # --- misc ---
+
+            language = None,
+
             tab = '\t',
             indent = 0,
 
@@ -1502,15 +1505,59 @@ class CompilerEnvironment:
             optimize_level = _OPTIMIZE_LEVEL,
             ):
 
+        # *** code generators & macro_stack ***
+
         self.code_generators = \
             code_generators or _default_code_generators.copy()
 
         self.macro_stack = collections.deque()
 
 
-        # --- macro ---
-        self.macro_prefix = macro_prefix
-        self.macro_suffix = macro_suffix
+        # *** suffixes & prefixes ***
+
+        if language is not None:
+
+            lang_spec = __language_specifications[language]
+
+            self.macro_prefix = lang_spec['macro_prefix']
+            self.macro_suffix = lang_spec['macro_suffix']
+
+            self.statement_suffix = lang_spec['statement_suffix']
+            self.statement_prefix = lang_spec['statement_prefix']
+
+            self.comment_prefix = lang_spec['comment_prefix']
+            self.comment_suffix = lang_spec['comment_suffix']
+
+            self.variable_prefix = lang_spec['variable_prefix']
+            self.variable_suffix = lang_spec['variable_suffix']
+
+            self.evaluation_prefix = lang_spec['evaluation_prefix']
+            self.evaluation_suffix = lang_spec['evaluation_suffix']
+
+        else:
+
+            # --- macro ---
+            self.macro_prefix = macro_prefix
+            self.macro_suffix = macro_suffix
+
+            # --- statement ---
+            self.statement_prefix = statement_prefix
+            self.statement_suffix = statement_suffix
+
+            # --- comment ---
+            self.comment_prefix = comment_prefix
+            self.comment_suffix = comment_suffix
+
+            # --- variable ---
+            self.variable_prefix = variable_prefix
+            self.variable_suffix = variable_suffix
+
+            # --- evaluation
+            self.evaluation_prefix = evaluation_prefix
+            self.evaluation_suffix = evaluation_suffix
+
+
+        # --- macro re ---
 
         self.macro_re = re.compile(
             _MACRO_PATTERN.format(
@@ -1518,16 +1565,9 @@ class CompilerEnvironment:
             )
         )
 
-        # --- statement ---
-        self.statement_prefix = statement_prefix
-        self.statement_suffix = statement_suffix
-
-        # --- comment ---
-        self.comment_prefix = comment_prefix
-        self.comment_suffix = comment_suffix
-
 
         # --- evaluation & variable ---
+
         if (not variable_prefix) or (not variable_suffix):
             raise ValueError(
                     "variable_prefix & variable_suffix can't be empty")
@@ -1536,11 +1576,6 @@ class CompilerEnvironment:
             raise ValueError(
                     "evaluation_prefix & evaluation_suffix can't be empty")
 
-        self.variable_prefix = variable_prefix
-        self.variable_suffix = variable_suffix
-
-        self.evaluation_prefix = evaluation_prefix
-        self.evaluation_suffix = evaluation_suffix
 
         self.evaluation_variable_re = re.compile(
             _EVALUATION_PATTERN.format(
@@ -1555,7 +1590,9 @@ class CompilerEnvironment:
             )
         )
 
-        # --- variable names ---
+
+        # *** variable names ***
+
         self.outfile_variable_name = outfile_variable_name
 
         self.pipes_varaible_name = pipes_varaible_name
@@ -1567,15 +1604,20 @@ class CompilerEnvironment:
         self.include_function_name = include_function_name
         self.place_function_name = place_function_name
 
-        # --- indent & tabs ---
+
+        # *** indent & tabs ***
 
         self.indent = indent
         self.tab = tab
 
-        # --- optimize level & compile flag ---
+
+        # *** optimize level & compile flag ***
 
         self.compile_flags = compile_flags
         self.optimize_level = optimize_level
+
+
+    # *** CompilerEnvironment methods ***
 
     def tabs(self):
         return self.tab * self.indent
@@ -1887,9 +1929,9 @@ def execute_code_object(
         outfile.flush()
 
         subprocess.run(
-                command, 
-                input = _input, 
-                stdout = stdout, 
+                command,
+                input = _input,
+                stdout = stdout,
                 stderr = stderr,
                 check = check,
                 shell = True,
@@ -2346,7 +2388,7 @@ def _main(argv):
         compiler_env = CompilerEnvironment()
 
         # --- apply settings & languages ---
-        for item in (tup[1] for tup in options.jobs if tup[0] in 
+        for item in (tup[1] for tup in options.jobs if tup[0] in
                 (_SETTING_FLAG, _LANG_FLAG)):
 
             if isinstance(item, tuple):
