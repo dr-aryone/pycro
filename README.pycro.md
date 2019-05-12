@@ -30,6 +30,7 @@ contents:
 - [installation](#installation)
 - [documentation](#documentation)
 - [contributing](#contributing)
+- [license](#license)
 
 ## introduction
 Pycro is a python integrated macro preprocessor. It will interpret input texts
@@ -65,4 +66,11 @@ __notes:__
 __todos:__
 
 <!-- @ run "cat todos.md" -->
+
+## license
+__WTFPL__:
+```
+<!-- @ place "LICENSE" -->
+```
+
 
