@@ -72,7 +72,7 @@ __outfile__.write('}\n');
 __outfile__.write('\n');
 ```
 
-now we can compile and execute `main.c.py` using the following script:
+now we can compile and execute `main.c.py` using the following code:
 
 ```python
 #!/usr/bin/python3
@@ -109,13 +109,15 @@ int main()
 
 ```
 
-it's time to compile `_main.c` and see the result:
+it's time to compile `_main.c`:
 
 ```
-$ gcc main.c -o main
+$ gcc _main.c -o main
 ```
 
-here is the result:
+and run `./main`:
+
+`$ ./main`:
 
 ```
 Hello Oliver!
