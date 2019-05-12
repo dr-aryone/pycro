@@ -94,10 +94,11 @@ $ gcc main.c -o main
 
 here is the result:
 
+```
 Hello Oliver!
 Hello Jack!
 Hello Harry!
 Hello James!
 Hello John!
-
+```
 

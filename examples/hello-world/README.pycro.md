@@ -43,6 +43,7 @@ $ gcc main.c -o main
 
 here is the result:
 
+```
 <!-- @ run "./main" -->
-
+```
 
