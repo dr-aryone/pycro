@@ -37,7 +37,6 @@ import types
 import itertools
 import importlib
 import json
-
 import queue
 import multiprocessing
 import signal
@@ -73,7 +72,7 @@ EXIT_ARGUMENT_ERROR = -1
 
 # --- some initial utilities ---
 
-def __print_error(line, file = sys.stdout):
+def __print_error(line, file = sys.stderr):
     print('pycro: error:', line, file=file)
 
 # --- better main exception handling ---
@@ -1331,6 +1330,15 @@ def _generate_def(args, outfile, env):
 
     env.macro_stack.append('def')
 
+def _generate_class(args, outfile, env):
+    if not args:
+        raise CompilerError(_MACRO_REQUIRES, 'class', 'a class definition')
+
+    outfile.write('{}{} {}\n'.format(env.tabs(), 'class', args))
+    env.indent += 1
+
+    env.macro_stack.append('class')
+
 # --- end macro ---
 
 def _generate_end(args, outfile, env):
@@ -1434,6 +1442,7 @@ _default_code_generators = {
         'with': _generate_with,
 
         'def': _generate_def,
+        'class': _generate_class,
         'end': _generate_end,
 
         'divert': _generate_divert,
@@ -1473,6 +1482,9 @@ class CompilerEnvironment:
             evaluation_suffix = '}}',
 
             # --- misc ---
+
+            language = None,
+
             tab = '\t',
             indent = 0,
 
@@ -1493,15 +1505,64 @@ class CompilerEnvironment:
             optimize_level = _OPTIMIZE_LEVEL,
             ):
 
+        # *** code generators & macro_stack ***
+
         self.code_generators = \
             code_generators or _default_code_generators.copy()
 
         self.macro_stack = collections.deque()
 
 
-        # --- macro ---
-        self.macro_prefix = macro_prefix
-        self.macro_suffix = macro_suffix
+        # *** suffixes & prefixes ***
+
+        if language is not None:
+
+            lang_spec = __language_specifications[language]
+
+            # --- macro ---
+            self.macro_prefix = lang_spec['macro_prefix']
+            self.macro_suffix = lang_spec['macro_suffix']
+
+            # --- statement ---
+            self.statement_suffix = lang_spec['statement_suffix']
+            self.statement_prefix = lang_spec['statement_prefix']
+
+            # --- comment ---
+            self.comment_prefix = lang_spec['comment_prefix']
+            self.comment_suffix = lang_spec['comment_suffix']
+
+            # --- variable ---
+            self.variable_prefix = lang_spec['variable_prefix']
+            self.variable_suffix = lang_spec['variable_suffix']
+
+            # --- evaluation ---
+            self.evaluation_prefix = lang_spec['evaluation_prefix']
+            self.evaluation_suffix = lang_spec['evaluation_suffix']
+
+        else:
+
+            # --- macro ---
+            self.macro_prefix = macro_prefix
+            self.macro_suffix = macro_suffix
+
+            # --- statement ---
+            self.statement_prefix = statement_prefix
+            self.statement_suffix = statement_suffix
+
+            # --- comment ---
+            self.comment_prefix = comment_prefix
+            self.comment_suffix = comment_suffix
+
+            # --- variable ---
+            self.variable_prefix = variable_prefix
+            self.variable_suffix = variable_suffix
+
+            # --- evaluation
+            self.evaluation_prefix = evaluation_prefix
+            self.evaluation_suffix = evaluation_suffix
+
+
+        # --- macro re ---
 
         self.macro_re = re.compile(
             _MACRO_PATTERN.format(
@@ -1509,16 +1570,9 @@ class CompilerEnvironment:
             )
         )
 
-        # --- statement ---
-        self.statement_prefix = statement_prefix
-        self.statement_suffix = statement_suffix
-
-        # --- comment ---
-        self.comment_prefix = comment_prefix
-        self.comment_suffix = comment_suffix
-
 
         # --- evaluation & variable ---
+
         if (not variable_prefix) or (not variable_suffix):
             raise ValueError(
                     "variable_prefix & variable_suffix can't be empty")
@@ -1527,11 +1581,6 @@ class CompilerEnvironment:
             raise ValueError(
                     "evaluation_prefix & evaluation_suffix can't be empty")
 
-        self.variable_prefix = variable_prefix
-        self.variable_suffix = variable_suffix
-
-        self.evaluation_prefix = evaluation_prefix
-        self.evaluation_suffix = evaluation_suffix
 
         self.evaluation_variable_re = re.compile(
             _EVALUATION_PATTERN.format(
@@ -1546,7 +1595,9 @@ class CompilerEnvironment:
             )
         )
 
-        # --- variable names ---
+
+        # *** variable names ***
+
         self.outfile_variable_name = outfile_variable_name
 
         self.pipes_varaible_name = pipes_varaible_name
@@ -1558,15 +1609,20 @@ class CompilerEnvironment:
         self.include_function_name = include_function_name
         self.place_function_name = place_function_name
 
-        # --- indent & tabs ---
+
+        # *** indent & tabs ***
 
         self.indent = indent
         self.tab = tab
 
-        # --- optimize level & compile flag ---
+
+        # *** optimize level & compile flag ***
 
         self.compile_flags = compile_flags
         self.optimize_level = optimize_level
+
+
+    # *** CompilerEnvironment methods ***
 
     def tabs(self):
         return self.tab * self.indent
@@ -1717,6 +1773,7 @@ _default_builtins = builtins
 
 class ExecutorEnvironment:
     def __init__(self,
+
             variables = None,
             builtins = None,
 
@@ -1753,6 +1810,8 @@ class ExecutorEnvironment:
 
         # --- pipes ---
         self.pipes = pipes or collections.defaultdict(io.StringIO)
+
+        # --- argv ---
 
         # --- variable names ---
         self.outfile_variable_name = outfile_variable_name
@@ -1800,16 +1859,13 @@ def execute_code_object(
 
     variables[env.version_variable_name] = VERSION
 
-    # --- command variable ---
+    # --- argv & command variable ---
 
     if argv is not None:
+
         variables[env.argv_variable_name] = argv
+
         variables[env.command_variable_name] = ' '.join(argv)
-
-    # --- argv variable ---
-
-    if argv is not None:
-        variables[env.argv_variable_name] = argv
 
     # --- divert function ---
 
@@ -1878,9 +1934,9 @@ def execute_code_object(
         outfile.flush()
 
         subprocess.run(
-                command, 
-                input = _input, 
-                stdout = stdout, 
+                command,
+                input = _input,
+                stdout = stdout,
                 stderr = stderr,
                 check = check,
                 shell = True,
@@ -2337,7 +2393,7 @@ def _main(argv):
         compiler_env = CompilerEnvironment()
 
         # --- apply settings & languages ---
-        for item in (tup[1] for tup in options.jobs if tup[0] in 
+        for item in (tup[1] for tup in options.jobs if tup[0] in
                 (_SETTING_FLAG, _LANG_FLAG)):
 
             if isinstance(item, tuple):
@@ -2418,6 +2474,32 @@ def _main(argv):
 
                     __undefine_variable(item[1], executor_env)
 
+            if options.output is None:
+
+                outfile = sys.stdout
+                close_outfile = True
+
+            elif options.output[0] == _OUTFILE_FLAG:
+
+                try:
+                    outfile = open(options.output[1], 'wt')
+
+                except IsADirectoryError as e:
+                    __print_error(
+                        "can't open '{}': {}".format(
+                            options.output[1],
+                            e.args[0],
+                        )
+                    )
+                    return EXIT_ERROR
+
+                close_outfile = True
+
+            elif options.output[0] == _OUTFOLDER_FLAG:
+
+                # TODO: complete _OUTFOLDER_FLAG
+                raise FatalError('unimplemented code')
+
             for item in options.jobs:
                 if item[0] == _INPUT_FLAG:
 
@@ -2430,23 +2512,31 @@ def _main(argv):
 
                     if isinstance(item[1], str):
 
-                        execute_code_object(
-                            code_object,
-                            sys.stdout,
-                            executor_env,
+                        try:
+                            execute_code_object(
+                                code_object,
+                                outfile,
+                                executor_env,
 
-                            argv = argv,
-                        )
+                                argv = argv,
+                            )
+                        finally:
+                            if close_outfile:
+                                outfile.close()
 
                     else: # item is [_INPUT_FLAG, sys.stdin, code_object]
 
-                        execute_code_object(
-                            item[2],
-                            sys.stdout,
-                            executor_env,
+                        try:
+                            execute_code_object(
+                                item[2],
+                                outfile,
+                                executor_env,
 
-                            argv = argv,
-                        )
+                                argv = argv,
+                            )
+                        finally:
+                            if close_outfile:
+                                outfile.close()
 
 def main(argv):
     return _main(argv)
