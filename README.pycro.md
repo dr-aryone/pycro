@@ -37,8 +37,7 @@ and generates a corresponding python code that will generate the intended
 result, if we compile and execute that.
 
 ## usage example
-imagine we have this `main.c`:
-<!-- # include_file("examples/hello-world/main.c", syntax='c') -->
+<!-- @ place "examples/hello-world/README.md"-->
 
 ## installation
 > coming soon ...
