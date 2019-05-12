@@ -3,7 +3,9 @@ PACKAGE_FOLDER = package
 PYCRO_PACKAGE_NAME = pycro
 PYCRO_FOLDER = $(PACKAGE_FOLDER)/$(PYCRO_PACKAGE_NAME)
 
-package: pycro __init__.py __main__.py
+packages: pycro-package pycro.py
+
+pycro-package: pycro __init__.py __main__.py
 	mkdir -p $(PYCRO_FOLDER)
 	cp pycro $(PYCRO_FOLDER)/_pycro.py
 	cp __init__.py $(PYCRO_FOLDER)/__init__.py
