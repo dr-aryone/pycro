@@ -14,6 +14,7 @@ contents:
 - [installation](#installation)
 - [documentation](#documentation)
 - [contributing](#contributing)
+- [license](#license)
 
 ## introduction
 Pycro is a python integrated macro preprocessor. It will interpret input texts
@@ -229,7 +230,7 @@ in `pycro`:
 ```
 
 ## license
-__WTFPL__:
+`What The Fuck Public License`:
 ```
             DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE
                     Version 2, December 2004
