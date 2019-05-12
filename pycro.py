@@ -589,7 +589,7 @@ def __print_help():
     print(__HELP.format(
             default_variable_value = _DEFAULT_VARIABLE_VALUE,
             language_specifications =
-                __prettify_items(sorted(__language_specifications.keys())),
+                __prettify_items(sorted(_language_specifications.keys())),
         ),
         end = '')
 
@@ -620,7 +620,7 @@ __setting_keys = {
     'es', 'evaluation_suffix',
 }
 
-__language_specifications = dict(
+_language_specifications = dict(
 
     **dict.fromkeys(
         ['c', 'cpp', 'java', 'javascript'],
@@ -834,7 +834,7 @@ def __parse_argv(argv):
             elif next_arg[0] == _LANG_FLAG:
 
                 # --- checking language specifications ---
-                if arg not in __language_specifications:
+                if arg not in _language_specifications:
                     __print_error(
                         "unknown language specification: {!r}".format(
                             arg
@@ -1517,7 +1517,7 @@ class CompilerEnvironment:
 
         if language is not None:
 
-            lang_spec = __language_specifications[language]
+            lang_spec = _language_specifications[language]
 
             # --- macro ---
             self.macro_prefix = lang_spec['macro_prefix']
@@ -2016,7 +2016,7 @@ def __apply_config_filters(config, filters):
 # --- apply language & settings option ---
 
 def __apply_language(lang, compiler_env):
-    for key, value in __language_specifications[lang].items():
+    for key, value in _language_specifications[lang].items():
         setattr(compiler_env, key, value)
 
 def __apply_settings(key, value, compiler_env):
