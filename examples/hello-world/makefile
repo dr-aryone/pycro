@@ -1,21 +1,23 @@
 
-README.md: makefile main.c main.pycro.c main.c.py
-	@echo making '$@'
-	echo "# hello world example" > $@
-	echo '`main.c`:' >> $@
-	echo '```' >> $@
-	cat main.c >> $@
-	echo '```' >> $@
+README.md: main.c generate.py main.c.py compile.py _main.c main
+	../../pycro README.pycro.md -o README.md
 
-main: main.pycro.c
+main: _main.c
 	gcc $< -o $@
 
-main.pycro.c: main.c.py ../compile.py
-	../compile.py $< > $@
+_main.c: compile.py main.c.py
+	./compile.py
 
-main.c.py: main.c ../generate.py
-	../generate.py c $< > $@
+main.c.py: generate.py main.c
+	./generate.py
 
-../generate.py ../compile.py:
+.PHONY: generate.py compile.py
+generate.py compile.py:
 	cd ../.. && $(MAKE) copy-to-pylibs
+
+.PHONY:
+clean:
+	rm -f main.c.py
+	rm -f _main.c
+	rm -f main
 
