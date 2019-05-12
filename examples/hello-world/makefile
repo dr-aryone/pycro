@@ -1,6 +1,6 @@
 
 README.md: main.c generate.py main.c.py compile.py _main.c main
-	../../pycro README.pycro.md -o README.md
+	../../pycro -L markdown README.pycro.md -o README.md
 
 main: _main.c
 	gcc $< -o $@
