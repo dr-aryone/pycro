@@ -27,6 +27,7 @@ $ wc pycro
 contents:
 - [introduction](#introduction)
 - [usage example](#usage-example)
+- [installation](#installation)
 - [documentation](#documentation)
 - [contributing](#contributing)
 
@@ -39,17 +40,18 @@ result, if we compile and execute that.
 imagine we have this `main.c`:
 <!-- # include_file("examples/hello-world/main.c", syntax='c') -->
 
+## installation
+> coming soon ...
+
 ## documentation
 - [How pycro works](#How-pycro-works)
 - [API](#API)
 - [command line interface](#command-line-interface)
 
 ### How pycro works
-
 > coming soon
 
 ### API
-
 > coming soon ...
 
 ### command line interface
