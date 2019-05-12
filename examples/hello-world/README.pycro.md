@@ -35,13 +35,15 @@ the generated result saved as `_main.c`:
 
 <!-- # include_file("_main.c", syntax="c") -->
 
-it's time to compile `_main.c` and see the result:
+it's time to compile `_main.c`:
 
 ```
-$ gcc main.c -o main
+$ gcc _main.c -o main
 ```
 
-here is the result:
+and run `./main`:
+
+`$ ./main`:
 
 ```
 <!-- @ run "./main" -->

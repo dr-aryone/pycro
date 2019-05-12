@@ -84,6 +84,12 @@ commit-all:
 	git commit -m "update everything!"
 
 
+EXAMPLES = examples/
+
+commit-examples:
+	git add $(EXAMPLES)
+	git commit -m "update examples folder"
+
 # *** building & publishing ***
 
 .PHONY:
