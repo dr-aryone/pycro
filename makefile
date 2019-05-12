@@ -17,6 +17,7 @@ pycro.py: pycro
 # *** generate README.md ***
 
 README.md: README.pycro.md todos.md
+	cd examples/hello-world/ && $(MAKE) README.md
 	./pycro -L markdown $< > $@
 
 # *** tiny copys ***
