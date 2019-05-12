@@ -68,7 +68,7 @@ __todos:__
 <!-- @ run "cat todos.md" -->
 
 ## license
-__WTFPL__:
+`What The Fuck Public License`:
 ```
 <!-- @ place "LICENSE" -->
 ```
