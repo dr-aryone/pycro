@@ -1519,18 +1519,23 @@ class CompilerEnvironment:
 
             lang_spec = __language_specifications[language]
 
+            # --- macro ---
             self.macro_prefix = lang_spec['macro_prefix']
             self.macro_suffix = lang_spec['macro_suffix']
 
+            # --- statement ---
             self.statement_suffix = lang_spec['statement_suffix']
             self.statement_prefix = lang_spec['statement_prefix']
 
+            # --- comment ---
             self.comment_prefix = lang_spec['comment_prefix']
             self.comment_suffix = lang_spec['comment_suffix']
 
+            # --- variable ---
             self.variable_prefix = lang_spec['variable_prefix']
             self.variable_suffix = lang_spec['variable_suffix']
 
+            # --- evaluation ---
             self.evaluation_prefix = lang_spec['evaluation_prefix']
             self.evaluation_suffix = lang_spec['evaluation_suffix']
 
@@ -1768,6 +1773,7 @@ _default_builtins = builtins
 
 class ExecutorEnvironment:
     def __init__(self,
+
             variables = None,
             builtins = None,
 
@@ -1804,6 +1810,8 @@ class ExecutorEnvironment:
 
         # --- pipes ---
         self.pipes = pipes or collections.defaultdict(io.StringIO)
+
+        # --- argv ---
 
         # --- variable names ---
         self.outfile_variable_name = outfile_variable_name
@@ -1851,16 +1859,13 @@ def execute_code_object(
 
     variables[env.version_variable_name] = VERSION
 
-    # --- command variable ---
+    # --- argv & command variable ---
 
     if argv is not None:
+
         variables[env.argv_variable_name] = argv
+
         variables[env.command_variable_name] = ' '.join(argv)
-
-    # --- argv variable ---
-
-    if argv is not None:
-        variables[env.argv_variable_name] = argv
 
     # --- divert function ---
 
