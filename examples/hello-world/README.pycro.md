@@ -27,7 +27,7 @@ another file will be created named `main.c.py`:
 
 <!-- # include_file("main.c.py", syntax="python") -->
 
-now we can compile and execute `main.c.py`:
+now we can compile and execute `main.c.py` using the following code:
 
 <!-- # include_file("compile.py", syntax="python") -->
 

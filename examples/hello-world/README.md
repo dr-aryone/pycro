@@ -49,7 +49,7 @@ __outfile__.write('}\n');
 __outfile__.write('\n');
 ```
 
-now we can compile and execute `main.c.py`:
+now we can compile and execute `main.c.py` using the following script:
 
 ```python
 #!/usr/bin/python3
