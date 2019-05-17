@@ -89,11 +89,11 @@ commit-docs:
 	git commit -m "update docs folder"
 
 
-AUTO_COMMITS = makefile misc .gitignore todos.md
+ALL = makefile misc .gitignore todos.md
 
 .PHONY:
 commit-all:
-	git add $(AUTO_COMMITS)
+	git add $(ALL)
 	git commit -m "update everything!"
 
 
