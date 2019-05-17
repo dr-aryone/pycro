@@ -20,6 +20,12 @@ README.md: README.pycro.md todos.md
 	cd examples/hello-world/ && $(MAKE) README.md
 	./pycro -L markdown $< > $@
 
+
+# *** generate Docs/README.md ***
+
+docs/index.md: README.md
+	sed 's/\({{\|}}\)/{{"\1"}}/g' README.md > docs/index.md
+
 # *** tiny copys ***
 
 copy-to-pylibs: pycro.py
@@ -75,6 +81,13 @@ READMES = README.*
 commit-readmes:
 	git add $(READMES)
 	git commit -m "update READMEs"
+
+DOCS = docs/
+
+commit-docs:
+	git add docs/
+	git commit -m "update docs folder"
+
 
 AUTO_COMMITS = makefile misc .gitignore todos.md
 
